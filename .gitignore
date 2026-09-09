@@ -24,6 +24,11 @@ prisma/*.db-journal
 # Documentação (nenhum .md é versionado)
 *.md
 docs/
+.agent
+.claude/
+.cursor/
+.gemini/
+.opencode/
 
 # Logs
 *.log

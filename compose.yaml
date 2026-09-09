@@ -38,5 +38,25 @@ services:
       - /app/node_modules
     command: yarn workspace @vdr/api dev
 
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      API_INTERNAL_URL: http://api:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: yarn workspace @vdr/web dev
+
 volumes:
   db_data:
