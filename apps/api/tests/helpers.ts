@@ -14,6 +14,14 @@ export function buildApp(): Express {
     healthRouter: createHealthRouter(),
     authRouter: container.authRouter,
     usersRouter: container.usersRouter,
+    tripsRouter: container.tripsRouter,
+    expensesRouter: container.expensesRouter,
+    expenseCategoriesRouter: container.expenseCategoriesRouter,
+    expenseLimitsRouter: container.expenseLimitsRouter,
+    receiptsRouter: container.receiptsRouter,
+    approvalsRouter: container.approvalsRouter,
+    costCentersRouter: container.costCentersRouter,
+    notificationsRouter: container.notificationsRouter,
   });
 }
 
@@ -22,9 +30,12 @@ const ROLE_PERMISSIONS: Record<RoleType, readonly string[]> = {
     'VIAGEM.CRIAR',
     'VIAGEM.EDITAR',
     'VIAGEM.ENTREGAR',
+    'VIAGEM.EXCLUIR',
     'DESPESA.CRIAR',
     'DESPESA.EDITAR',
+    'DESPESA.EXCLUIR',
     'RELATORIO.VISUALIZAR',
+    'CONFIG.CENTRO_CUSTO.VISUALIZAR',
   ],
   MANAGER_ADMIN: [
     'USUARIO.CRIAR',
@@ -32,15 +43,23 @@ const ROLE_PERMISSIONS: Record<RoleType, readonly string[]> = {
     'VIAGEM.CRIAR',
     'VIAGEM.EDITAR',
     'VIAGEM.ENTREGAR',
+    'VIAGEM.EXCLUIR',
     'DESPESA.CRIAR',
     'DESPESA.EDITAR',
+    'DESPESA.EXCLUIR',
     'RELATORIO.VISUALIZAR',
     'RELATORIO.APROVAR',
     'RELATORIO.RETORNAR',
     'CONFIG.CATEGORIA.GERENCIAR',
     'CONFIG.LIMITE.GERENCIAR',
+    'CONFIG.CENTRO_CUSTO.GERENCIAR',
+    'CONFIG.CENTRO_CUSTO.VISUALIZAR',
   ],
-  FINANCE: ['FINANCEIRO.REEMBOLSO.PROCESSAR'],
+  FINANCE: [
+    'FINANCEIRO.REEMBOLSO.PROCESSAR',
+    'RELATORIO.VISUALIZAR',
+    'CONFIG.CENTRO_CUSTO.VISUALIZAR',
+  ],
   FISCAL: ['FISCAL.DOCUMENTO.VALIDAR'],
 };
 
@@ -71,6 +90,14 @@ export async function seedBaseData(): Promise<void> {
 }
 
 export async function truncateAll(): Promise<void> {
+  await prisma.notification.deleteMany();
+  await prisma.receipt.deleteMany();
+  await prisma.expense.deleteMany();
+  await prisma.tripParticipant.deleteMany();
+  await prisma.trip.deleteMany();
+  await prisma.expenseCategoryLimit.deleteMany();
+  await prisma.expenseCategory.deleteMany();
+  await prisma.costCenter.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.inviteToken.deleteMany();
   await prisma.passwordResetToken.deleteMany();
@@ -79,6 +106,35 @@ export async function truncateAll(): Promise<void> {
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
   await prisma.permission.deleteMany();
+}
+
+const BASE_CATEGORIES = [
+  'ALUGUEL_CARRO',
+  'PEDAGIO',
+  'COMBUSTIVEL',
+  'DIARIA_VIAGEM',
+  'HOTEL',
+  'PASSAGENS_AEREAS',
+  'ESTACIONAMENTO',
+  'UBER_TAXI',
+  'METRO',
+  'ALIMENTACAO',
+  'OUTROS',
+  'KM_RODADOS',
+] as const;
+
+export async function seedCategories(): Promise<void> {
+  for (const code of BASE_CATEGORIES) {
+    await prisma.expenseCategory.upsert({
+      where: { code },
+      update: {},
+      create: { code, name: code },
+    });
+  }
+}
+
+export async function createCostCenter(nome: string) {
+  return prisma.costCenter.create({ data: { nome } });
 }
 
 export interface CreateUserOptions {
