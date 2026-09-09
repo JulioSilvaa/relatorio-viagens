@@ -60,6 +60,37 @@ import { CreateCostCenterService } from '../modules/cost-centers/services/create
 import { UpdateCostCenterService } from '../modules/cost-centers/services/update-cost-center.service.js';
 import { createCostCentersRouter } from '../modules/cost-centers/controllers/cost-center.controller.js';
 import { createNotificationsRouter } from '../modules/notifications/controllers/notification.controller.js';
+import { SearchTripsService } from '../modules/trips/services/search-trips.service.js';
+import { PrismaReceiptOcrRepository } from '../modules/ocr/repositories/receipt-ocr.repository.prisma.js';
+import { NeutralOcrProvider } from '../modules/ocr/ocr-provider.neutro.js';
+import { ExtractReceiptOcrService } from '../modules/ocr/services/extract-receipt-ocr.service.js';
+import { GetReceiptOcrService } from '../modules/ocr/services/get-receipt-ocr.service.js';
+import { SaveReceiptOcrService } from '../modules/ocr/services/save-receipt-ocr.service.js';
+import { createOcrRouter } from '../modules/ocr/controllers/ocr.controller.js';
+import { PrismaFiscalValidationRepository } from '../modules/fiscal/repositories/fiscal-validation.repository.prisma.js';
+import { ValidateExpenseService } from '../modules/fiscal/services/validate-expense.service.js';
+import { GetExpenseFiscalService } from '../modules/fiscal/services/get-expense-fiscal.service.js';
+import { createFiscalRouter } from '../modules/fiscal/controllers/fiscal.controller.js';
+import { ListAuditService } from '../modules/audit/services/list-audit.service.js';
+import { createAuditRouter } from '../modules/audit/controllers/audit.controller.js';
+import { PrismaFinanceRepository } from '../modules/finance/repositories/finance.repository.prisma.js';
+import { ReceiveFinanceService } from '../modules/finance/services/receive-finance.service.js';
+import { RegisterPaymentService } from '../modules/finance/services/register-payment.service.js';
+import { RegisterAdvanceService } from '../modules/finance/services/register-advance.service.js';
+import { RegisterRefundService } from '../modules/finance/services/register-refund.service.js';
+import { GetFinanceService } from '../modules/finance/services/get-finance.service.js';
+import { createFinanceRouter } from '../modules/finance/controllers/finance.controller.js';
+import { PrismaDashboardRepository } from '../modules/dashboard/repositories/dashboard.repository.prisma.js';
+import { ManagerDashboardService } from '../modules/dashboard/services/manager-dashboard.service.js';
+import { EmployeeDashboardService } from '../modules/dashboard/services/employee-dashboard.service.js';
+import { createDashboardRouter } from '../modules/dashboard/controllers/dashboard.controller.js';
+import { PrismaReportsRepository } from '../modules/reports/repositories/reports.repository.prisma.js';
+import { GenerateOfficialPdfService } from '../modules/reports/services/generate-official-pdf.service.js';
+import { GenerateManagerPdfService } from '../modules/reports/services/generate-manager-pdf.service.js';
+import { createReportsRouter } from '../modules/reports/controllers/report.controller.js';
+import { PrismaExportsRepository } from '../modules/exports/repositories/exports.repository.prisma.js';
+import { GenerateExpensesExcelService } from '../modules/exports/services/generate-expenses-excel.service.js';
+import { createExportsRouter } from '../modules/exports/controllers/export.controller.js';
 
 export interface Container {
   usersRouter: ReturnType<typeof createUsersRouter>;
@@ -72,6 +103,13 @@ export interface Container {
   approvalsRouter: ReturnType<typeof createApprovalsRouter>;
   costCentersRouter: ReturnType<typeof createCostCentersRouter>;
   notificationsRouter: ReturnType<typeof createNotificationsRouter>;
+  ocrRouter: ReturnType<typeof createOcrRouter>;
+  fiscalRouter: ReturnType<typeof createFiscalRouter>;
+  auditRouter: ReturnType<typeof createAuditRouter>;
+  financeRouter: ReturnType<typeof createFinanceRouter>;
+  dashboardRouter: ReturnType<typeof createDashboardRouter>;
+  reportsRouter: ReturnType<typeof createReportsRouter>;
+  exportsRouter: ReturnType<typeof createExportsRouter>;
 }
 
 export function buildContainer(): Container {
@@ -142,6 +180,8 @@ export function buildContainer(): Container {
     resetPasswordService,
     requireAuth,
   });
+  const searchTripsService = new SearchTripsService(trips);
+
   const tripsRouter = createTripsRouter({
     requireAuth,
     createTripService,
@@ -153,6 +193,7 @@ export function buildContainer(): Container {
     deliverReportService,
     cancelTripService,
     deleteTripService,
+    searchTripsService,
   });
   const expensesRouter = createExpensesRouter({
     requireAuth,
@@ -196,6 +237,88 @@ export function buildContainer(): Container {
     notificationsService: notifications,
   });
 
+  const ocrRepo = new PrismaReceiptOcrRepository();
+  const ocrProvider = new NeutralOcrProvider();
+  const extractReceiptOcrService = new ExtractReceiptOcrService(
+    receipts,
+    trips,
+    ocrRepo,
+    ocrProvider,
+    audit,
+  );
+  const getReceiptOcrService = new GetReceiptOcrService(receipts, trips, ocrRepo);
+  const saveReceiptOcrService = new SaveReceiptOcrService(receipts, trips, ocrRepo, audit);
+  const ocrRouter = createOcrRouter({
+    requireAuth,
+    extractReceiptOcrService,
+    getReceiptOcrService,
+    saveReceiptOcrService,
+  });
+
+  const fiscalRepo = new PrismaFiscalValidationRepository();
+  const validateExpenseService = new ValidateExpenseService(
+    expenses,
+    trips,
+    fiscalRepo,
+    audit,
+    notifications,
+  );
+  const getExpenseFiscalService = new GetExpenseFiscalService(expenses, trips, fiscalRepo);
+  const fiscalRouter = createFiscalRouter({
+    requireAuth,
+    validateExpenseService,
+    getExpenseFiscalService,
+  });
+
+  const listAuditService = new ListAuditService(audit);
+  const auditRouter = createAuditRouter({ requireAuth, listAuditService });
+
+  const financeRepo = new PrismaFinanceRepository();
+  const receiveFinanceService = new ReceiveFinanceService(trips, audit);
+  const registerPaymentService = new RegisterPaymentService(
+    trips,
+    expenses,
+    financeRepo,
+    audit,
+    notifications,
+  );
+  const registerAdvanceService = new RegisterAdvanceService(trips, financeRepo, audit);
+  const registerRefundService = new RegisterRefundService(trips, financeRepo, audit);
+  const getFinanceService = new GetFinanceService(trips, expenses, financeRepo);
+  const financeRouter = createFinanceRouter({
+    requireAuth,
+    receiveFinanceService,
+    registerPaymentService,
+    registerAdvanceService,
+    registerRefundService,
+    getFinanceService,
+  });
+
+  const dashboardRepo = new PrismaDashboardRepository();
+  const managerDashboardService = new ManagerDashboardService(dashboardRepo);
+  const employeeDashboardService = new EmployeeDashboardService(dashboardRepo);
+  const dashboardRouter = createDashboardRouter({
+    requireAuth,
+    managerDashboardService,
+    employeeDashboardService,
+  });
+
+  const reportsRepo = new PrismaReportsRepository(trips, financeRepo);
+  const generateOfficialPdfService = new GenerateOfficialPdfService(reportsRepo);
+  const generateManagerPdfService = new GenerateManagerPdfService(reportsRepo);
+  const reportsRouter = createReportsRouter({
+    requireAuth,
+    generateOfficialPdfService,
+    generateManagerPdfService,
+  });
+
+  const exportsRepo = new PrismaExportsRepository();
+  const generateExpensesExcelService = new GenerateExpensesExcelService(exportsRepo);
+  const exportsRouter = createExportsRouter({
+    requireAuth,
+    generateExpensesExcelService,
+  });
+
   return {
     usersRouter,
     authRouter,
@@ -207,6 +330,13 @@ export function buildContainer(): Container {
     approvalsRouter,
     costCentersRouter,
     notificationsRouter,
+    ocrRouter,
+    fiscalRouter,
+    auditRouter,
+    financeRouter,
+    dashboardRouter,
+    reportsRouter,
+    exportsRouter,
   };
 }
 

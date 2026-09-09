@@ -16,6 +16,13 @@ export interface AppDeps {
   approvalsRouter: express.Router;
   costCentersRouter: express.Router;
   notificationsRouter: express.Router;
+  ocrRouter: express.Router;
+  fiscalRouter: express.Router;
+  auditRouter: express.Router;
+  financeRouter: express.Router;
+  dashboardRouter: express.Router;
+  reportsRouter: express.Router;
+  exportsRouter: express.Router;
 }
 
 export function createApp({
@@ -30,6 +37,13 @@ export function createApp({
   approvalsRouter,
   costCentersRouter,
   notificationsRouter,
+  ocrRouter,
+  fiscalRouter,
+  auditRouter,
+  financeRouter,
+  dashboardRouter,
+  reportsRouter,
+  exportsRouter,
 }: AppDeps): Express {
   const app = express();
 
@@ -49,6 +63,13 @@ export function createApp({
   app.use('/api/approvals', approvalsRouter);
   app.use('/api/cost-centers', costCentersRouter);
   app.use('/api/notifications', notificationsRouter);
+  app.use('/api/ocr', ocrRouter);
+  app.use('/api/fiscal', fiscalRouter);
+  app.use('/api/audit', auditRouter);
+  app.use('/api/finance', financeRouter);
+  app.use('/api/dashboard', dashboardRouter);
+  app.use('/api/reports', reportsRouter);
+  app.use('/api/exports', exportsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

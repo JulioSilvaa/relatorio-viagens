@@ -18,6 +18,13 @@ export function mountApp(container: Container) {
     approvalsRouter: container.approvalsRouter,
     costCentersRouter: container.costCentersRouter,
     notificationsRouter: container.notificationsRouter,
+    ocrRouter: container.ocrRouter,
+    fiscalRouter: container.fiscalRouter,
+    auditRouter: container.auditRouter,
+    financeRouter: container.financeRouter,
+    dashboardRouter: container.dashboardRouter,
+    reportsRouter: container.reportsRouter,
+    exportsRouter: container.exportsRouter,
   });
 }
 
