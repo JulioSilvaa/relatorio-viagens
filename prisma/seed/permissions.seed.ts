@@ -93,6 +93,18 @@ export const PERMISSIONS = [
     name: "Visualizar centros de custo",
     description: "Listar centros de custo ativos para seleção em viagens.",
   },
+  {
+    code: "DASHBOARD.GERENCIAL",
+    name: "Dashboard gerencial",
+    description:
+      "Visualizar indicadores globais do dashboard gerencial (RF-DASH-001).",
+  },
+  {
+    code: "AUDITORIA.CONSULTAR",
+    name: "Consultar auditoria",
+    description:
+      "Consultar eventos de auditoria de qualquer usuário (RF-AUD-001).",
+  },
 ] as const;
 
 export async function seedPermissions(prisma: PrismaClient): Promise<void> {
