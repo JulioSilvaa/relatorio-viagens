@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { seedPermissions } from "./permissions.seed";
 import { seedRoles } from "./roles.seed";
+import { seedCategories } from "./categories.seed";
 
 const prisma = new PrismaClient();
 
@@ -46,6 +47,7 @@ async function seedAdmin(): Promise<void> {
 async function main(): Promise<void> {
   await seedPermissions(prisma);
   await seedRoles(prisma);
+  await seedCategories(prisma);
   await seedAdmin();
 }
 

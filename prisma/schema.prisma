@@ -24,6 +24,69 @@ enum UserStatus {
   INATIVO
 }
 
+enum UfType {
+  AC
+  AL
+  AM
+  AP
+  BA
+  CE
+  DF
+  ES
+  GO
+  MA
+  MG
+  MS
+  MT
+  PA
+  PB
+  PE
+  PI
+  PR
+  RJ
+  RN
+  RO
+  RR
+  RS
+  SC
+  SE
+  SP
+  TO
+}
+
+enum VehicleType {
+  PROPRIO
+  EMPRESA
+  ALUGADO
+}
+
+enum TripStatus {
+  EM_ANDAMENTO
+  EM_APROVACAO
+  EM_CORRECAO
+  APROVADA
+  FINANCEIRO
+  FINALIZADA
+  CANCELADA
+}
+
+enum ReceiptType {
+  NOTA_FISCAL
+  CUPOM_FISCAL
+  NOTA_MANUAL
+  COMPROVANTE_CARTAO
+  OUTRO
+}
+
+enum NotificationEventType {
+  RELATORIO_ENTREGUE
+  RELATORIO_RETORNADO
+  RELATORIO_APROVADO
+  REEMBOLSO_PAGO
+  PROBLEMA_FISCAL
+  RELATORIO_REENVIADO
+}
+
 /// Perfil principal do usuário (RN-ACC-001: exatamente um perfil).
 model Role {
   id          String   @id @default(uuid()) @db.Uuid
@@ -75,6 +138,15 @@ model User {
   invites       InviteToken[]
   passwordResets PasswordResetToken[]
   auditEvents   AuditEvent[]
+  tripsCreated  Trip[]            @relation("TripCriador")
+  tripsDeleted  Trip[]            @relation("TripDeletadoPor")
+  tripParticipants TripParticipant[] @relation("TripParticipante")
+  participantsAdded TripParticipant[] @relation("TripParticipanteAdicionadoPor")
+  expensesCreated Expense[]       @relation("DespesaCriador")
+  expensesDeleted Expense[]       @relation("DespesaDeletadaPor")
+  receiptsUploaded Receipt[]      @relation("ComprovanteUpload")
+  limitsUpdated ExpenseCategoryLimit[] @relation("LimiteAtualizadoPor")
+  notifications Notification[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
@@ -140,4 +212,151 @@ model AuditEvent {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+/// Viagem (RF-VIA-001..006). Estado controlado pelo fluxo (RN-STA-001..004).
+model Trip {
+  id                String             @id @default(uuid()) @db.Uuid
+  cliente           String
+  cidade            String
+  uf                UfType
+  dataSaida         DateTime
+  dataRetorno       DateTime
+  departamento      DepartmentType
+  motivo            String
+  veiculo           String?
+  placa             String?
+  tipoVeiculo       VehicleType?
+  kmInicial         Decimal?           @db.Decimal(10, 1)
+  kmFinal           Decimal?           @db.Decimal(10, 1)
+  taxaKm            Decimal?           @db.Decimal(10, 2)
+  centroDeCustoId   String?            @db.Uuid
+  centroDeCusto     CostCenter?        @relation(fields: [centroDeCustoId], references: [id])
+  observacoes       String?
+  status            TripStatus         @default(EM_ANDAMENTO)
+  motivoCancelamento String?
+  criadoPorId       String             @db.Uuid
+  criadoPor         User               @relation("TripCriador", fields: [criadoPorId], references: [id])
+  deletadoPorId     String?            @db.Uuid
+  deletadoPor       User?              @relation("TripDeletadoPor", fields: [deletadoPorId], references: [id])
+  deletadoEm        DateTime?
+  participants      TripParticipant[]
+  expenses          Expense[]
+  notifications     Notification[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([status])
+  @@index([criadoPorId])
+  @@index([centroDeCustoId])
+}
+
+/// Vínculo de participante à viagem (RN-VIA-015..022). Um vínculo por usuário por viagem.
+model TripParticipant {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @db.Uuid
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId    String   @db.Uuid
+  user      User     @relation("TripParticipante", fields: [userId], references: [id])
+  addedById String   @db.Uuid
+  addedBy   User     @relation("TripParticipanteAdicionadoPor", fields: [addedById], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([tripId, userId])
+  @@index([userId])
+}
+
+/// Categoria de despesa (RF-DES-002). Categorias nunca são apagadas, apenas desativadas.
+model ExpenseCategory {
+  id        String                @id @default(uuid()) @db.Uuid
+  code      String                @unique
+  name      String
+  ativa     Boolean               @default(true)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  expenses  Expense[]
+  limits    ExpenseCategoryLimit[]
+}
+
+/// Limite por categoria (RF-LIM-001). Exceder gera alerta, nunca bloqueio (RN-DES-011/012).
+model ExpenseCategoryLimit {
+  id          String           @id @default(uuid()) @db.Uuid
+  categoryId  String           @unique @db.Uuid
+  category    ExpenseCategory  @relation(fields: [categoryId], references: [id])
+  valor       Decimal          @db.Decimal(12, 2)
+  updatedById String           @db.Uuid
+  updatedBy   User             @relation("LimiteAtualizadoPor", fields: [updatedById], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+/// Centro de custo (RF-CC-001), administrado por Manager/Admin.
+model CostCenter {
+  id        String   @id @default(uuid()) @db.Uuid
+  nome      String   @unique
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  trips     Trip[]
+}
+
+/// Despesa (RF-DES-001). Sempre vinculada à viagem e ao participante que lançou.
+model Expense {
+  id            String          @id @default(uuid()) @db.Uuid
+  tripId        String          @db.Uuid
+  trip          Trip            @relation(fields: [tripId], references: [id])
+  categoryId    String          @db.Uuid
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id])
+  createdById   String          @db.Uuid
+  createdBy     User            @relation("DespesaCriador", fields: [createdById], references: [id])
+  valor         Decimal         @db.Decimal(12, 2)
+  dataDespesa   DateTime
+  reembolsavel  Boolean
+  justificativa String
+  alertaExcesso Decimal?        @db.Decimal(12, 2)
+  deletedAt     DateTime?
+  deletedById   String?         @db.Uuid
+  deletedBy     User?           @relation("DespesaDeletadaPor", fields: [deletedById], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  receipts      Receipt[]
+
+  @@index([tripId])
+  @@index([categoryId])
+  @@index([createdById])
+}
+
+/// Comprovante da despesa (RF-CMP-001/002). Original sempre preservado, nunca removido.
+model Receipt {
+  id           String     @id @default(uuid()) @db.Uuid
+  expenseId    String     @db.Uuid
+  expense      Expense    @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  fileData     Bytes      @db.ByteA
+  fileType     String
+  fileName     String
+  fileSize     Int
+  fileHash     String
+  tipo         ReceiptType
+  ativo        Boolean    @default(true)
+  uploadedById String     @db.Uuid
+  uploadedBy   User       @relation("ComprovanteUpload", fields: [uploadedById], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@index([expenseId])
+}
+
+/// Central de notificações interna (RF-NOT-001).
+model Notification {
+  id        String                @id @default(uuid()) @db.Uuid
+  userId    String                @db.Uuid
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     NotificationEventType
+  message   String
+  tripId    String?               @db.Uuid
+  trip      Trip?                 @relation(fields: [tripId], references: [id])
+  readAt    DateTime?
+  createdAt DateTime              @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }

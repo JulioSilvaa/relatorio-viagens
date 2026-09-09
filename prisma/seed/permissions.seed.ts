@@ -27,6 +27,12 @@ export const PERMISSIONS = [
     description: "Entregar relatório de viagem (RF-VIA-004).",
   },
   {
+    code: "VIAGEM.EXCLUIR",
+    name: "Excluir viagem",
+    description:
+      "Excluir (soft delete) viagem própria enquanto EM_ANDAMENTO (RF-VIA-006).",
+  },
+  {
     code: "DESPESA.CRIAR",
     name: "Criar despesa",
     description: "Lançar despesas (RF-DES-001).",
@@ -35,6 +41,12 @@ export const PERMISSIONS = [
     code: "DESPESA.EDITAR",
     name: "Editar despesa",
     description: "Editar despesas da própria viagem.",
+  },
+  {
+    code: "DESPESA.EXCLUIR",
+    name: "Excluir despesa",
+    description:
+      "Excluir (soft delete) despesa própria enquanto a viagem está EM_ANDAMENTO.",
   },
   {
     code: "RELATORIO.VISUALIZAR",
@@ -70,6 +82,16 @@ export const PERMISSIONS = [
     code: "CONFIG.LIMITE.GERENCIAR",
     name: "Gerenciar limites",
     description: "Configurar limites por categoria (RF-LIM-001).",
+  },
+  {
+    code: "CONFIG.CENTRO_CUSTO.GERENCIAR",
+    name: "Gerenciar centros de custo",
+    description: "Administrar centros de custo (RF-CC-001).",
+  },
+  {
+    code: "CONFIG.CENTRO_CUSTO.VISUALIZAR",
+    name: "Visualizar centros de custo",
+    description: "Listar centros de custo ativos para seleção em viagens.",
   },
 ] as const;
 
