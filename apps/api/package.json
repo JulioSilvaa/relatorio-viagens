@@ -1,0 +1,48 @@
+{
+  "name": "@vdr/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "prisma": {
+    "schema": "../../prisma/schema.prisma"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --schema ../../prisma/schema.prisma",
+    "prisma:deploy": "prisma migrate deploy --schema ../../prisma/schema.prisma",
+    "prisma:seed:admin": "tsx ../../prisma/seed/admin.seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.2.1",
+    "bcryptjs": "2.4.3",
+    "cookie-parser": "1.4.7",
+    "dotenv": "16.4.7",
+    "express": "4.21.2",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "2.4.6",
+    "@types/cookie-parser": "1.4.8",
+    "@types/express": "4.17.21",
+    "@types/node": "24.0.0",
+    "@types/supertest": "6.0.2",
+    "eslint": "9.17.0",
+    "eslint-config-prettier": "9.1.0",
+    "@eslint/js": "9.17.0",
+    "prettier": "3.4.2",
+    "prisma": "6.2.1",
+    "supertest": "7.0.0",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2",
+    "typescript-eslint": "8.18.1",
+    "vitest": "2.1.8"
+  }
+}

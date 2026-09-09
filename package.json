@@ -1,0 +1,27 @@
+{
+  "name": "vdr",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema de Gestão de Viagens, Despesas e Reembolsos (monorepo)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24",
+    "yarn": ">=1.22"
+  },
+  "packageManager": "yarn@1.22.22",
+  "scripts": {
+    "prepare": "husky",
+    "lint": "yarn workspaces run lint",
+    "typecheck": "yarn workspaces run typecheck",
+    "test": "yarn workspaces run test"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "19.5.0",
+    "@commitlint/config-conventional": "19.5.0",
+    "husky": "9.1.6",
+    "lint-staged": "15.2.10"
+  }
+}

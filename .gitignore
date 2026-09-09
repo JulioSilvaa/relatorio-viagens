@@ -1,1 +1,43 @@
+# Dependências
+node_modules/
+
+# Build / artefatos
+dist/
+build/
+coverage/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# Banco de dados
+prisma/*.db
+prisma/*.db-journal
+
+# Ambiente e segredos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Documentação (nenhum .md é versionado)
 *.md
+docs/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Relatórios de scan de segredos
+gitleaks-report*

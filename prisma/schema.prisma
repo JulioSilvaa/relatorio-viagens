@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleType {
+  EMPLOYEE
+  MANAGER_ADMIN
+  FINANCE
+  FISCAL
+}
+
+enum DepartmentType {
+  COMERCIAL
+  TECNICO
+}
+
+enum UserStatus {
+  ATIVO
+  INATIVO
+}
+
+/// Perfil principal do usuário (RN-ACC-001: exatamente um perfil).
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        RoleType @unique
+  name        String
+  description String?
+  permissions PermissionRole[]
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  roles       PermissionRole[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PermissionRole {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@id([roleId, permissionId])
+}
+
+/// Usuário do sistema (RF-CAD-001). CPF não faz parte do MVP (RN-CAD-002).
+model User {
+  id            String            @id @default(uuid()) @db.Uuid
+  name          String
+  email         String            @unique
+  phone         String?
+  department    DepartmentType
+  cargo         String
+  roleId        String            @db.Uuid
+  role          Role              @relation(fields: [roleId], references: [id])
+  managerId     String?           @db.Uuid
+  manager       User?             @relation("UserManager", fields: [managerId], references: [id])
+  subordinates  User[]            @relation("UserManager")
+  status        UserStatus        @default(ATIVO)
+  passwordHash  String?
+  sessions      Session[]
+  invites       InviteToken[]
+  passwordResets PasswordResetToken[]
+  auditEvents   AuditEvent[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([roleId])
+  @@index([managerId])
+}
+
+/// Sessão autenticada no servidor (cookie HttpOnly + revogação + idle timeout).
+model Session {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash      String    @unique
+  ipAddress      String?
+  userAgent      String?
+  expiresAt      DateTime
+  lastActivityAt DateTime  @default(now())
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Convite de primeiro acesso (RF-AUTH-002) com validade limitada (RN-AUTH-009).
+model InviteToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Recuperação de senha (RF-AUTH-003) com validade limitada (RN-AUTH-011).
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Trilha de auditoria de operações relevantes (RN-AUD-001..010).
+model AuditEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String?  @db.Uuid
+  user          User?    @relation(fields: [userId], references: [id])
+  operation     String
+  entityType    String
+  entityId      String
+  field         String?
+  oldValue      String?
+  newValue      String?
+  justification String?
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

@@ -1,0 +1,7 @@
+yarn lint-staged
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --verbose
+else
+  echo "[pre-commit] gitleaks não instalado — verificação de segredos ignorada"
+fi

@@ -1,0 +1,10 @@
+title = "VDR - Configuração do gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Arquivos que nunca devem conter segredos reais (apenas exemplos/placeholders)"
+paths = [
+  '''^\.env\.example$''',
+]
