@@ -6,10 +6,6 @@
     "lib": ["ES2023"],
     "types": ["node"],
     "rootDir": ".",
-    "baseUrl": ".",
-    "paths": {
-      "@vdr/api/*": ["src/*"]
-    },
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
