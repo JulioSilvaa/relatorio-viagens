@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import multer from 'multer';
 import { ZodError } from 'zod';
 import { AppError } from '../errors/app-error.js';
 import { logger } from '../logger.js';
@@ -42,6 +43,15 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
         message: 'Dados inválidos.',
         fields: fieldErrors(err),
       },
+    });
+    return;
+  }
+
+  if (err instanceof multer.MulterError) {
+    const code = err.code === 'LIMIT_FILE_SIZE' ? 'UPLOAD_TOO_LARGE' : 'UPLOAD_INVALID';
+    const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 422;
+    res.status(status).json({
+      error: { code, message: err.message },
     });
     return;
   }
