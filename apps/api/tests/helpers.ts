@@ -22,6 +22,13 @@ export function buildApp(): Express {
     approvalsRouter: container.approvalsRouter,
     costCentersRouter: container.costCentersRouter,
     notificationsRouter: container.notificationsRouter,
+    ocrRouter: container.ocrRouter,
+    fiscalRouter: container.fiscalRouter,
+    auditRouter: container.auditRouter,
+    financeRouter: container.financeRouter,
+    dashboardRouter: container.dashboardRouter,
+    reportsRouter: container.reportsRouter,
+    exportsRouter: container.exportsRouter,
   });
 }
 
@@ -54,6 +61,8 @@ const ROLE_PERMISSIONS: Record<RoleType, readonly string[]> = {
     'CONFIG.LIMITE.GERENCIAR',
     'CONFIG.CENTRO_CUSTO.GERENCIAR',
     'CONFIG.CENTRO_CUSTO.VISUALIZAR',
+    'DASHBOARD.GERENCIAL',
+    'AUDITORIA.CONSULTAR',
   ],
   FINANCE: [
     'FINANCEIRO.REEMBOLSO.PROCESSAR',
@@ -91,6 +100,11 @@ export async function seedBaseData(): Promise<void> {
 
 export async function truncateAll(): Promise<void> {
   await prisma.notification.deleteMany();
+  await prisma.tripPayment.deleteMany();
+  await prisma.tripAdvance.deleteMany();
+  await prisma.tripRefund.deleteMany();
+  await prisma.fiscalValidation.deleteMany();
+  await prisma.receiptOcr.deleteMany();
   await prisma.receipt.deleteMany();
   await prisma.expense.deleteMany();
   await prisma.tripParticipant.deleteMany();
