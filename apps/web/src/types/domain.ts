@@ -1,0 +1,141 @@
+export type RoleTypeValue = "MANAGER_ADMIN" | "EMPLOYEE" | "FINANCE" | "FISCAL";
+
+export type DepartmentTypeValue =
+  | "COMERCIAL"
+  | "AGRO"
+  | "OPERACIONAL"
+  | "ADMINISTRATIVO";
+
+export type UserStatus = "ATIVO" | "INATIVO";
+
+export interface UserView {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  department: DepartmentTypeValue;
+  cargo: string;
+  roleCode: RoleTypeValue;
+  status: UserStatus;
+}
+
+export const TRIP_STATUSES = [
+  "EM_ANDAMENTO",
+  "EM_APROVACAO",
+  "EM_CORRECAO",
+  "APROVADA",
+  "FINANCEIRO",
+  "FINALIZADA",
+  "CANCELADA",
+] as const;
+
+export type TripStatus = (typeof TRIP_STATUSES)[number];
+
+export interface TripUserRef {
+  id: string;
+  name: string;
+}
+
+export interface TripView {
+  id: string;
+  cliente: string;
+  cidade: string;
+  uf: string;
+  dataSaida: string;
+  dataRetorno: string;
+  departamento: DepartmentTypeValue;
+  motivo: string;
+  veiculo: string | null;
+  placa: string | null;
+  tipoVeiculo: string | null;
+  kmInicial: string | null;
+  kmFinal: string | null;
+  taxaKm: string | null;
+  centroDeCustoId: string | null;
+  observacoes: string | null;
+  status: TripStatus;
+  motivoCancelamento: string | null;
+  criadoPor: TripUserRef;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TripParticipantView {
+  userId: string;
+  name: string;
+  addedAt: string;
+}
+
+export interface TripReceiptView {
+  id: string;
+  tipo: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  ativo: boolean;
+  createdAt: string;
+}
+
+export interface TripExpenseView {
+  id: string;
+  category: { id: string; code: string; name: string };
+  valor: string;
+  dataDespesa: string;
+  reembolsavel: boolean;
+  justificativa: string;
+  alertaExcesso: string | null;
+  criadoPor: TripUserRef;
+  receipts: TripReceiptView[];
+}
+
+export interface TripDetailView extends TripView {
+  participants: TripParticipantView[];
+  despesas: TripExpenseView[];
+}
+
+export interface TripSearchResult {
+  itens: TripView[];
+  total: number;
+  limite: number;
+  deslocamento: number;
+}
+
+export interface ManagerReportFilters {
+  dataDe?: string;
+  dataAte?: string;
+  departamento?: string;
+  categoria?: string;
+  status?: string;
+  centroDeCustoId?: string;
+  colaboradorId?: string;
+  cidade?: string;
+  cliente?: string;
+}
+
+export interface DashboardManagerReport {
+  periodoDe: string;
+  periodoAte: string;
+  totalDespesas: string;
+  totalReembolsado: string;
+  valoresPendentes: string;
+  quantidadeViagens: number;
+  relatoriosPendentes: number;
+  porColaborador: Array<{ id: string; nome: string; total: string }>;
+  porCategoria: Array<{
+    categoria: { code: string; name: string } | null;
+    total: string;
+  }>;
+  porCidade: Array<{ cidade: string; total: string }>;
+  porCentroDeCusto: Array<{ nome: string | null; total: string }>;
+  evolucaoTemporal: Array<{ periodo: string; total: string }>;
+  reembolsosStatus: Array<{ status: TripStatus; quantidade: number }>;
+}
+
+export interface DashboardEmployeeReport {
+  viagensEmAndamento: number;
+  relatoriosAguardandoAprovacao: number;
+  relatoriosEmCorrecao: number;
+  reembolsosPendentes: number;
+  relatoriosFinalizados: number;
+  totalReembolsado: string;
+}
