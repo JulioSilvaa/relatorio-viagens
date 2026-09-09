@@ -7,10 +7,9 @@ ENV NODE_ENV=development
 COPY package.json yarn.lock ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
-COPY apps/web/next.config.ts ./apps/web/
-COPY apps/web/tsconfig.json ./apps/web/
 
-RUN yarn install --frozen-lockfile
+RUN --mount=type=cache,target=/usr/local/share/.cache/yarn,sharing=locked \
+	yarn install --frozen-lockfile --cache-folder /usr/local/share/.cache/yarn
 
 COPY . .
 
