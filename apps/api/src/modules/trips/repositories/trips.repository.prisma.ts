@@ -12,6 +12,8 @@ import type {
   TripDetailRecord,
   TripParticipantRecord,
   TripRecord,
+  TripSearchInput,
+  TripSearchResult,
   TripsRepository,
 } from './trips.repository.js';
 
@@ -283,5 +285,59 @@ export class PrismaTripsRepository implements TripsRepository {
       select: { userId: true },
     });
     return rows.map((row) => row.userId);
+  }
+
+  async searchTrips(input: TripSearchInput): Promise<TripSearchResult> {
+    const { filters } = input;
+    const where: Prisma.TripWhereInput = { deletadoEm: null };
+
+    const scope: Prisma.TripWhereInput[] = [];
+    if (!input.global) {
+      scope.push({
+        OR: [{ criadoPorId: input.userId }, { participants: { some: { userId: input.userId } } }],
+      });
+    }
+    if (filters.id) scope.push({ id: filters.id });
+    if (filters.dataDe || filters.dataAte) {
+      scope.push({
+        dataSaida: {
+          ...(filters.dataDe ? { gte: new Date(filters.dataDe) } : {}),
+          ...(filters.dataAte ? { lte: new Date(filters.dataAte) } : {}),
+        },
+      });
+    }
+    if (filters.cliente)
+      scope.push({ cliente: { contains: filters.cliente, mode: 'insensitive' } });
+    if (filters.cidade) scope.push({ cidade: { contains: filters.cidade, mode: 'insensitive' } });
+    if (filters.status) scope.push({ status: filters.status as Prisma.TripWhereInput['status'] });
+    if (filters.departamento) {
+      scope.push({ departamento: filters.departamento as Prisma.TripWhereInput['departamento'] });
+    }
+    if (filters.centroDeCustoId) scope.push({ centroDeCustoId: filters.centroDeCustoId });
+    if (filters.colaboradorId) {
+      scope.push({
+        OR: [
+          { criadoPorId: filters.colaboradorId },
+          { participants: { some: { userId: filters.colaboradorId } } },
+        ],
+      });
+    }
+    if (scope.length > 0) where.AND = scope;
+
+    const [trips, total] = await Promise.all([
+      prisma.trip.findMany({
+        where,
+        include: { criadoPor: { select: { id: true, name: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: input.limit,
+        skip: input.offset,
+      }),
+      prisma.trip.count({ where }),
+    ]);
+
+    return {
+      items: trips.map((trip) => toTripRecord(trip, trip.criadoPor)),
+      total,
+    };
   }
 }

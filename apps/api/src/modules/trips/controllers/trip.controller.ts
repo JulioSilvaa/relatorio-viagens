@@ -13,6 +13,7 @@ import type { EditTripService } from '../services/edit-trip.service.js';
 import type { GetTripService } from '../services/get-trip.service.js';
 import type { ListTripsService } from '../services/list-trips.service.js';
 import type { RemoveParticipantService } from '../services/remove-participant.service.js';
+import type { SearchTripsService } from '../services/search-trips.service.js';
 import {
   addParticipantSchema,
   cancelTripSchema,
@@ -31,6 +32,13 @@ export interface TripsDeps {
   deliverReportService: DeliverReportService;
   cancelTripService: CancelTripService;
   deleteTripService: DeleteTripService;
+  searchTripsService: SearchTripsService;
+}
+
+const MAX_HISTORICO_LIMIT = 100;
+
+function parseQueryString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 export function createTripsRouter({
@@ -44,6 +52,7 @@ export function createTripsRouter({
   deliverReportService,
   cancelTripService,
   deleteTripService,
+  searchTripsService,
 }: TripsDeps): Router {
   const router = Router();
 
@@ -68,6 +77,36 @@ export function createTripsRouter({
     asyncHandler(async (req, res) => {
       const trips = await listTripsService.execute(req.auth!.userId, req.auth!.user.roleCode);
       res.json(success({ trips }));
+    }),
+  );
+
+  router.get(
+    '/historico',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const limit = Math.min(
+        Math.max(Number(req.query.limite ?? 20) || 20, 1),
+        MAX_HISTORICO_LIMIT,
+      );
+      const offset = Math.max(Number(req.query.deslocamento ?? 0) || 0, 0);
+      const result = await searchTripsService.execute(
+        req.auth!.userId,
+        req.auth!.user.roleCode === 'MANAGER_ADMIN',
+        {
+          id: parseQueryString(req.query.numeroRelatorio),
+          dataDe: parseQueryString(req.query.dataDe),
+          dataAte: parseQueryString(req.query.dataAte),
+          cliente: parseQueryString(req.query.cliente),
+          cidade: parseQueryString(req.query.cidade),
+          colaboradorId: parseQueryString(req.query.colaboradorId),
+          status: parseQueryString(req.query.status),
+          departamento: parseQueryString(req.query.departamento),
+          centroDeCustoId: parseQueryString(req.query.centroDeCustoId),
+        },
+        limit,
+        offset,
+      );
+      res.json(success(result));
     }),
   );
 

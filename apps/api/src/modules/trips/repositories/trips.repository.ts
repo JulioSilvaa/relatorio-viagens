@@ -1,6 +1,31 @@
 import type { DepartmentType, TripStatus, UfType, VehicleType } from '@prisma/client';
 import type { CreateTripData, UpdateTripData } from '../trip.types.js';
 
+export interface TripSearchFilters {
+  id?: string;
+  dataDe?: string;
+  dataAte?: string;
+  cliente?: string;
+  cidade?: string;
+  colaboradorId?: string;
+  status?: string;
+  departamento?: string;
+  centroDeCustoId?: string;
+}
+
+export interface TripSearchInput {
+  filters: TripSearchFilters;
+  global: boolean;
+  userId: string;
+  limit: number;
+  offset: number;
+}
+
+export interface TripSearchResult {
+  items: TripRecord[];
+  total: number;
+}
+
 export interface TripCreatorRef {
   id: string;
   name: string;
@@ -78,6 +103,7 @@ export interface TripsRepository {
   findDetailById(id: string): Promise<TripDetailRecord | null>;
   findByParticipant(userId: string): Promise<TripRecord[]>;
   findAll(): Promise<TripRecord[]>;
+  searchTrips(input: TripSearchInput): Promise<TripSearchResult>;
   update(id: string, data: UpdateTripData): Promise<TripRecord>;
   setStatus(id: string, status: TripStatus, motivoCancelamento?: string): Promise<void>;
   softDelete(id: string, deletedById: string): Promise<void>;
