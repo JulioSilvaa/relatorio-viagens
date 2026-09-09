@@ -1,7 +1,7 @@
 import { prisma } from '../../../config/database.js';
 import type { RoleType } from '@prisma/client';
 import type { CreateUserInput, PersistedUser, RoleRecord } from '../user.types.js';
-import type { UsersRepository } from './users.repository.js';
+import type { UserIdRef, UsersRepository } from './users.repository.js';
 
 interface UserWithRoleCode {
   id: string;
@@ -101,5 +101,13 @@ export class PrismaUsersRepository implements UsersRepository {
 
   async updatePassword(id: string, passwordHash: string): Promise<void> {
     await prisma.user.update({ where: { id }, data: { passwordHash } });
+  }
+
+  async findAllByRoleCode(code: string): Promise<UserIdRef[]> {
+    const users = await prisma.user.findMany({
+      where: { role: { code: code as RoleType } },
+      select: { id: true, name: true },
+    });
+    return users;
   }
 }
