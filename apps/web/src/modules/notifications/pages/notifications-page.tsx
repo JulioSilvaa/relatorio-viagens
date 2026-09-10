@@ -1,9 +1,14 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Trash2 } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { getErrorMessage } from "@/lib/api";
-import { useNotifications, useMarkNotificationRead } from "../hooks";
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useDeleteNotification,
+} from "../hooks";
 import type { AppNotification } from "../api";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -43,7 +48,8 @@ function groupByDay(items: AppNotification[]) {
 export default function NotificationsPage() {
   const { data, isLoading, isError, error, refetch } = useNotifications();
   const markRead = useMarkNotificationRead();
-  const queryClient = useQueryClient();
+  const remove = useDeleteNotification();
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -102,24 +108,37 @@ export default function NotificationsPage() {
                         {formatDateTime(notification.createdAt)}
                       </p>
                     </div>
-                    {!notification.readAt ? (
+                    <div className="flex shrink-0 items-center gap-1">
+                      {!notification.readAt ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={markRead.isPending}
+                          onClick={() => {
+                            markRead.mutate(notification.id);
+                          }}
+                        >
+                          Marcar como lida
+                        </Button>
+                      ) : null}
                       <Button
                         variant="ghost"
-                        size="sm"
-                        disabled={markRead.isPending}
+                        size="icon"
+                        aria-label="Remover notificação"
+                        disabled={
+                          remove.isPending &&
+                          pendingDeleteId === notification.id
+                        }
                         onClick={() => {
-                          markRead.mutate(notification.id, {
-                            onSuccess: () => {
-                              void queryClient.invalidateQueries({
-                                queryKey: ["notifications"],
-                              });
-                            },
+                          setPendingDeleteId(notification.id);
+                          remove.mutate(notification.id, {
+                            onSettled: () => setPendingDeleteId(null),
                           });
                         }}
                       >
-                        Marcar como lida
+                        <Trash2 className="size-4" aria-hidden="true" />
                       </Button>
-                    ) : null}
+                    </div>
                   </div>
                 </div>
               </li>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listNotifications, markNotificationRead, unreadCount } from "./api";
+import { listNotifications, markNotificationRead, unreadCount, deleteNotification } from "./api";
 import { playNotificationSound, shouldNotifySound } from "@/lib/notification-sound";
 
 export const notificationsKeys = {
@@ -37,6 +37,19 @@ export function useNewNotificationAlert() {
       playNotificationSound();
     }
   }, [unread]);
+}
+
+export function useDeleteNotification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteNotification(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: notificationsKeys.all });
+      void queryClient.invalidateQueries({
+        queryKey: notificationsKeys.unread,
+      });
+    },
+  });
 }
 
 export function useMarkNotificationRead() {

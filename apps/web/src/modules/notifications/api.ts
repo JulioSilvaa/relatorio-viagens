@@ -28,3 +28,7 @@ export async function unreadCount(): Promise<number> {
 export async function markNotificationRead(id: string): Promise<void> {
   await apiFetch<void>(`/api/notifications/${id}/lida`, { method: "PATCH" });
 }
+
+export async function deleteNotification(id: string): Promise<void> {
+  await apiFetch<void>(`/api/notifications/${id}`, { method: "DELETE" });
+}
