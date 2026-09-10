@@ -54,8 +54,14 @@ export function useDeliverTrip(tripId: string) {
 export function useApproveTrip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (tripId: string) => approveTrip(tripId),
-    onSuccess: (_data, tripId) => {
+    mutationFn: ({
+      tripId,
+      taxaKm,
+    }: {
+      tripId: string;
+      taxaKm?: number | null;
+    }) => approveTrip(tripId, { taxaKm }),
+    onSuccess: (_data, { tripId }) => {
       void queryClient.invalidateQueries({ queryKey: tripsKeys.detail(tripId) });
       void queryClient.invalidateQueries({ queryKey: tripsKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });

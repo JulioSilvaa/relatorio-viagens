@@ -18,7 +18,6 @@ export interface CreateTripInput {
   tipoVeiculo?: string | null;
   kmInicial?: number | null;
   kmFinal?: number | null;
-  taxaKm?: string | null;
   observacoes?: string | null;
 }
 
@@ -77,9 +76,17 @@ export async function listUsers(): Promise<UserDirectoryEntry[]> {
   return data.users;
 }
 
-export async function approveTrip(tripId: string): Promise<void> {
+export interface ApproveTripInput {
+  taxaKm?: number | null;
+}
+
+export async function approveTrip(
+  tripId: string,
+  input?: ApproveTripInput,
+): Promise<void> {
   await apiFetch<void>(`/api/approvals/${tripId}/aprovar`, {
     method: "POST",
+    body: JSON.stringify(input ?? {}),
   });
 }
 

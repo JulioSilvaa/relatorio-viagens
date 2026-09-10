@@ -88,7 +88,6 @@ interface FieldErrors {
   tipoVeiculo?: string;
   kmInicial?: string;
   kmFinal?: string;
-  taxaKm?: string;
 }
 
 export default function NewTripPage() {
@@ -111,7 +110,6 @@ export default function NewTripPage() {
     tipoVeiculo: "",
     kmInicial: "",
     kmFinal: "",
-    taxaKm: "",
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [adiantamento, setAdiantamento] = useState({
@@ -169,7 +167,6 @@ export default function NewTripPage() {
 
     const kmInicial = values.kmInicial === "" ? null : Number(values.kmInicial);
     const kmFinal = values.kmFinal === "" ? null : Number(values.kmFinal);
-    const taxaKm = values.taxaKm === "" ? null : Number(values.taxaKm);
 
     const kmErrors: FieldErrors = {};
     if (kmInicial !== null && Number.isNaN(kmInicial)) {
@@ -177,9 +174,6 @@ export default function NewTripPage() {
     }
     if (kmFinal !== null && Number.isNaN(kmFinal)) {
       kmErrors.kmFinal = "Informe o KM final.";
-    }
-    if (taxaKm !== null && (Number.isNaN(taxaKm) || taxaKm <= 0)) {
-      kmErrors.taxaKm = "Informe a taxa por km.";
     }
     if (
       kmInicial !== null &&
@@ -205,7 +199,6 @@ export default function NewTripPage() {
         tipoVeiculo: values.tipoVeiculo === "" ? null : values.tipoVeiculo,
         kmInicial,
         kmFinal,
-        taxaKm: taxaKm === null ? null : String(taxaKm),
       });
 
       if (adiantamento.ativo) {
@@ -510,22 +503,6 @@ export default function NewTripPage() {
                   <p className="text-sm text-danger">{errors.kmFinal}</p>
                 ) : null}
               </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="taxaKm">Taxa por km</Label>
-              <MoneyInput
-                id="taxaKm"
-                value={values.taxaKm}
-                onValueChange={(value) => setField("taxaKm", value)}
-              />
-              {errors.taxaKm ? (
-                <p className="text-sm text-danger">{errors.taxaKm}</p>
-              ) : null}
-              <p className="text-xs text-muted-foreground">
-                Valor de reembolso por km rodado (ex.: R$ 0,60). Definida por
-                você e congelada na viagem.
-              </p>
             </div>
           </CardContent>
         </Card>

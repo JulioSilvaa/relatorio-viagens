@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Select,
   SelectContent,
@@ -67,6 +68,7 @@ export default function TripDetailPage() {
   const [isExpenseFormOpen, setIsExpenseFormOpen] = useState(false);
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [approveTaxa, setApproveTaxa] = useState("");
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [isAddParticipantDialogOpen, setIsAddParticipantDialogOpen] =
     useState(false);
@@ -128,6 +130,10 @@ export default function TripDetailPage() {
     trip.participants.some((participant) => participant.userId === user.id);
   const canApprove =
     trip.status === "EM_APROVACAO" && user?.roleCode === "MANAGER_ADMIN";
+  const kmReembolsavel =
+    trip.tipoVeiculo === "PROPRIO" &&
+    trip.kmInicial !== null &&
+    trip.kmFinal !== null;
   const availableUsers = (usersQuery.data ?? []).filter(
     (member) =>
       !trip.participants.some(
@@ -150,10 +156,16 @@ export default function TripDetailPage() {
   }
 
   async function handleApprove() {
+    const taxaKm = approveTaxa === "" ? null : Number(approveTaxa);
+    if (taxaKm !== null && (Number.isNaN(taxaKm) || taxaKm <= 0)) {
+      toast.error("Informe a taxa por km (maior que zero).");
+      return;
+    }
     try {
-      await approveTrip.mutateAsync(params.id);
+      await approveTrip.mutateAsync({ tripId: params.id, taxaKm });
       toast.success("Relatório aprovado.");
       setIsApproveDialogOpen(false);
+      setApproveTaxa("");
     } catch (approveError) {
       toast.error(
         approveError instanceof Error
@@ -161,6 +173,11 @@ export default function TripDetailPage() {
           : "Não foi possível aprovar o relatório.",
       );
     }
+  }
+
+  function openApproveDialog() {
+    setApproveTaxa(trip?.taxaKm ?? "");
+    setIsApproveDialogOpen(true);
   }
 
   async function handleReturn() {
@@ -344,7 +361,7 @@ export default function TripDetailPage() {
               <Button
                 size="lg"
                 className="h-10 w-full"
-                onClick={() => setIsApproveDialogOpen(true)}
+                onClick={() => openApproveDialog()}
                 disabled={approveTrip.isPending}
               >
                 <CheckCircle2 aria-hidden="true" />
@@ -630,6 +647,20 @@ export default function TripDetailPage() {
               Após a aprovação, o relatório segue para o Financeiro.
             </DialogDescription>
           </DialogHeader>
+          {kmReembolsavel ? (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="aprovar-taxaKm">Taxa por km (R$)</Label>
+              <MoneyInput
+                id="aprovar-taxaKm"
+                value={approveTaxa}
+                onValueChange={setApproveTaxa}
+              />
+              <p className="text-xs text-muted-foreground">
+                Valor de reembolso por km rodado. Se deixar em branco, mantém a
+                taxa atual congelada na viagem.
+              </p>
+            </div>
+          ) : null}
           <DialogFooter showCloseButton={false}>
             <Button
               type="button"
