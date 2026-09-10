@@ -83,7 +83,7 @@ export function createReceiptsRouter({
       );
       res.set('Content-Type', result.fileType);
       res.set('Content-Disposition', `inline; filename="${result.fileName}"`);
-      res.send(result.fileData);
+      res.send(Buffer.from(result.fileData));
     }),
   );
 
