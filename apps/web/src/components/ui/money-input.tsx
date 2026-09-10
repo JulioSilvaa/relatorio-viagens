@@ -54,7 +54,9 @@ export function MoneyInput({
     });
   }
 
-  const display = value ? `R$ ${formatMoneyInputValue(value)}` : "";
+  const display = value
+    ? `R$ ${formatMoneyInputValue(Number(value).toFixed(2))}`
+    : "";
 
   return (
     <Input
