@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listNotifications, markNotificationRead, unreadCount } from "./api";
+import { playNotificationSound, shouldNotifySound } from "@/lib/notification-sound";
 
 export const notificationsKeys = {
   all: ["notifications"] as const,
@@ -19,8 +21,22 @@ export function useUnreadCount() {
   return useQuery({
     queryKey: notificationsKeys.unread,
     queryFn: unreadCount,
-    refetchInterval: 60_000,
+    refetchInterval: 15_000,
   });
+}
+
+export function useNewNotificationAlert() {
+  const { data: unread } = useUnreadCount();
+  const previousRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (typeof unread !== "number") return;
+    const previous = previousRef.current;
+    previousRef.current = unread;
+    if (shouldNotifySound(previous, unread)) {
+      playNotificationSound();
+    }
+  }, [unread]);
 }
 
 export function useMarkNotificationRead() {

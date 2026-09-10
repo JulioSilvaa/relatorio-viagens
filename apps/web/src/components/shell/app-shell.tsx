@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, Briefcase, Home, Plus, User } from "lucide-react";
 import { useSession } from "@/modules/auth/session-context";
-import { useUnreadCount } from "@/modules/notifications/hooks";
+import { useNewNotificationAlert, useUnreadCount } from "@/modules/notifications/hooks";
 import { ConnectivityIndicator } from "./connectivity-indicator";
 import { UserMenu } from "./user-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -170,6 +170,7 @@ function Sidebar() {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const router = useRouter();
+  useNewNotificationAlert();
 
   useEffect(() => {
     if (status === "unauthenticated") {
