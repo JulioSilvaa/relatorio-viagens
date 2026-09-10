@@ -8,12 +8,21 @@ import {
   Paperclip,
   Plus,
   SendHorizontal,
+  Trash2,
   Undo2,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { useTrip, useDeliverTrip, useApproveTrip, useReturnTrip } from "../hooks";
+import {
+  useTrip,
+  useDeliverTrip,
+  useApproveTrip,
+  useReturnTrip,
+  useUsers,
+  useAddParticipant,
+  useRemoveParticipant,
+} from "../hooks";
 import { TripStatusBadge } from "../components/trip-status-badge";
 import { ExpenseFormDialog } from "@/modules/expenses/components/expense-form-dialog";
 import { receiptFileUrl } from "@/modules/expenses/api";
@@ -27,6 +36,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,7 +53,10 @@ import {
 } from "@/components/ui/dialog";
 import { getErrorMessage } from "@/lib/api";
 import { formatDate, formatMoney, formatPeriodo } from "@/lib/format";
-import type { TripExpenseView } from "@/types/domain";
+import type {
+  TripExpenseView,
+  TripParticipantView,
+} from "@/types/domain";
 import { cn } from "cn";
 
 const EDITABLE_TRIP_STATUSES = new Set(["EM_ANDAMENTO", "EM_CORRECAO"]);
@@ -48,6 +68,11 @@ export default function TripDetailPage() {
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+  const [isAddParticipantDialogOpen, setIsAddParticipantDialogOpen] =
+    useState(false);
+  const [participantUserId, setParticipantUserId] = useState("");
+  const [participantToRemove, setParticipantToRemove] =
+    useState<TripParticipantView | null>(null);
   const [returnJustificativa, setReturnJustificativa] = useState("");
   const [returnError, setReturnError] = useState("");
   const [reimbursabilityTarget, setReimbursabilityTarget] =
@@ -60,6 +85,14 @@ export default function TripDetailPage() {
   const approveTrip = useApproveTrip();
   const returnTrip = useReturnTrip();
   const changeReimbursability = useChangeReimbursability(params.id);
+  const canManageParticipants =
+    trip !== undefined &&
+    trip.status === "EM_ANDAMENTO" &&
+    user !== null &&
+    (user.roleCode === "MANAGER_ADMIN" || trip.criadoPor.id === user.id);
+  const usersQuery = useUsers(canManageParticipants);
+  const addParticipant = useAddParticipant(params.id);
+  const removeParticipant = useRemoveParticipant(params.id);
 
   if (isLoading) {
     return (
@@ -95,6 +128,12 @@ export default function TripDetailPage() {
     trip.participants.some((participant) => participant.userId === user.id);
   const canApprove =
     trip.status === "EM_APROVACAO" && user?.roleCode === "MANAGER_ADMIN";
+  const availableUsers = (usersQuery.data ?? []).filter(
+    (member) =>
+      !trip.participants.some(
+        (participant) => participant.userId === member.id,
+      ),
+  );
 
   async function handleDeliver() {
     try {
@@ -143,6 +182,36 @@ export default function TripDetailPage() {
         returnErrorObject instanceof Error
           ? returnErrorObject.message
           : "Não foi possível retornar o relatório.",
+      );
+    }
+  }
+
+  async function handleAddParticipant() {
+    try {
+      await addParticipant.mutateAsync(participantUserId);
+      toast.success("Colaborador adicionado à viagem.");
+      setIsAddParticipantDialogOpen(false);
+      setParticipantUserId("");
+    } catch (participantError) {
+      toast.error(
+        participantError instanceof Error
+          ? participantError.message
+          : "Não foi possível adicionar o colaborador.",
+      );
+    }
+  }
+
+  async function handleRemoveParticipant() {
+    if (!participantToRemove) return;
+    try {
+      await removeParticipant.mutateAsync(participantToRemove.userId);
+      toast.success("Colaborador removido da viagem.");
+      setParticipantToRemove(null);
+    } catch (participantError) {
+      toast.error(
+        participantError instanceof Error
+          ? participantError.message
+          : "Não foi possível remover o colaborador.",
       );
     }
   }
@@ -458,24 +527,58 @@ export default function TripDetailPage() {
         </Card>
       ) : null}
 
-      {trip.participants.length > 0 ? (
+      {trip.participants.length > 0 || canManageParticipants ? (
         <section aria-label="Participantes">
-          <CardHeader className="px-0 pb-2">
-            <CardTitle className="text-base">Participantes</CardTitle>
-          </CardHeader>
+          <div className="flex items-center justify-between gap-2 px-0 pb-2">
+            <CardHeader className="p-0">
+              <CardTitle className="text-base">Participantes</CardTitle>
+            </CardHeader>
+            {canManageParticipants ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setParticipantUserId("");
+                  setIsAddParticipantDialogOpen(true);
+                }}
+              >
+                <Plus aria-hidden="true" />
+                Adicionar
+              </Button>
+            ) : null}
+          </div>
           <Card className="shadow-sm">
-            <CardContent className="flex flex-col gap-2 p-4">
-              {trip.participants.map((participant) => (
-                <div
-                  key={participant.userId}
-                  className="flex items-center justify-between border-b border-border py-2 text-sm last:border-0"
-                >
-                  <span className="text-foreground">{participant.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    Desde {formatDate(participant.addedAt)}
-                  </span>
-                </div>
-              ))}
+            <CardContent className="flex flex-col gap-1 p-4">
+              {trip.participants.length === 0 ? (
+                <p className="py-2 text-sm text-muted-foreground">
+                  Nenhum colaborador autorizado a viajar até o momento.
+                </p>
+              ) : (
+                trip.participants.map((participant) => (
+                  <div
+                    key={participant.userId}
+                    className="flex items-center justify-between border-b border-border py-2 text-sm last:border-0"
+                  >
+                    <span className="text-foreground">{participant.name}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        Desde {formatDate(participant.addedAt)}
+                      </span>
+                      {canManageParticipants ? (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Remover ${participant.name}`}
+                          onClick={() => setParticipantToRemove(participant)}
+                          disabled={removeParticipant.isPending}
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      ) : null}
+                    </span>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </section>
@@ -649,6 +752,100 @@ export default function TripDetailPage() {
               {changeReimbursability.isPending
                 ? "Salvando..."
                 : "Salvar alteração"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isAddParticipantDialogOpen}
+        onOpenChange={setIsAddParticipantDialogOpen}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Adicionar colaborador</DialogTitle>
+            <DialogDescription>
+              O colaborador passa a acessar esta viagem e lançar suas próprias
+              despesas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="participante">Colaborador</Label>
+            <Select
+              value={participantUserId}
+              onValueChange={setParticipantUserId}
+            >
+              <SelectTrigger id="participante" className="w-full">
+                <SelectValue placeholder="Selecione o colaborador" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {availableUsers.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">
+                      Todos os colaboradores já participam da viagem.
+                    </p>
+                  ) : (
+                    availableUsers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter showCloseButton={false}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsAddParticipantDialogOpen(false)}
+              disabled={addParticipant.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleAddParticipant()}
+              disabled={addParticipant.isPending || !participantUserId}
+            >
+              {addParticipant.isPending ? "Adicionando..." : "Adicionar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={participantToRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) setParticipantToRemove(null);
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Remover colaborador</DialogTitle>
+            <DialogDescription>
+              {participantToRemove
+                ? `${participantToRemove.name} deixará de acessar esta viagem e não poderá lançar despesas.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton={false}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setParticipantToRemove(null)}
+              disabled={removeParticipant.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void handleRemoveParticipant()}
+              disabled={removeParticipant.isPending}
+            >
+              {removeParticipant.isPending ? "Removendo..." : "Remover"}
             </Button>
           </DialogFooter>
         </DialogContent>
