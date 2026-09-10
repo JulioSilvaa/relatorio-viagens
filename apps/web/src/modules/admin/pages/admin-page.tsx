@@ -17,6 +17,7 @@ import {
 import { ErrorState } from "@/components/feedback/error-state";
 import { getErrorMessage } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CreditCardSection } from "../components/credit-card-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -310,6 +311,8 @@ export default function AdminPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <CreditCardSection />
 
       <Card className="shadow-sm">
         <CardHeader>

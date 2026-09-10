@@ -192,8 +192,9 @@ function Sidebar() {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const router = useRouter();
-  useNewNotificationAlert();
-  useNotificationRealtime();
+  const authenticated = status === "authenticated";
+  useNewNotificationAlert(authenticated);
+  useNotificationRealtime(authenticated);
 
   useEffect(() => {
     if (status === "unauthenticated") {

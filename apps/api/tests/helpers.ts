@@ -21,6 +21,7 @@ export function buildApp(): Express {
     receiptsRouter: container.receiptsRouter,
     approvalsRouter: container.approvalsRouter,
     costCentersRouter: container.costCentersRouter,
+    creditCardsRouter: container.creditCardsRouter,
     notificationsRouter: container.notificationsRouter,
     settingsRouter: container.settingsRouter,
     ocrRouter: container.ocrRouter,
@@ -45,10 +46,17 @@ const ROLE_PERMISSIONS: Record<RoleType, readonly string[]> = {
     'RELATORIO.VISUALIZAR',
     'CONFIG.CENTRO_CUSTO.VISUALIZAR',
     'ADIANTAMENTO.SOLICITAR',
+    'CARTAO.VISUALIZAR',
+    'VIAGEM.CARTAO.SELECIONAR',
   ],
   MANAGER_ADMIN: [
     'USUARIO.CRIAR',
     'USUARIO.EDITAR',
+    'CARTAO.CRIAR',
+    'CARTAO.VISUALIZAR',
+    'CARTAO.EDITAR',
+    'CARTAO.DESATIVAR',
+    'VIAGEM.CARTAO.SELECIONAR',
     'VIAGEM.CRIAR',
     'VIAGEM.EDITAR',
     'VIAGEM.ENTREGAR',
@@ -116,6 +124,7 @@ export async function truncateAll(): Promise<void> {
   await prisma.receipt.deleteMany();
   await prisma.expense.deleteMany();
   await prisma.tripParticipant.deleteMany();
+  await prisma.creditCard.deleteMany();
   await prisma.trip.deleteMany();
   await prisma.expenseCategoryLimit.deleteMany();
   await prisma.expenseCategory.deleteMany();

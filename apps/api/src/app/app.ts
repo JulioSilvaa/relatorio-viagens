@@ -15,6 +15,7 @@ export interface AppDeps {
   receiptsRouter: express.Router;
   approvalsRouter: express.Router;
   costCentersRouter: express.Router;
+  creditCardsRouter: express.Router;
   notificationsRouter: express.Router;
   ocrRouter: express.Router;
   fiscalRouter: express.Router;
@@ -37,6 +38,7 @@ export function createApp({
   receiptsRouter,
   approvalsRouter,
   costCentersRouter,
+  creditCardsRouter,
   notificationsRouter,
   ocrRouter,
   fiscalRouter,
@@ -64,6 +66,7 @@ export function createApp({
   app.use('/api', receiptsRouter);
   app.use('/api/approvals', approvalsRouter);
   app.use('/api/cost-centers', costCentersRouter);
+  app.use('/api/credit-cards', creditCardsRouter);
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/ocr', ocrRouter);
   app.use('/api/fiscal', fiscalRouter);

@@ -12,6 +12,12 @@ import { ListUsersService } from '../modules/users/services/list-users.service.j
 import { UpdateUserService } from '../modules/users/services/update-user.service.js';
 import { UpdateUserStatusService } from '../modules/users/services/update-user-status.service.js';
 import { createUsersRouter } from '../modules/users/controllers/user.controller.js';
+import { PrismaCreditCardsRepository } from '../modules/credit-cards/repositories/credit-cards.repository.prisma.js';
+import { CreateCreditCardService } from '../modules/credit-cards/services/create-credit-card.service.js';
+import { ListCreditCardsService } from '../modules/credit-cards/services/list-credit-cards.service.js';
+import { UpdateCreditCardService } from '../modules/credit-cards/services/update-credit-card.service.js';
+import { UpdateCreditCardStatusService } from '../modules/credit-cards/services/update-credit-card-status.service.js';
+import { createCreditCardRouter } from '../modules/credit-cards/controllers/credit-card.controller.js';
 import {
   PrismaInvitesRepository,
   PrismaPasswordResetRepository,
@@ -111,6 +117,7 @@ export interface Container {
   receiptsRouter: ReturnType<typeof createReceiptsRouter>;
   approvalsRouter: ReturnType<typeof createApprovalsRouter>;
   costCentersRouter: ReturnType<typeof createCostCentersRouter>;
+  creditCardsRouter: ReturnType<typeof createCreditCardRouter>;
   notificationsRouter: ReturnType<typeof createNotificationsRouter>;
   ocrRouter: ReturnType<typeof createOcrRouter>;
   fiscalRouter: ReturnType<typeof createFiscalRouter>;
@@ -133,6 +140,7 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
   const trips = new PrismaTripsRepository();
   const expenses = new PrismaExpensesRepository();
   const costCenters = new PrismaCostCentersRepository();
+  const creditCards = new PrismaCreditCardsRepository();
   const notificationsRepo = new PrismaNotificationsRepository();
   const notifications = new NotificationsService(notificationsRepo, realtime);
   const receipts = new PrismaReceiptsRepository();
@@ -189,6 +197,10 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
   const listCostCentersService = new ListCostCentersService(costCenters);
   const createCostCenterService = new CreateCostCenterService(costCenters, audit);
   const updateCostCenterService = new UpdateCostCenterService(costCenters, audit);
+  const createCreditCardService = new CreateCreditCardService(creditCards, audit);
+  const listCreditCardsService = new ListCreditCardsService(creditCards);
+  const updateCreditCardService = new UpdateCreditCardService(creditCards, audit);
+  const updateCreditCardStatusService = new UpdateCreditCardStatusService(creditCards, audit);
 
   const requireAuth = createRequireAuth(sessions);
 
@@ -197,6 +209,13 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
     listUsersService,
     updateUserService,
     updateUserStatusService,
+    requireAuth,
+  });
+  const creditCardsRouter = createCreditCardRouter({
+    createCreditCardService,
+    listCreditCardsService,
+    updateCreditCardService,
+    updateCreditCardStatusService,
     requireAuth,
   });
   const authRouter = createAuthRouter({
@@ -367,6 +386,7 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
     receiptsRouter,
     approvalsRouter,
     costCentersRouter,
+    creditCardsRouter,
     notificationsRouter,
     ocrRouter,
     fiscalRouter,

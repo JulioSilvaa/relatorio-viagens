@@ -179,6 +179,8 @@ model User {
   advancesApproved   TripAdvance[]          @relation("AdiantamentoAprovadoPor")
   advancesPaid       TripAdvance[]          @relation("AdiantamentoPagoPor")
   refundsRegistered  TripRefund[]           @relation("DevolucaoRegistradaPor")
+  creditCardsCreated CreditCard[]           @relation("CartaoCriadoPor")
+  creditCardsUpdated CreditCard[]           @relation("CartaoAtualizadoPor")
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
 
@@ -295,10 +297,33 @@ model TripParticipant {
   user      User     @relation("TripParticipante", fields: [userId], references: [id])
   addedById String   @db.Uuid
   addedBy   User     @relation("TripParticipanteAdicionadoPor", fields: [addedById], references: [id])
+  creditCardId String?    @db.Uuid
+  creditCard   CreditCard? @relation(fields: [creditCardId], references: [id])
   createdAt DateTime @default(now())
 
   @@unique([tripId, userId])
   @@index([userId])
+}
+
+/// Cartão corporativo reutilizável em viagens, sem vínculo exclusivo ao titular impresso.
+model CreditCard {
+  id                   String            @id @default(uuid()) @db.Uuid
+  cardholderName       String
+  encryptedCardNumber  String
+  last4                String            @db.VarChar(4)
+  brand                String?
+  active               Boolean           @default(true)
+  createdById          String            @db.Uuid
+  createdBy            User              @relation("CartaoCriadoPor", fields: [createdById], references: [id])
+  updatedById          String?           @db.Uuid
+  updatedBy            User?             @relation("CartaoAtualizadoPor", fields: [updatedById], references: [id])
+  deletedAt            DateTime?
+  participants         TripParticipant[]
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@index([active])
+  @@index([deletedAt])
 }
 
 /// Categoria de despesa (RF-DES-002). Categorias nunca são apagadas, apenas desativadas.

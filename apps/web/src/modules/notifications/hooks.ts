@@ -18,16 +18,17 @@ export function useNotifications() {
   });
 }
 
-export function useUnreadCount() {
+export function useUnreadCount(enabled = true) {
   return useQuery({
     queryKey: notificationsKeys.unread,
     queryFn: unreadCount,
+    enabled,
     refetchInterval: 15_000,
   });
 }
 
-export function useNewNotificationAlert() {
-  const { data: unread } = useUnreadCount();
+export function useNewNotificationAlert(enabled = true) {
+  const { data: unread } = useUnreadCount(enabled);
   const queryClient = useQueryClient();
   const previousRef = useRef<number | null>(null);
 
@@ -52,10 +53,12 @@ export function useNewNotificationAlert() {
   }, [queryClient, unread]);
 }
 
-export function useNotificationRealtime(): void {
+export function useNotificationRealtime(enabled = true): void {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (!enabled) return;
+
     const apiUrl =
       process.env.NEXT_PUBLIC_API_URL ??
       (window.location.port === "3001" ? "http://localhost:3000" : window.location.origin);
@@ -75,7 +78,7 @@ export function useNotificationRealtime(): void {
       socket.off("notification.created", refreshNotifications);
       socket.disconnect();
     };
-  }, [queryClient]);
+  }, [enabled, queryClient]);
 }
 
 export function useDeleteNotification() {

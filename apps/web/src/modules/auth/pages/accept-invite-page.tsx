@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { acceptInvite } from "../api";
@@ -12,15 +12,15 @@ import { Label } from "@/components/ui/label";
 
 export default function AcceptInvitePage() {
   const router = useRouter();
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("token") ?? "",
+  );
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    setToken(new URLSearchParams(window.location.search).get("token") ?? "");
-  }, []);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();

@@ -12,6 +12,31 @@ export const PERMISSIONS = [
     description: "Editar dados cadastrais do colaborador.",
   },
   {
+    code: "CARTAO.CRIAR",
+    name: "Cadastrar cartão corporativo",
+    description: "Cadastrar cartão corporativo sem armazenar CVV ou PIN.",
+  },
+  {
+    code: "CARTAO.VISUALIZAR",
+    name: "Visualizar cartões corporativos",
+    description: "Visualizar cartões somente com os quatro últimos dígitos.",
+  },
+  {
+    code: "CARTAO.EDITAR",
+    name: "Editar cartão corporativo",
+    description: "Editar dados permitidos do cartão corporativo.",
+  },
+  {
+    code: "CARTAO.DESATIVAR",
+    name: "Desativar cartão corporativo",
+    description: "Desativar cartão sem apagar o histórico.",
+  },
+  {
+    code: "VIAGEM.CARTAO.SELECIONAR",
+    name: "Selecionar cartão na viagem",
+    description: "Associar cartão corporativo ativo a participante da viagem.",
+  },
+  {
     code: "VIAGEM.CRIAR",
     name: "Criar viagem",
     description: "Criar viagens (RF-VIA-001).",

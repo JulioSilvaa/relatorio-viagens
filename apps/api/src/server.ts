@@ -20,6 +20,7 @@ export function mountApp(container: Container) {
     receiptsRouter: container.receiptsRouter,
     approvalsRouter: container.approvalsRouter,
     costCentersRouter: container.costCentersRouter,
+    creditCardsRouter: container.creditCardsRouter,
     notificationsRouter: container.notificationsRouter,
     ocrRouter: container.ocrRouter,
     fiscalRouter: container.fiscalRouter,
