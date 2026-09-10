@@ -16,7 +16,17 @@ export interface CreateTripInput {
   veiculo?: string | null;
   placa?: string | null;
   tipoVeiculo?: string | null;
+  kmInicial?: number | null;
+  kmFinal?: number | null;
+  taxaKm?: string | null;
   observacoes?: string | null;
+}
+
+export interface UserDirectoryEntry {
+  id: string;
+  name: string;
+  email: string;
+  roleCode: string;
 }
 
 export async function listTrips(): Promise<TripView[]> {
@@ -41,6 +51,30 @@ export async function deliverTrip(tripId: string): Promise<void> {
   await apiFetch<void>(`/api/trips/${tripId}/entregar`, {
     method: "POST",
   });
+}
+
+export async function addParticipant(
+  tripId: string,
+  userId: string,
+): Promise<void> {
+  await apiFetch<void>(`/api/trips/${tripId}/participants`, {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export async function removeParticipant(
+  tripId: string,
+  userId: string,
+): Promise<void> {
+  await apiFetch<void>(`/api/trips/${tripId}/participants/${userId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listUsers(): Promise<UserDirectoryEntry[]> {
+  const data = await apiFetch<{ users: UserDirectoryEntry[] }>("/api/users");
+  return data.users;
 }
 
 export async function approveTrip(tripId: string): Promise<void> {

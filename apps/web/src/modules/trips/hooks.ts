@@ -2,11 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  addParticipant,
   approveTrip,
   createTrip,
   deliverTrip,
   getTrip,
   listTrips,
+  listUsers,
+  removeParticipant,
   returnTrip,
   type CreateTripInput,
 } from "./api";
@@ -69,6 +72,34 @@ export function useReturnTrip() {
       void queryClient.invalidateQueries({ queryKey: tripsKeys.detail(tripId) });
       void queryClient.invalidateQueries({ queryKey: tripsKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useUsers(enabled: boolean) {
+  return useQuery({
+    queryKey: ["users"],
+    queryFn: listUsers,
+    enabled,
+  });
+}
+
+export function useAddParticipant(tripId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => addParticipant(tripId, userId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: tripsKeys.detail(tripId) });
+    },
+  });
+}
+
+export function useRemoveParticipant(tripId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => removeParticipant(tripId, userId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: tripsKeys.detail(tripId) });
     },
   });
 }

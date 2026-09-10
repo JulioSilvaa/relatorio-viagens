@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Banknote } from "lucide-react";
+import { ArrowLeft, Banknote, Car } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useCreateTrip } from "../hooks";
@@ -84,6 +84,11 @@ interface FieldErrors {
   dataSaida?: string;
   dataRetorno?: string;
   motivo?: string;
+  veiculo?: string;
+  tipoVeiculo?: string;
+  kmInicial?: string;
+  kmFinal?: string;
+  taxaKm?: string;
 }
 
 export default function NewTripPage() {
@@ -102,6 +107,11 @@ export default function NewTripPage() {
     dataSaida: "",
     dataRetorno: "",
     motivo: "",
+    veiculo: "",
+    tipoVeiculo: "",
+    kmInicial: "",
+    kmFinal: "",
+    taxaKm: "",
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [adiantamento, setAdiantamento] = useState({
@@ -157,11 +167,45 @@ export default function NewTripPage() {
       }
     }
 
+    const kmInicial = values.kmInicial === "" ? null : Number(values.kmInicial);
+    const kmFinal = values.kmFinal === "" ? null : Number(values.kmFinal);
+    const taxaKm = values.taxaKm === "" ? null : Number(values.taxaKm);
+
+    const kmErrors: FieldErrors = {};
+    if (kmInicial !== null && Number.isNaN(kmInicial)) {
+      kmErrors.kmInicial = "Informe o KM inicial.";
+    }
+    if (kmFinal !== null && Number.isNaN(kmFinal)) {
+      kmErrors.kmFinal = "Informe o KM final.";
+    }
+    if (taxaKm !== null && (Number.isNaN(taxaKm) || taxaKm <= 0)) {
+      kmErrors.taxaKm = "Informe a taxa por km.";
+    }
+    if (
+      kmInicial !== null &&
+      kmFinal !== null &&
+      !Number.isNaN(kmInicial) &&
+      !Number.isNaN(kmFinal) &&
+      kmFinal < kmInicial
+    ) {
+      kmErrors.kmFinal = "O KM final deve ser maior ou igual ao inicial.";
+    }
+    if (Object.keys(kmErrors).length > 0) {
+      setErrors((current) => ({ ...current, ...kmErrors }));
+      return;
+    }
+
     try {
       const trip = await createTrip.mutateAsync({
         ...parsed.data,
         dataSaida: new Date(parsed.data.dataSaida).toISOString(),
         dataRetorno: new Date(parsed.data.dataRetorno).toISOString(),
+        veiculo:
+          values.veiculo.trim() === "" ? null : values.veiculo.trim(),
+        tipoVeiculo: values.tipoVeiculo === "" ? null : values.tipoVeiculo,
+        kmInicial,
+        kmFinal,
+        taxaKm: taxaKm === null ? null : String(taxaKm),
       });
 
       if (adiantamento.ativo) {
@@ -389,6 +433,102 @@ export default function NewTripPage() {
             </CardContent>
           </Card>
         ) : null}
+
+        <Card className="shadow-sm">
+          <CardContent className="flex flex-col gap-4 p-5">
+            <div className="flex items-center gap-2">
+              <Car className="size-4 text-muted-foreground" aria-hidden="true" />
+              <p className="text-sm font-medium">Veículo e quilometragem</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Opcional. Necessário para calcular o reembolso por km.
+            </p>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="tipoVeiculo">Tipo do veículo</Label>
+              <Select
+                value={values.tipoVeiculo}
+                onValueChange={(value) => setField("tipoVeiculo", value)}
+              >
+                <SelectTrigger id="tipoVeiculo" className="w-full">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="PROPRIO">Próprio</SelectItem>
+                    <SelectItem value="EMPRESA">Empresa</SelectItem>
+                    <SelectItem value="ALUGADO">Alugado</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="veiculo">Veículo</Label>
+              <Input
+                id="veiculo"
+                placeholder="Ex.: Fiat Strada 2022"
+                value={values.veiculo}
+                onChange={(event) => setField("veiculo", event.target.value)}
+                aria-invalid={Boolean(errors.veiculo)}
+              />
+              {errors.veiculo ? (
+                <p className="text-sm text-danger">{errors.veiculo}</p>
+              ) : null}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="kmInicial">KM inicial</Label>
+                <Input
+                  id="kmInicial"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.1"
+                  value={values.kmInicial}
+                  onChange={(event) => setField("kmInicial", event.target.value)}
+                  aria-invalid={Boolean(errors.kmInicial)}
+                />
+                {errors.kmInicial ? (
+                  <p className="text-sm text-danger">{errors.kmInicial}</p>
+                ) : null}
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="kmFinal">KM final</Label>
+                <Input
+                  id="kmFinal"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.1"
+                  value={values.kmFinal}
+                  onChange={(event) => setField("kmFinal", event.target.value)}
+                  aria-invalid={Boolean(errors.kmFinal)}
+                />
+                {errors.kmFinal ? (
+                  <p className="text-sm text-danger">{errors.kmFinal}</p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="taxaKm">Taxa por km</Label>
+              <MoneyInput
+                id="taxaKm"
+                value={values.taxaKm}
+                onValueChange={(value) => setField("taxaKm", value)}
+              />
+              {errors.taxaKm ? (
+                <p className="text-sm text-danger">{errors.taxaKm}</p>
+              ) : null}
+              <p className="text-xs text-muted-foreground">
+                Valor de reembolso por km rodado (ex.: R$ 0,60). Definida por
+                você e congelada na viagem.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         <Button
           type="submit"
