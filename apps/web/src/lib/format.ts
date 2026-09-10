@@ -9,6 +9,41 @@ export function formatMoney(value: string | number | null | undefined): string {
   }).format(number);
 }
 
+export function parseMoneyInput(value: string): number | null {
+  const normalized = value.trim().replace(/[R$\s]/g, "").replace(",", ".");
+  if (!normalized || !/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed;
+}
+
+export function moneyDigits(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+export function moneyInputToDecimal(digits: string): string {
+  const clean = moneyDigits(digits);
+  if (!clean) return "";
+  const padded = clean.padStart(3, "0");
+  const reais = padded.slice(0, -2).replace(/^0+(?=\d)/, "");
+  const centavos = padded.slice(-2);
+  return `${reais || "0"}.${centavos}`;
+}
+
+export function formatMoneyInputValue(value: string): string {
+  const clean = moneyDigits(value);
+  if (!clean) return "";
+  const padded = clean.padStart(3, "0");
+  const reais = padded.slice(0, -2).replace(/^0+(?=\d)/, "");
+  const centavos = padded.slice(-2);
+  const reaisFormatados = reais
+    ? new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(
+        Number(reais),
+      )
+    : "0";
+  return `${reaisFormatados},${centavos}`;
+}
+
 interface DateParts {
   day: number;
   month: number;

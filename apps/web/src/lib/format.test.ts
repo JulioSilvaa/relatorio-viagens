@@ -3,7 +3,11 @@ import {
   formatDate,
   formatDateTime,
   formatMoney,
+  formatMoneyInputValue,
   formatPeriodo,
+  moneyDigits,
+  moneyInputToDecimal,
+  parseMoneyInput,
 } from "./format";
 
 describe("formatMoney", () => {
@@ -45,6 +49,57 @@ describe("formatDateTime", () => {
 
   it("retorna — para valores inválidos", () => {
     expect(formatDateTime(null)).toBe("—");
+  });
+});
+
+describe("moneyDigits", () => {
+  it("extrai apenas dígitos da máscara", () => {
+    expect(moneyDigits("R$ 1.234,56")).toBe("123456");
+    expect(moneyDigits("12,34")).toBe("1234");
+    expect(moneyDigits("abc12x34")).toBe("1234");
+    expect(moneyDigits("")).toBe("");
+  });
+});
+
+describe("moneyInputToDecimal", () => {
+  it("converte dígitos digitados em decimal para a API", () => {
+    expect(moneyInputToDecimal("")).toBe("");
+    expect(moneyInputToDecimal("2")).toBe("0.02");
+    expect(moneyInputToDecimal("12")).toBe("0.12");
+    expect(moneyInputToDecimal("123")).toBe("1.23");
+    expect(moneyInputToDecimal("1234")).toBe("12.34");
+    expect(moneyInputToDecimal("100050")).toBe("1000.50");
+  });
+});
+
+describe("formatMoneyInputValue", () => {
+  it("formata o valor com máscara pt-BR", () => {
+    expect(formatMoneyInputValue("")).toBe("");
+    expect(formatMoneyInputValue("0.00")).toBe("0,00");
+    expect(formatMoneyInputValue("0.02")).toBe("0,02");
+    expect(formatMoneyInputValue("12.34")).toBe("12,34");
+    expect(formatMoneyInputValue("1234.56")).toBe("1.234,56");
+    expect(formatMoneyInputValue("999999.99")).toBe("999.999,99");
+  });
+});
+
+describe("parseMoneyInput", () => {
+  it("aceita valor com ponto decimal", () => {
+    expect(parseMoneyInput("1234.5")).toBe(1234.5);
+  });
+
+  it("aceita vírgula como separador decimal", () => {
+    expect(parseMoneyInput("42,90")).toBe(42.9);
+  });
+
+  it("aceita prefixo de moeda e espaços", () => {
+    expect(parseMoneyInput("R$ 12,50")).toBe(12.5);
+  });
+
+  it("retorna null para valores inválidos", () => {
+    expect(parseMoneyInput("")).toBeNull();
+    expect(parseMoneyInput("abc")).toBeNull();
+    expect(parseMoneyInput("1.234,56")).toBeNull();
   });
 });
 

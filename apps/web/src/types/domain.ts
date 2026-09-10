@@ -68,7 +68,7 @@ export interface TripParticipantView {
 
 export interface TripReceiptView {
   id: string;
-  tipo: string;
+  tipo: ReceiptTypeValue;
   fileName: string;
   fileType: string;
   fileSize: number;
@@ -88,9 +88,61 @@ export interface TripExpenseView {
   receipts: TripReceiptView[];
 }
 
+export const ADVANCE_STATUSES = [
+  "SOLICITADO",
+  "EM_ANALISE",
+  "APROVADO",
+  "RECUSADO",
+  "PAGAMENTO_PENDENTE",
+  "PAGO",
+] as const;
+
+export type AdvanceStatus = (typeof ADVANCE_STATUSES)[number];
+
+export interface TripAdvanceView {
+  id: string;
+  tripId: string;
+  status: AdvanceStatus;
+  solicitadoPor: TripUserRef;
+  valorSolicitado: string;
+  justificativaSolicitacao: string;
+  valorAprovado: string | null;
+  aprovadoPor: TripUserRef | null;
+  aprovadoEm: string | null;
+  justificativaAnalise: string | null;
+  pagoPor: TripUserRef | null;
+  pagoEm: string | null;
+  observacoesPagamento: string | null;
+  solicitadoEm: string;
+  atualizadoEm: string;
+}
+
+export type ReceiptTypeValue =
+  | "NOTA_FISCAL"
+  | "CUPOM_FISCAL"
+  | "NOTA_MANUAL"
+  | "COMPROVANTE_CARTAO"
+  | "OUTRO";
+
+export const RECEIPT_TYPES: ReceiptTypeValue[] = [
+  "NOTA_FISCAL",
+  "CUPOM_FISCAL",
+  "NOTA_MANUAL",
+  "COMPROVANTE_CARTAO",
+  "OUTRO",
+];
+
+export interface ExpenseCategoryView {
+  id: string;
+  code: string;
+  name: string;
+  ativa: boolean;
+}
+
 export interface TripDetailView extends TripView {
   participants: TripParticipantView[];
   despesas: TripExpenseView[];
+  adiantamento: TripAdvanceView | null;
 }
 
 export interface TripSearchResult {

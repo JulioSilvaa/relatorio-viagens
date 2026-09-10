@@ -37,6 +37,28 @@ export async function createTrip(input: CreateTripInput): Promise<TripView> {
   return data.trip;
 }
 
+export async function deliverTrip(tripId: string): Promise<void> {
+  await apiFetch<void>(`/api/trips/${tripId}/entregar`, {
+    method: "POST",
+  });
+}
+
+export async function approveTrip(tripId: string): Promise<void> {
+  await apiFetch<void>(`/api/approvals/${tripId}/aprovar`, {
+    method: "POST",
+  });
+}
+
+export async function returnTrip(
+  tripId: string,
+  justificativa: string,
+): Promise<void> {
+  await apiFetch<void>(`/api/approvals/${tripId}/retornar`, {
+    method: "POST",
+    body: JSON.stringify({ justificativa }),
+  });
+}
+
 export interface SearchTripsParams {
   numeroRelatorio?: string;
   dataDe?: string;

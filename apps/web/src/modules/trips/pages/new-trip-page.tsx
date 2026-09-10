@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Banknote } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useCreateTrip } from "../hooks";
+import { requestAdvance } from "@/modules/advances/api";
+import { useSession } from "@/modules/auth/session-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
@@ -86,6 +89,10 @@ interface FieldErrors {
 export default function NewTripPage() {
   const createTrip = useCreateTrip();
   const router = useRouter();
+  const { user } = useSession();
+
+  const canSolicitarAdiantamento =
+    user?.roleCode === "EMPLOYEE" || user?.roleCode === "MANAGER_ADMIN";
 
   const [values, setValues] = useState({
     cliente: "",
@@ -97,10 +104,33 @@ export default function NewTripPage() {
     motivo: "",
   });
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [adiantamento, setAdiantamento] = useState({
+    ativo: false,
+    valorSolicitado: "",
+    justificativaSolicitacao: "",
+  });
+  const [adiantamentoErro, setAdiantamentoErro] = useState<string | null>(null);
 
   function setField(field: keyof typeof values, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  function setAdvanceField(
+    field: keyof typeof adiantamento,
+    value: string | boolean,
+  ) {
+    setAdiantamento((current) => ({ ...current, [field]: value }));
+    setAdiantamentoErro(null);
+  }
+
+  function toggleAdiantamento() {
+    setAdiantamento((current) => ({ ...current, ativo: !current.ativo }));
+    setAdiantamentoErro(null);
+  }
+
+  function toCents(value: string): number {
+    return Math.round(Number(value) * 100);
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -116,13 +146,41 @@ export default function NewTripPage() {
       return;
     }
 
+    if (adiantamento.ativo) {
+      if (!adiantamento.valorSolicitado || toCents(adiantamento.valorSolicitado) <= 0) {
+        setAdiantamentoErro("Informe o valor solicitado.");
+        return;
+      }
+      if (adiantamento.justificativaSolicitacao.trim().length < 5) {
+        setAdiantamentoErro("Justificativa deve ter pelo menos 5 caracteres.");
+        return;
+      }
+    }
+
     try {
       const trip = await createTrip.mutateAsync({
         ...parsed.data,
         dataSaida: new Date(parsed.data.dataSaida).toISOString(),
         dataRetorno: new Date(parsed.data.dataRetorno).toISOString(),
       });
-      toast.success("Viagem criada.");
+
+      if (adiantamento.ativo) {
+        try {
+          await requestAdvance(trip.id, {
+            valorSolicitado: adiantamento.valorSolicitado,
+            justificativaSolicitacao: adiantamento.justificativaSolicitacao.trim(),
+          });
+          toast.success("Viagem criada com adiantamento solicitado.");
+        } catch (advanceError) {
+          toast.warning(
+            advanceError instanceof Error
+              ? `Viagem criada, mas o adiantamento não foi solicitado: ${advanceError.message}`
+              : "Viagem criada, mas o adiantamento não foi solicitado.",
+          );
+        }
+      } else {
+        toast.success("Viagem criada.");
+      }
       router.push(`/viagens/${trip.id}`);
     } catch (error) {
       toast.error(
@@ -271,6 +329,66 @@ export default function NewTripPage() {
             </div>
           </CardContent>
         </Card>
+
+        {canSolicitarAdiantamento ? (
+          <Card className="shadow-sm">
+            <CardContent className="flex flex-col gap-3 p-5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium">Solicitar adiantamento?</p>
+                  <p className="text-xs text-muted-foreground">
+                    Opcional. O gestor define o valor aprovado depois.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant={adiantamento.ativo ? "default" : "outline"}
+                  className="shrink-0"
+                  onClick={toggleAdiantamento}
+                  aria-pressed={adiantamento.ativo}
+                >
+                  <Banknote aria-hidden="true" />
+                  {adiantamento.ativo ? "Adiantamento incluído" : "Solicitar"}
+                </Button>
+              </div>
+
+              {adiantamento.ativo ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="adiantamento-valor">Valor solicitado</Label>
+                    <MoneyInput
+                      id="adiantamento-valor"
+                      value={adiantamento.valorSolicitado}
+                      onValueChange={(value) =>
+                        setAdvanceField("valorSolicitado", value)
+                      }
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="adiantamento-justificativa">
+                      Justificativa
+                    </Label>
+                    <Input
+                      id="adiantamento-justificativa"
+                      placeholder="Ex.: Diárias e hospedagem antecipadas"
+                      value={adiantamento.justificativaSolicitacao}
+                      onChange={(event) =>
+                        setAdvanceField(
+                          "justificativaSolicitacao",
+                          event.target.value,
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {adiantamentoErro ? (
+                <p className="text-sm text-danger">{adiantamentoErro}</p>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Button
           type="submit"
