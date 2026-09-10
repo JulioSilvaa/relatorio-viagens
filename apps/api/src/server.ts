@@ -21,6 +21,7 @@ export function mountApp(container: Container) {
     ocrRouter: container.ocrRouter,
     fiscalRouter: container.fiscalRouter,
     auditRouter: container.auditRouter,
+    settingsRouter: container.settingsRouter,
     financeRouter: container.financeRouter,
     dashboardRouter: container.dashboardRouter,
     reportsRouter: container.reportsRouter,

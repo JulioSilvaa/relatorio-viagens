@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import type { KmRateService } from '../../settings/services/km-rate.service.js';
 import type { NotificationPublisher } from '../../notifications/notification-publisher.js';
 import type { UsersRepository } from '../../users/repositories/users.repository.js';
 import type { CostCentersRepository } from '../../cost-centers/repositories/cost-centers.repository.js';
@@ -21,6 +22,7 @@ export class CreateTripService {
     private readonly audit: AuditService,
     private readonly users: UsersRepository,
     private readonly notifier: NotificationPublisher,
+    private readonly kmRate: KmRateService,
   ) {}
 
   async execute(dto: CreateTripDto, actor: CreateTripActor): Promise<TripView> {
@@ -34,10 +36,8 @@ export class CreateTripService {
       }
     }
 
-    const taxaKm =
-      dto.taxaKm != null
-        ? String(dto.taxaKm)
-        : computeTaxaKm(dto.tipoVeiculo, dto.kmInicial, dto.kmFinal);
+    const rate = await this.kmRate.get();
+    const taxaKm = computeTaxaKm(dto.tipoVeiculo, dto.kmInicial, dto.kmFinal, rate);
 
     const created = await this.trips.createTrip({
       ...dto,

@@ -22,6 +22,7 @@ export function buildApp(): Express {
     approvalsRouter: container.approvalsRouter,
     costCentersRouter: container.costCentersRouter,
     notificationsRouter: container.notificationsRouter,
+    settingsRouter: container.settingsRouter,
     ocrRouter: container.ocrRouter,
     fiscalRouter: container.fiscalRouter,
     auditRouter: container.auditRouter,
@@ -62,6 +63,8 @@ const ROLE_PERMISSIONS: Record<RoleType, readonly string[]> = {
     'CONFIG.LIMITE.GERENCIAR',
     'CONFIG.CENTRO_CUSTO.GERENCIAR',
     'CONFIG.CENTRO_CUSTO.VISUALIZAR',
+    'CONFIG.SISTEMA.GERENCIAR',
+    'CONFIG.SISTEMA.GERENCIAR',
     'DASHBOARD.GERENCIAL',
     'AUDITORIA.CONSULTAR',
     'ADIANTAMENTO.SOLICITAR',
@@ -118,6 +121,7 @@ export async function truncateAll(): Promise<void> {
   await prisma.expenseCategory.deleteMany();
   await prisma.costCenter.deleteMany();
   await prisma.auditEvent.deleteMany();
+  await prisma.systemSetting.deleteMany();
   await prisma.inviteToken.deleteMany();
   await prisma.passwordResetToken.deleteMany();
   await prisma.session.deleteMany();

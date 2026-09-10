@@ -3,6 +3,9 @@ import { prisma } from '../config/database.js';
 import { createEmailProvider } from '../shared/email/email-provider.factory.js';
 import { createRequireAuth } from '../shared/auth/session.js';
 import { AuditService } from '../modules/audit/audit.service.js';
+import { PrismaSettingsRepository } from '../modules/settings/repositories/settings.repository.prisma.js';
+import { KmRateService } from '../modules/settings/services/km-rate.service.js';
+import { createSettingsRouter } from '../modules/settings/controllers/settings.controller.js';
 import { PrismaUsersRepository } from '../modules/users/repositories/users.repository.prisma.js';
 import { CreateUserService } from '../modules/users/services/create-user.service.js';
 import { ListUsersService } from '../modules/users/services/list-users.service.js';
@@ -109,6 +112,7 @@ export interface Container {
   ocrRouter: ReturnType<typeof createOcrRouter>;
   fiscalRouter: ReturnType<typeof createFiscalRouter>;
   auditRouter: ReturnType<typeof createAuditRouter>;
+  settingsRouter: ReturnType<typeof createSettingsRouter>;
   financeRouter: ReturnType<typeof createFinanceRouter>;
   dashboardRouter: ReturnType<typeof createDashboardRouter>;
   reportsRouter: ReturnType<typeof createReportsRouter>;
@@ -129,6 +133,8 @@ export function buildContainer(): Container {
   const notificationsRepo = new PrismaNotificationsRepository();
   const notifications = new NotificationsService(notificationsRepo);
   const receipts = new PrismaReceiptsRepository();
+  const settingsRepo = new PrismaSettingsRepository();
+  const kmRateService = new KmRateService(settingsRepo);
 
   const createUserService = new CreateUserService(users, invites, audit, email);
   const listUsersService = new ListUsersService(users);
@@ -139,7 +145,14 @@ export function buildContainer(): Container {
   const forgotPasswordService = new ForgotPasswordService(users, resets, email);
   const resetPasswordService = new ResetPasswordService(users, resets, sessions);
 
-  const createTripService = new CreateTripService(trips, costCenters, audit, users, notifications);
+  const createTripService = new CreateTripService(
+    trips,
+    costCenters,
+    audit,
+    users,
+    notifications,
+    kmRateService,
+  );
   const editTripService = new EditTripService(trips, costCenters, audit);
   const listTripsService = new ListTripsService(trips);
   const getTripService = new GetTripService(trips);
@@ -276,6 +289,7 @@ export function buildContainer(): Container {
 
   const listAuditService = new ListAuditService(audit);
   const auditRouter = createAuditRouter({ requireAuth, listAuditService });
+  const settingsRouter = createSettingsRouter({ requireAuth, kmRateService });
 
   const financeRepo = new PrismaFinanceRepository();
   const receiveFinanceService = new ReceiveFinanceService(trips, audit);
@@ -346,6 +360,7 @@ export function buildContainer(): Container {
     ocrRouter,
     fiscalRouter,
     auditRouter,
+    settingsRouter,
     financeRouter,
     dashboardRouter,
     reportsRouter,

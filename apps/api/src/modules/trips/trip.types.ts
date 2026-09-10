@@ -33,7 +33,9 @@ export interface CreateTripData {
   observacoes?: string | null;
 }
 
-export type UpdateTripData = Partial<CreateTripData>;
+export interface UpdateTripData extends Partial<CreateTripData> {
+  taxaKm?: string | null;
+}
 
 export interface TripUserRef {
   id: string;

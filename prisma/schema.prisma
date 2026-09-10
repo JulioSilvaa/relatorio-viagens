@@ -519,3 +519,10 @@ model Notification {
   @@index([userId, readAt])
   @@index([userId, createdAt])
 }
+
+/// Parâmetros globais do sistema configuráveis no painel admin (RF-CFG-001).
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

@@ -20,6 +20,10 @@ const returnReportSchema = z.object({
   justificativa: z.string().trim().min(3),
 });
 
+const approveReportSchema = z.object({
+  taxaKm: z.coerce.number().positive('Taxa deve ser maior que zero').nullable().optional(),
+});
+
 const changeReimbursabilitySchema = z.object({
   reembolsavel: z.boolean(),
   justificativa: z.string().trim().min(3),
@@ -39,7 +43,8 @@ export function createApprovalsRouter({
     requirePermission('RELATORIO.APROVAR'),
     verifyCsrf,
     asyncHandler(async (req, res) => {
-      await approveReportService.execute(req.params.tripId!, req.auth!.userId);
+      const dto = approveReportSchema.parse(req.body ?? {});
+      await approveReportService.execute(req.params.tripId!, req.auth!.userId, dto);
       res.status(204).send();
     }),
   );

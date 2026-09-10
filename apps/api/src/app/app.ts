@@ -19,6 +19,7 @@ export interface AppDeps {
   ocrRouter: express.Router;
   fiscalRouter: express.Router;
   auditRouter: express.Router;
+  settingsRouter: express.Router;
   financeRouter: express.Router;
   dashboardRouter: express.Router;
   reportsRouter: express.Router;
@@ -40,6 +41,7 @@ export function createApp({
   ocrRouter,
   fiscalRouter,
   auditRouter,
+  settingsRouter,
   financeRouter,
   dashboardRouter,
   reportsRouter,
@@ -66,6 +68,7 @@ export function createApp({
   app.use('/api/ocr', ocrRouter);
   app.use('/api/fiscal', fiscalRouter);
   app.use('/api/audit', auditRouter);
+  app.use('/api/settings', settingsRouter);
   app.use('/api/finance', financeRouter);
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/reports', reportsRouter);

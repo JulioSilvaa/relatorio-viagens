@@ -10,7 +10,7 @@ import { tripToView } from '../presenters/trip.presenter.js';
 import type { TripRecord, TripsRepository } from '../repositories/trips.repository.js';
 import type { UpdateTripDto } from '../schemas/trip.schema.js';
 import { EDITABLE_TRIP_STATUSES, type TripView } from '../trip.types.js';
-import { assertValidTripDates, assertValidTripKms, computeTaxaKm } from './trip-rules.js';
+import { assertValidTripDates, assertValidTripKms } from './trip-rules.js';
 
 export class EditTripService {
   constructor(
@@ -51,10 +51,6 @@ export class EditTripService {
         data[key] =
           (key === 'kmInicial' || key === 'kmFinal') && value != null ? String(value) : value;
       }
-    }
-
-    if (dto.tipoVeiculo !== undefined || dto.kmInicial !== undefined || dto.kmFinal !== undefined) {
-      data.taxaKm = computeTaxaKm(dto.tipoVeiculo, dto.kmInicial, dto.kmFinal);
     }
 
     const updated = await this.trips.update(id, data);

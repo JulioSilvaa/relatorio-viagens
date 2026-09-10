@@ -110,6 +110,12 @@ export const PERMISSIONS = [
     description: "Listar centros de custo ativos para seleção em viagens.",
   },
   {
+    code: "CONFIG.SISTEMA.GERENCIAR",
+    name: "Gerenciar parâmetros do sistema",
+    description:
+      "Configurar valores globais, como a taxa de reembolso por km (RF-CFG-001).",
+  },
+  {
     code: "DASHBOARD.GERENCIAL",
     name: "Dashboard gerencial",
     description:

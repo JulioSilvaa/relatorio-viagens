@@ -59,23 +59,8 @@ describe('km, taxa e diretório de colaboradores', () => {
     return { id: res.body.data.trip.id, status: res.body.data.trip.status };
   }
 
-  describe('CA-KM-002 - taxa por km manual definida por gestor/admin', () => {
-    it('taxa informada tem prioridade sobre o valor automático', async () => {
-      await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
-      const session = await login('ana@empresa.com', 'ana-pw-123');
-
-      const trip = await createTrip(session, {
-        tipoVeiculo: 'PROPRIO',
-        kmInicial: 1000,
-        kmFinal: 1015,
-        taxaKm: 1.5,
-      });
-
-      const saved = await prisma.trip.findUniqueOrThrow({ where: { id: trip.id } });
-      expect(Number(saved.taxaKm)).toBe(1.5);
-    });
-
-    it('sem taxa informada, veículo próprio calcula automaticamente 0.60', async () => {
+  describe('CA-KM-002 - taxa por km: padrão, global e definida pelo gestor', () => {
+    it('veículo próprio calcula a taxa padrão automaticamente na abertura', async () => {
       await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
       const session = await login('ana@empresa.com', 'ana-pw-123');
 
@@ -89,23 +74,111 @@ describe('km, taxa e diretório de colaboradores', () => {
       expect(Number(saved.taxaKm)).toBe(0.6);
     });
 
-    it('rejeita taxa não positiva', async () => {
+    it('valor global atualizado vale para novas viagens e não altera viagens existentes', async () => {
+      await createUser({
+        email: 'gestor@empresa.com',
+        password: 'gestor-pw-123',
+        role: 'MANAGER_ADMIN',
+      });
       await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
-      const session = await login('ana@empresa.com', 'ana-pw-123');
+      const gestor = await login('gestor@empresa.com', 'gestor-pw-123');
+      const ana = await login('ana@empresa.com', 'ana-pw-123');
 
-      const res = await session.agent.post('/api/trips').set('x-csrf-token', session.csrf).send({
-        cliente: 'Cliente ACME',
-        cidade: 'São Paulo',
-        uf: 'SP',
-        dataSaida: '2026-09-01',
-        dataRetorno: '2026-09-03',
-        departamento: 'COMERCIAL',
-        motivo: 'Visita comercial ao cliente ACME',
+      const oldTrip = await createTrip(ana, {
         tipoVeiculo: 'PROPRIO',
         kmInicial: 1000,
         kmFinal: 1015,
-        taxaKm: 0,
       });
+
+      const updated = await gestor.agent
+        .put('/api/settings')
+        .set('x-csrf-token', gestor.csrf)
+        .send({ kmReimbursementRate: 1.25 });
+      expect(updated.status).toBe(200);
+
+      const newTrip = await createTrip(ana, {
+        tipoVeiculo: 'PROPRIO',
+        kmInicial: 2000,
+        kmFinal: 2020,
+      });
+
+      const oldSaved = await prisma.trip.findUniqueOrThrow({ where: { id: oldTrip.id } });
+      const newSaved = await prisma.trip.findUniqueOrThrow({ where: { id: newTrip.id } });
+      expect(Number(oldSaved.taxaKm)).toBe(0.6);
+      expect(Number(newSaved.taxaKm)).toBe(1.25);
+    });
+
+    it('gestor define taxa por viagem ao aprovar o relatório', async () => {
+      await createUser({
+        email: 'gestor@empresa.com',
+        password: 'gestor-pw-123',
+        role: 'MANAGER_ADMIN',
+      });
+      await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
+      const gestor = await login('gestor@empresa.com', 'gestor-pw-123');
+      const ana = await login('ana@empresa.com', 'ana-pw-123');
+      const trip = await createTrip(ana, {
+        tipoVeiculo: 'PROPRIO',
+        kmInicial: 1000,
+        kmFinal: 1015,
+      });
+
+      await ana.agent.post(`/api/trips/${trip.id}/entregar`).set('x-csrf-token', ana.csrf);
+
+      const approved = await gestor.agent
+        .post(`/api/approvals/${trip.id}/aprovar`)
+        .set('x-csrf-token', gestor.csrf)
+        .send({ taxaKm: 0.85 });
+      expect(approved.status).toBe(204);
+
+      const saved = await prisma.trip.findUniqueOrThrow({ where: { id: trip.id } });
+      expect(Number(saved.taxaKm)).toBe(0.85);
+    });
+
+    it('aprovação sem taxa mantém o valor congelado na abertura', async () => {
+      await createUser({
+        email: 'gestor@empresa.com',
+        password: 'gestor-pw-123',
+        role: 'MANAGER_ADMIN',
+      });
+      await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
+      const gestor = await login('gestor@empresa.com', 'gestor-pw-123');
+      const ana = await login('ana@empresa.com', 'ana-pw-123');
+      const trip = await createTrip(ana, {
+        tipoVeiculo: 'PROPRIO',
+        kmInicial: 1000,
+        kmFinal: 1015,
+      });
+
+      await ana.agent.post(`/api/trips/${trip.id}/entregar`).set('x-csrf-token', ana.csrf);
+
+      await gestor.agent.post(`/api/approvals/${trip.id}/aprovar`).set('x-csrf-token', gestor.csrf);
+
+      const saved = await prisma.trip.findUniqueOrThrow({ where: { id: trip.id } });
+      expect(Number(saved.taxaKm)).toBe(0.6);
+    });
+
+    it('rejeita taxa inválida na aprovação do relatório', async () => {
+      await createUser({
+        email: 'gestor@empresa.com',
+        password: 'gestor-pw-123',
+        role: 'MANAGER_ADMIN',
+      });
+      await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
+      const gestor = await login('gestor@empresa.com', 'gestor-pw-123');
+      const ana = await login('ana@empresa.com', 'ana-pw-123');
+      const trip = await createTrip(ana, {
+        tipoVeiculo: 'PROPRIO',
+        kmInicial: 1000,
+        kmFinal: 1015,
+      });
+
+      await ana.agent.post(`/api/trips/${trip.id}/entregar`).set('x-csrf-token', ana.csrf);
+
+      const res = await gestor.agent
+        .post(`/api/approvals/${trip.id}/aprovar`)
+        .set('x-csrf-token', gestor.csrf)
+        .send({ taxaKm: 0 });
 
       expect(res.status).toBe(422);
     });

@@ -25,8 +25,9 @@ export function computeTaxaKm(
   tipoVeiculo: VehicleTypeValue | null | undefined,
   kmInicial: number | string | null | undefined,
   kmFinal: number | string | null | undefined,
+  rate: string | null | undefined,
 ): string | null {
   if (tipoVeiculo !== 'PROPRIO') return null;
   if (kmInicial == null || kmFinal == null) return null;
-  return KM_RATE_REFERENCE;
+  return rate ?? KM_RATE_REFERENCE;
 }

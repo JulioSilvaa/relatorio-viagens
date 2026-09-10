@@ -5,6 +5,10 @@ import { TripNotFoundError } from '../../trips/trip.errors.js';
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
 import { ReportNotInApprovalError } from '../approval.errors.js';
 
+export interface ApproveReportInput {
+  taxaKm?: number | null;
+}
+
 export class ApproveReportService {
   constructor(
     private readonly trips: TripsRepository,
@@ -13,13 +17,29 @@ export class ApproveReportService {
     private readonly notifier: NotificationPublisher,
   ) {}
 
-  async execute(tripId: string, actorId: string): Promise<void> {
+  async execute(tripId: string, actorId: string, input?: ApproveReportInput): Promise<void> {
     const trip = await this.trips.findById(tripId);
     if (!trip || trip.deletadoEm) {
       throw new TripNotFoundError();
     }
     if (trip.status !== 'EM_APROVACAO') {
       throw new ReportNotInApprovalError();
+    }
+
+    if (input?.taxaKm != null) {
+      const taxaKm = String(input.taxaKm);
+      if (taxaKm !== trip.taxaKm) {
+        await this.trips.update(tripId, { taxaKm });
+        await this.audit.record({
+          userId: actorId,
+          operation: 'ATUALIZAR',
+          entityType: 'VIAGEM',
+          entityId: tripId,
+          field: 'taxaKm',
+          oldValue: trip.taxaKm ?? undefined,
+          newValue: taxaKm,
+        });
+      }
     }
 
     await this.trips.setStatus(tripId, 'APROVADA');
