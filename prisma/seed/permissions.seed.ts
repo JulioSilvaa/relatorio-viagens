@@ -74,6 +74,22 @@ export const PERMISSIONS = [
     description: "Processar reembolso (RF-FIN-001).",
   },
   {
+    code: "ADIANTAMENTO.SOLICITAR",
+    name: "Solicitar adiantamento",
+    description: "Solicitar adiantamento na abertura da viagem (RF-FIN-002).",
+  },
+  {
+    code: "ADIANTAMENTO.ANALISAR",
+    name: "Analisar adiantamento",
+    description:
+      "Aprovar ou recusar solicitações de adiantamento (RF-FIN-002).",
+  },
+  {
+    code: "ADIANTAMENTO.PAGAR",
+    name: "Pagar adiantamento",
+    description: "Efetuar o pagamento do adiantamento aprovado (RF-FIN-002).",
+  },
+  {
     code: "CONFIG.CATEGORIA.GERENCIAR",
     name: "Gerenciar categorias",
     description: "Administrar categorias de despesas (RF-DES-002).",

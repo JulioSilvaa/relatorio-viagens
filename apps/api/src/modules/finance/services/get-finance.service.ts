@@ -39,10 +39,12 @@ export class GetFinanceService {
     const data = await this.finance.listByTrip(tripId);
     const expenses = await this.expenses.listExpensesForTrip(tripId);
     const aprovadoCents = approvedTotalCents(expenses);
-    const adiantamentosCents = data.advances.reduce(
-      (sum, advance) => sum + toCents(advance.valor),
-      0,
-    );
+    const adiantamentosCents = data.advances.reduce((sum, advance) => {
+      if (advance.status !== 'APROVADO' && advance.status !== 'PAGO') {
+        return sum;
+      }
+      return sum + toCents(advance.valorAprovado ?? advance.valorSolicitado);
+    }, 0);
     const pagamentosCents = data.payments.reduce((sum, payment) => sum + toCents(payment.valor), 0);
 
     const valorAReembolsar = Math.max(0, aprovadoCents - pagamentosCents);

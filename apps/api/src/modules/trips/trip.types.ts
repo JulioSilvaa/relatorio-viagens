@@ -93,4 +93,31 @@ export interface TripView {
 export interface TripDetailView extends TripView {
   participants: TripParticipantView[];
   despesas: TripExpenseView[];
+  adiantamento: TripAdvanceView | null;
 }
+
+export interface TripAdvanceView {
+  id: string;
+  tripId: string;
+  status: AdvanceStatusValue;
+  solicitadoPor: TripUserRef;
+  valorSolicitado: string;
+  justificativaSolicitacao: string;
+  valorAprovado: string | null;
+  aprovadoPor: TripUserRef | null;
+  aprovadoEm: Date | null;
+  justificativaAnalise: string | null;
+  pagoPor: TripUserRef | null;
+  pagoEm: Date | null;
+  observacoesPagamento: string | null;
+  solicitadoEm: Date;
+  atualizadoEm: Date;
+}
+
+export type AdvanceStatusValue =
+  | 'SOLICITADO'
+  | 'EM_ANALISE'
+  | 'APROVADO'
+  | 'RECUSADO'
+  | 'PAGAMENTO_PENDENTE'
+  | 'PAGO';

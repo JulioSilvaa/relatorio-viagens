@@ -76,7 +76,9 @@ import { createAuditRouter } from '../modules/audit/controllers/audit.controller
 import { PrismaFinanceRepository } from '../modules/finance/repositories/finance.repository.prisma.js';
 import { ReceiveFinanceService } from '../modules/finance/services/receive-finance.service.js';
 import { RegisterPaymentService } from '../modules/finance/services/register-payment.service.js';
-import { RegisterAdvanceService } from '../modules/finance/services/register-advance.service.js';
+import { PayAdvanceService } from '../modules/finance/services/pay-advance.service.js';
+import { RequestAdvanceService } from '../modules/finance/services/request-advance.service.js';
+import { ReviewAdvanceService } from '../modules/finance/services/review-advance.service.js';
 import { RegisterRefundService } from '../modules/finance/services/register-refund.service.js';
 import { GetFinanceService } from '../modules/finance/services/get-finance.service.js';
 import { createFinanceRouter } from '../modules/finance/controllers/finance.controller.js';
@@ -282,14 +284,23 @@ export function buildContainer(): Container {
     audit,
     notifications,
   );
-  const registerAdvanceService = new RegisterAdvanceService(trips, financeRepo, audit);
+  const registerAdvanceRequestService = new RequestAdvanceService(
+    trips,
+    financeRepo,
+    audit,
+    notifications,
+  );
+  const reviewAdvanceService = new ReviewAdvanceService(trips, financeRepo, audit, notifications);
+  const payAdvanceService = new PayAdvanceService(trips, financeRepo, audit, notifications);
   const registerRefundService = new RegisterRefundService(trips, financeRepo, audit);
   const getFinanceService = new GetFinanceService(trips, expenses, financeRepo);
   const financeRouter = createFinanceRouter({
     requireAuth,
     receiveFinanceService,
     registerPaymentService,
-    registerAdvanceService,
+    requestAdvanceService: registerAdvanceRequestService,
+    reviewAdvanceService,
+    payAdvanceService,
     registerRefundService,
     getFinanceService,
   });

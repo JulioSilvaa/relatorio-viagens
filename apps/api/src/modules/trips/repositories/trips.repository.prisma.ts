@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../config/database.js';
+import { toAdvanceRecord } from '../../finance/advance.mapper.js';
 import {
   TripNotFoundError,
   TripParticipantExistsError,
@@ -56,6 +57,15 @@ const DETAIL_INCLUDE = {
       receipts: { orderBy: { createdAt: 'asc' as const } },
     },
     orderBy: { createdAt: 'asc' as const },
+  },
+  advances: {
+    orderBy: { solicitadoEm: 'desc' as const },
+    take: 1,
+    include: {
+      solicitadoPor: { select: { id: true, name: true } },
+      aprovadoPor: { select: { id: true, name: true } },
+      pagoPor: { select: { id: true, name: true } },
+    },
   },
 } satisfies Prisma.TripInclude;
 
@@ -122,8 +132,14 @@ function toDetailRecord(
   criadoPor: TripCreatorRef,
   participants: TripParticipantRecord[],
   expenses: ExpenseDetailRecord[],
+  adiantamento: TripDetailPayload['advances'][number] | null,
 ): TripDetailRecord {
-  return { ...toTripRecord(trip, criadoPor), participants, expenses };
+  return {
+    ...toTripRecord(trip, criadoPor),
+    participants,
+    expenses,
+    adiantamento: adiantamento ? toAdvanceRecord(adiantamento) : null,
+  };
 }
 
 export class PrismaTripsRepository implements TripsRepository {
@@ -180,7 +196,7 @@ export class PrismaTripsRepository implements TripsRepository {
     }));
 
     const expenses = trip.expenses.map(toExpenseDetail);
-    return toDetailRecord(trip, trip.criadoPor, participants, expenses);
+    return toDetailRecord(trip, trip.criadoPor, participants, expenses, trip.advances[0] ?? null);
   }
 
   async findByParticipant(userId: string): Promise<TripRecord[]> {

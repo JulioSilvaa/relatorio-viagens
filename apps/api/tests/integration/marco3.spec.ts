@@ -260,6 +260,67 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
         justificativa: 'Lanches não reembolsáveis',
       });
 
+      const solicitado = await ana.agent
+        .post(`/api/finance/trips/${trip.id}/adiantamento`)
+        .set('x-csrf-token', ana.csrf)
+        .send({
+          valorSolicitado: 100,
+          justificativaSolicitacao: 'Diárias e hospedagem antecipadas',
+        });
+      expect(solicitado.status).toBe(201);
+      expect(solicitado.body.data.advance).toMatchObject({
+        status: 'SOLICITADO',
+        valorSolicitado: '100.00',
+      });
+      const advanceId = solicitado.body.data.advance.id as string;
+
+      const duplicated = await ana.agent
+        .post(`/api/finance/trips/${trip.id}/adiantamento`)
+        .set('x-csrf-token', ana.csrf)
+        .send({ valorSolicitado: 200, justificativaSolicitacao: 'Tentativa de novo adiantamento' });
+      expect(duplicated.status).toBe(409);
+      expect(duplicated.body.error.code).toBe('ADVANCE_ALREADY_REQUESTED');
+
+      const prematurePay = await financeiro.agent
+        .post(`/api/finance/adiantamentos/${advanceId}/pagamento`)
+        .set('x-csrf-token', financeiro.csrf);
+      expect(prematurePay.status).toBe(409);
+      expect(prematurePay.body.error.code).toBe('ADVANCE_INVALID_STATUS');
+
+      const excess = await gestor.agent
+        .post(`/api/finance/adiantamentos/${advanceId}/analise`)
+        .set('x-csrf-token', gestor.csrf)
+        .send({
+          aprovado: true,
+          valorAprovado: 250,
+          justificativaAnalise: 'Acima do solicitado',
+        });
+      expect(excess.status).toBe(409);
+      expect(excess.body.error.code).toBe('ADVANCE_AMOUNT_EXCEEDS_REQUESTED');
+
+      const aprovado = await gestor.agent
+        .post(`/api/finance/adiantamentos/${advanceId}/analise`)
+        .set('x-csrf-token', gestor.csrf)
+        .send({
+          aprovado: true,
+          valorAprovado: 100,
+          justificativaAnalise: 'Aprovado conforme solicitação',
+        });
+      expect(aprovado.status).toBe(200);
+      expect(aprovado.body.data.advance.status).toBe('APROVADO');
+
+      const pago = await financeiro.agent
+        .post(`/api/finance/adiantamentos/${advanceId}/pagamento`)
+        .set('x-csrf-token', financeiro.csrf)
+        .send({ observacoesPagamento: 'PIX efetuado' });
+      expect(pago.status).toBe(200);
+      expect(pago.body.data.advance.status).toBe('PAGO');
+
+      const advanceAlert = await prisma.notification.findFirst({
+        where: { event: 'ADIANTAMENTO_PAGO' },
+      });
+      expect(advanceAlert).toBeTruthy();
+
       const notReceived = await financeiro.agent
         .post(`/api/finance/trips/${trip.id}/receber`)
         .set('x-csrf-token', financeiro.csrf);
@@ -276,20 +337,10 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
       const afterReceive = await financeiro.agent.get(`/api/finance/trips/${trip.id}`);
       expect(afterReceive.body.data).toMatchObject({
         totalAprovado: '75.00',
-        totalReembolsado: '0.00',
-        valorAReembolsar: '75.00',
-      });
-
-      const advance = await financeiro.agent
-        .post(`/api/finance/trips/${trip.id}/adiantamento`)
-        .set('x-csrf-token', financeiro.csrf)
-        .send({ valor: 100, data: '2026-09-05' });
-      expect(advance.status).toBe(200);
-
-      const afterAdvance = await financeiro.agent.get(`/api/finance/trips/${trip.id}`);
-      expect(afterAdvance.body.data).toMatchObject({
         totalAdiantamentos: '100.00',
+        totalReembolsado: '0.00',
         valorADevolver: '25.00',
+        valorAReembolsar: '75.00',
       });
 
       const wrongPayment = await financeiro.agent
@@ -341,6 +392,51 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
         .set('x-csrf-token', financeiro.csrf);
       expect(res.status).toBe(409);
       expect(res.body.error.code).toBe('FINANCE_TRIP_NOT_APPROVED');
+    });
+
+    it('permite re-solicitar adiantamento após recusa e exige justificativa na análise', async () => {
+      await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
+      await createUser({
+        email: 'gestor@empresa.com',
+        password: 'gest-pw-123',
+        role: 'MANAGER_ADMIN',
+      });
+      const ana = await login('ana@empresa.com', 'ana-pw-123');
+      const gestor = await login('gestor@empresa.com', 'gest-pw-123');
+      const trip = await createTrip(ana);
+
+      const primeiro = await ana.agent
+        .post(`/api/finance/trips/${trip.id}/adiantamento`)
+        .set('x-csrf-token', ana.csrf)
+        .send({
+          valorSolicitado: 50,
+          justificativaSolicitacao: 'Primeira solicitação',
+        });
+      expect(primeiro.status).toBe(201);
+      const advanceId = primeiro.body.data.advance.id as string;
+
+      const semJustificativa = await gestor.agent
+        .post(`/api/finance/adiantamentos/${advanceId}/analise`)
+        .set('x-csrf-token', gestor.csrf)
+        .send({ aprovado: false, justificativaAnalise: 'X' });
+      expect(semJustificativa.status).toBe(422);
+
+      const recusado = await gestor.agent
+        .post(`/api/finance/adiantamentos/${advanceId}/analise`)
+        .set('x-csrf-token', gestor.csrf)
+        .send({ aprovado: false, justificativaAnalise: 'Valor não justificado' });
+      expect(recusado.status).toBe(200);
+      expect(recusado.body.data.advance.status).toBe('RECUSADO');
+
+      const segunda = await ana.agent
+        .post(`/api/finance/trips/${trip.id}/adiantamento`)
+        .set('x-csrf-token', ana.csrf)
+        .send({
+          valorSolicitado: 80,
+          justificativaSolicitacao: 'Nova solicitação após ajuste',
+        });
+      expect(segunda.status).toBe(201);
+      expect(segunda.body.data.advance.status).toBe('SOLICITADO');
     });
   });
 

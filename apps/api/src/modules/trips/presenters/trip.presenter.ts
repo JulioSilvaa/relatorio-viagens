@@ -77,5 +77,6 @@ export function tripDetailToView(trip: TripDetailRecord): TripDetailView {
     ...tripToView(trip),
     participants: trip.participants.map(participantToView),
     despesas: trip.expenses?.map(expenseToView) ?? [],
+    adiantamento: trip.adiantamento,
   };
 }

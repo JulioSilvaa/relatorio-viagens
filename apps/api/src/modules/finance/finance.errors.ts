@@ -23,3 +23,31 @@ export class FinanceForbiddenError extends AppError {
     super(403, 'FINANCE_FORBIDDEN', 'Sem permissão para acessar dados financeiros da viagem.');
   }
 }
+
+export class AdvanceNotFoundError extends AppError {
+  constructor() {
+    super(404, 'ADVANCE_NOT_FOUND', 'Adiantamento não encontrado.');
+  }
+}
+
+export class AdvanceAlreadyRequestedError extends AppError {
+  constructor() {
+    super(409, 'ADVANCE_ALREADY_REQUESTED', 'Esta viagem já possui um adiantamento solicitado.');
+  }
+}
+
+export class AdvanceInvalidStatusError extends AppError {
+  constructor() {
+    super(409, 'ADVANCE_INVALID_STATUS', 'Situação do adiantamento não permite esta operação.');
+  }
+}
+
+export class AdvanceAmountExceedsRequestedError extends AppError {
+  constructor() {
+    super(
+      409,
+      'ADVANCE_AMOUNT_EXCEEDS_REQUESTED',
+      'Valor aprovado não pode exceder o valor solicitado.',
+    );
+  }
+}

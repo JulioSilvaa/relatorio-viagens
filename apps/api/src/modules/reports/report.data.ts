@@ -46,14 +46,16 @@ function toFinanceRecords(finance: TripFinanceData | undefined): {
   devolucoes: ReportFinanceRecord[];
 } {
   return {
-    adiantamentos: (finance?.advances ?? []).map((a) => ({
-      id: a.id,
-      valor: a.valor,
-      data: a.data,
-      responsavel: a.registradoPor.name,
-      observacoes: a.observacoes,
-      comprovanteNome: null,
-    })),
+    adiantamentos: (finance?.advances ?? [])
+      .filter((a) => a.status === 'PAGO')
+      .map((a) => ({
+        id: a.id,
+        valor: a.valorAprovado ?? a.valorSolicitado,
+        data: a.pagoEm ?? a.solicitadoEm,
+        responsavel: a.solicitadoPor.name,
+        observacoes: a.observacoesPagamento ?? a.justificativaAnalise ?? null,
+        comprovanteNome: null,
+      })),
     reembolsos: (finance?.payments ?? []).map((p) => ({
       id: p.id,
       valor: p.valor,

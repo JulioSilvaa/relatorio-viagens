@@ -1,4 +1,5 @@
 import type { DepartmentType, TripStatus, UfType, VehicleType } from '@prisma/client';
+import type { TripAdvanceRecord } from '../../finance/finance.types.js';
 import type { CreateTripData, UpdateTripData } from '../trip.types.js';
 
 export interface TripSearchFilters {
@@ -89,6 +90,7 @@ export interface ExpenseDetailRecord {
 export interface TripDetailRecord extends TripRecord {
   participants: TripParticipantRecord[];
   expenses: ExpenseDetailRecord[] | null;
+  adiantamento: TripAdvanceRecord | null;
 }
 
 export interface CreateTripInput extends CreateTripData {

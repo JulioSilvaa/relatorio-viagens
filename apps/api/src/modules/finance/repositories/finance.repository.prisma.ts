@@ -1,9 +1,12 @@
 import { prisma } from '../../../config/database.js';
+import { toAdvanceRecord } from '../advance.mapper.js';
 import type {
+  AdvanceAnalysisInput,
+  AdvancePaymentInput,
   FinanceRepository,
-  RegisterAdvanceInput,
   RegisterPaymentInput,
   RegisterRefundInput,
+  RequestAdvanceInput,
   TripAdvanceRecord,
   TripFinanceData,
   TripPaymentRecord,
@@ -11,8 +14,12 @@ import type {
 } from '../finance.types.js';
 
 const PAYMENT_INCLUDE = { responsavel: { select: { id: true, name: true } } } as const;
-const ADVANCE_INCLUDE = { registradoPor: { select: { id: true, name: true } } } as const;
 const REFUND_INCLUDE = { registradoPor: { select: { id: true, name: true } } } as const;
+const ADVANCE_INCLUDE = {
+  solicitadoPor: { select: { id: true, name: true } },
+  aprovadoPor: { select: { id: true, name: true } },
+  pagoPor: { select: { id: true, name: true } },
+} as const;
 
 function toPayment(row: {
   id: string;
@@ -32,26 +39,6 @@ function toPayment(row: {
     observacoes: row.observacoes,
     responsavel: row.responsavel,
     comprovanteNome: row.comprovanteNome,
-    createdAt: row.createdAt,
-  };
-}
-
-function toAdvance(row: {
-  id: string;
-  tripId: string;
-  valor: { toString(): string };
-  data: Date;
-  observacoes: string | null;
-  registradoPor: { id: string; name: string };
-  createdAt: Date;
-}): TripAdvanceRecord {
-  return {
-    id: row.id,
-    tripId: row.tripId,
-    valor: row.valor.toString(),
-    data: row.data,
-    observacoes: row.observacoes,
-    registradoPor: row.registradoPor,
     createdAt: row.createdAt,
   };
 }
@@ -99,18 +86,65 @@ export class PrismaFinanceRepository implements FinanceRepository {
     return toPayment(row);
   }
 
-  async registerAdvance(input: RegisterAdvanceInput): Promise<TripAdvanceRecord> {
+  async createAdvanceRequest(input: RequestAdvanceInput): Promise<TripAdvanceRecord> {
     const row = await prisma.tripAdvance.create({
       data: {
         tripId: input.tripId,
-        valor: input.valor,
-        data: input.data,
-        observacoes: input.observacoes,
-        registradoPorId: input.registradoPorId,
+        valorSolicitado: input.valorSolicitado,
+        justificativaSolicitacao: input.justificativaSolicitacao,
+        solicitadoPorId: input.solicitadoPorId,
+        status: 'SOLICITADO',
       },
       include: ADVANCE_INCLUDE,
     });
-    return toAdvance(row);
+    return toAdvanceRecord(row);
+  }
+
+  async findLatestAdvanceByTrip(tripId: string): Promise<TripAdvanceRecord | null> {
+    const rows = await prisma.tripAdvance.findMany({
+      where: { tripId },
+      include: ADVANCE_INCLUDE,
+      orderBy: { solicitadoEm: 'desc' },
+      take: 1,
+    });
+    return rows.length > 0 ? toAdvanceRecord(rows[0]!) : null;
+  }
+
+  async findAdvanceById(id: string): Promise<TripAdvanceRecord | null> {
+    const row = await prisma.tripAdvance.findUnique({
+      where: { id },
+      include: ADVANCE_INCLUDE,
+    });
+    return row ? toAdvanceRecord(row) : null;
+  }
+
+  async analyzeAdvance(input: AdvanceAnalysisInput): Promise<TripAdvanceRecord> {
+    const row = await prisma.tripAdvance.update({
+      where: { id: input.advanceId },
+      data: {
+        status: input.aprovado ? 'APROVADO' : 'RECUSADO',
+        valorAprovado: input.aprovado ? input.valorAprovado : null,
+        justificativaAnalise: input.justificativaAnalise,
+        aprovadoPorId: input.aprovadoPorId,
+        aprovadoEm: input.aprovadoEm,
+      },
+      include: ADVANCE_INCLUDE,
+    });
+    return toAdvanceRecord(row);
+  }
+
+  async payAdvance(input: AdvancePaymentInput): Promise<TripAdvanceRecord> {
+    const row = await prisma.tripAdvance.update({
+      where: { id: input.advanceId },
+      data: {
+        status: 'PAGO',
+        observacoesPagamento: input.observacoesPagamento,
+        pagoPorId: input.pagoPorId,
+        pagoEm: input.pagoEm,
+      },
+      include: ADVANCE_INCLUDE,
+    });
+    return toAdvanceRecord(row);
   }
 
   async registerRefund(input: RegisterRefundInput): Promise<TripRefundRecord> {
@@ -142,7 +176,7 @@ export class PrismaFinanceRepository implements FinanceRepository {
       prisma.tripAdvance.findMany({
         where: { tripId },
         include: ADVANCE_INCLUDE,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { solicitadoEm: 'asc' },
       }),
       prisma.tripRefund.findMany({
         where: { tripId },
@@ -152,7 +186,7 @@ export class PrismaFinanceRepository implements FinanceRepository {
     ]);
     return {
       payments: payments.map(toPayment),
-      advances: advances.map(toAdvance),
+      advances: advances.map((row) => toAdvanceRecord(row)),
       refunds: refunds.map(toRefund),
     };
   }

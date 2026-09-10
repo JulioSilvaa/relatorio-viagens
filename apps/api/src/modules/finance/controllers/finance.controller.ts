@@ -9,15 +9,19 @@ import { verifyCsrf } from '../../../shared/auth/csrf.js';
 import { MAX_UPLOAD_BYTES } from '../../../shared/upload/files.js';
 import type { GetFinanceService } from '../services/get-finance.service.js';
 import type { ReceiveFinanceService } from '../services/receive-finance.service.js';
-import type { RegisterAdvanceService } from '../services/register-advance.service.js';
+import type { PayAdvanceService } from '../services/pay-advance.service.js';
 import type { RegisterPaymentService } from '../services/register-payment.service.js';
 import type { RegisterRefundService } from '../services/register-refund.service.js';
+import type { RequestAdvanceService } from '../services/request-advance.service.js';
+import type { ReviewAdvanceService } from '../services/review-advance.service.js';
 
 export interface FinanceDeps {
   requireAuth: RequestHandler;
   receiveFinanceService: ReceiveFinanceService;
   registerPaymentService: RegisterPaymentService;
-  registerAdvanceService: RegisterAdvanceService;
+  requestAdvanceService: RequestAdvanceService;
+  reviewAdvanceService: ReviewAdvanceService;
+  payAdvanceService: PayAdvanceService;
   registerRefundService: RegisterRefundService;
   getFinanceService: GetFinanceService;
 }
@@ -35,10 +39,22 @@ const paymentSchema = z.object({
   dataPagamento: z.coerce.date(),
   observacoes: z.string().trim().max(500).optional(),
 });
-const advanceSchema = z.object({
-  valor: z.coerce.number().positive(),
-  data: z.coerce.date(),
-  observacoes: z.string().trim().max(500).optional(),
+const advanceRequestSchema = z.object({
+  valorSolicitado: z.coerce.number().positive(),
+  justificativaSolicitacao: z.string().trim().min(5).max(1000),
+});
+const advanceReviewSchema = z
+  .object({
+    aprovado: z.boolean(),
+    valorAprovado: z.coerce.number().positive().optional(),
+    justificativaAnalise: z.string().trim().min(2).max(1000),
+  })
+  .refine((value) => !value.aprovado || value.valorAprovado !== undefined, {
+    message: 'Valor aprovado é obrigatório ao aprovar.',
+    path: ['valorAprovado'],
+  });
+const advancePaymentSchema = z.object({
+  observacoesPagamento: z.string().trim().max(500).optional(),
 });
 const refundSchema = z.object({
   valor: z.coerce.number().positive(),
@@ -61,7 +77,9 @@ export function createFinanceRouter({
   requireAuth,
   receiveFinanceService,
   registerPaymentService,
-  registerAdvanceService,
+  requestAdvanceService,
+  reviewAdvanceService,
+  payAdvanceService,
   registerRefundService,
   getFinanceService,
 }: FinanceDeps): Router {
@@ -118,17 +136,52 @@ export function createFinanceRouter({
   router.post(
     '/trips/:tripId/adiantamento',
     requireAuth,
-    requirePermission('FINANCEIRO.REEMBOLSO.PROCESSAR'),
+    requirePermission('ADIANTAMENTO.SOLICITAR'),
     verifyCsrf,
     asyncHandler(async (req, res) => {
-      const parsed = advanceSchema.parse(req.body);
-      const advance = await registerAdvanceService.execute(
+      const parsed = advanceRequestSchema.parse(req.body);
+      const advance = await requestAdvanceService.execute(
         req.params.tripId!,
         {
-          valor: parsed.valor.toString(),
-          data: parsed.data,
-          observacoes: parsed.observacoes ?? null,
+          valorSolicitado: parsed.valorSolicitado.toString(),
+          justificativaSolicitacao: parsed.justificativaSolicitacao,
         },
+        req.auth!.userId,
+      );
+      res.status(201).json(success({ advance }));
+    }),
+  );
+
+  router.post(
+    '/adiantamentos/:advanceId/analise',
+    requireAuth,
+    requirePermission('ADIANTAMENTO.ANALISAR'),
+    verifyCsrf,
+    asyncHandler(async (req, res) => {
+      const parsed = advanceReviewSchema.parse(req.body);
+      const advance = await reviewAdvanceService.execute(
+        req.params.advanceId!,
+        {
+          aprovado: parsed.aprovado,
+          valorAprovado: parsed.valorAprovado?.toString() ?? null,
+          justificativaAnalise: parsed.justificativaAnalise,
+        },
+        req.auth!.userId,
+      );
+      res.json(success({ advance }));
+    }),
+  );
+
+  router.post(
+    '/adiantamentos/:advanceId/pagamento',
+    requireAuth,
+    requirePermission('ADIANTAMENTO.PAGAR'),
+    verifyCsrf,
+    asyncHandler(async (req, res) => {
+      const parsed = advancePaymentSchema.parse(req.body);
+      const advance = await payAdvanceService.execute(
+        req.params.advanceId!,
+        { observacoesPagamento: parsed.observacoesPagamento ?? null },
         req.auth!.userId,
       );
       res.json(success({ advance }));

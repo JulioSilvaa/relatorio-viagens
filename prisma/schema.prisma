@@ -85,6 +85,10 @@ enum NotificationEventType {
   REEMBOLSO_PAGO
   PROBLEMA_FISCAL
   RELATORIO_REENVIADO
+  ADIANTAMENTO_SOLICITADO
+  ADIANTAMENTO_APROVADO
+  ADIANTAMENTO_RECUSADO
+  ADIANTAMENTO_PAGO
 }
 
 /// Resultado da validação fiscal de uma despesa (RF-FIS-001).
@@ -170,7 +174,9 @@ model User {
   ocrConferido       ReceiptOcr[]           @relation("OcrConferidoPor")
   fiscalValidations  FiscalValidation[]     @relation("FiscalValidadoPor")
   paymentsRegistered TripPayment[]          @relation("PagamentoRegistradoPor")
-  advancesRegistered TripAdvance[]          @relation("AdiantamentoRegistradoPor")
+  advancesRequested  TripAdvance[]          @relation("AdiantamentoSolicitadoPor")
+  advancesApproved   TripAdvance[]          @relation("AdiantamentoAprovadoPor")
+  advancesPaid       TripAdvance[]          @relation("AdiantamentoPagoPor")
   refundsRegistered  TripRefund[]           @relation("DevolucaoRegistradaPor")
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
@@ -439,19 +445,41 @@ model TripPayment {
   @@index([tripId])
 }
 
-/// Adiantamento registrado pelo Financeiro (RF-FIN-002, RN-FIN-009..012).
+/// Situação do adiantamento de viagem (RF-FIN-002, RN-FIN-023..035).
+enum AdvanceStatus {
+  SOLICITADO
+  EM_ANALISE
+  APROVADO
+  RECUSADO
+  PAGAMENTO_PENDENTE
+  PAGO
+}
+
+/// Adiantamento de viagem (RF-FIN-002): solicitado pelo colaborador na abertura
+/// da viagem, analisado pelo gestor e pago pelo financeiro (RN-FIN-023..035).
 model TripAdvance {
-  id              String   @id @default(uuid()) @db.Uuid
-  tripId          String   @db.Uuid
-  trip            Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  valor           Decimal  @db.Decimal(12, 2)
-  data            DateTime
-  observacoes     String?
-  registradoPorId String   @db.Uuid
-  registradoPor   User     @relation("AdiantamentoRegistradoPor", fields: [registradoPorId], references: [id])
-  createdAt       DateTime @default(now())
+  id                       String        @id @default(uuid()) @db.Uuid
+  tripId                   String        @db.Uuid
+  trip                     Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  solicitadoPorId          String        @db.Uuid
+  solicitadoPor            User          @relation("AdiantamentoSolicitadoPor", fields: [solicitadoPorId], references: [id])
+  valorSolicitado          Decimal       @db.Decimal(12, 2)
+  justificativaSolicitacao String
+  status                   AdvanceStatus @default(SOLICITADO)
+  valorAprovado            Decimal?      @db.Decimal(12, 2)
+  aprovadoPorId            String?       @db.Uuid
+  aprovadoPor              User?         @relation("AdiantamentoAprovadoPor", fields: [aprovadoPorId], references: [id])
+  aprovadoEm               DateTime?
+  justificativaAnalise     String?
+  pagoPorId                String?       @db.Uuid
+  pagoPor                  User?         @relation("AdiantamentoPagoPor", fields: [pagoPorId], references: [id])
+  pagoEm                   DateTime?
+  observacoesPagamento     String?
+  solicitadoEm             DateTime      @default(now())
+  atualizadoEm             DateTime      @updatedAt
 
   @@index([tripId])
+  @@index([status])
 }
 
 /// Devolução de saldo pelo colaborador (RF-FIN-003). Registra valor, data e
