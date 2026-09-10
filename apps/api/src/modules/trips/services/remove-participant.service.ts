@@ -7,7 +7,7 @@ import {
   TripRemoveCreatorError,
 } from '../trip.errors.js';
 import type { TripsRepository } from '../repositories/trips.repository.js';
-import { EDITABLE_TRIP_STATUSES } from '../trip.types.js';
+import { PARTICIPANT_EDITABLE_TRIP_STATUSES } from '../trip.types.js';
 
 export class RemoveParticipantService {
   constructor(
@@ -31,7 +31,7 @@ export class RemoveParticipantService {
       throw new TripParticipantForbiddenError();
     }
 
-    if (!EDITABLE_TRIP_STATUSES.includes(trip.status)) {
+    if (!PARTICIPANT_EDITABLE_TRIP_STATUSES.includes(trip.status)) {
       throw new TripNotEditableError();
     }
 

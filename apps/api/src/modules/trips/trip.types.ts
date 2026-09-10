@@ -14,6 +14,8 @@ export type TripStatusValue = (typeof TRIP_STATUSES)[number];
 
 export const EDITABLE_TRIP_STATUSES: readonly TripStatusValue[] = ['EM_ANDAMENTO', 'EM_CORRECAO'];
 
+export const PARTICIPANT_EDITABLE_TRIP_STATUSES: readonly TripStatusValue[] = ['EM_ANDAMENTO'];
+
 export interface CreateTripData {
   cliente: string;
   cidade: string;

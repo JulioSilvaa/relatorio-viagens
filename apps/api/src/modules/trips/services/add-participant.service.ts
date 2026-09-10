@@ -6,7 +6,7 @@ import {
 } from '../trip.errors.js';
 import type { TripParticipantRecord, TripsRepository } from '../repositories/trips.repository.js';
 import type { AddParticipantDto } from '../schemas/trip.schema.js';
-import { EDITABLE_TRIP_STATUSES } from '../trip.types.js';
+import { PARTICIPANT_EDITABLE_TRIP_STATUSES } from '../trip.types.js';
 
 export class AddParticipantService {
   constructor(
@@ -30,7 +30,7 @@ export class AddParticipantService {
       throw new TripParticipantForbiddenError();
     }
 
-    if (!EDITABLE_TRIP_STATUSES.includes(trip.status)) {
+    if (!PARTICIPANT_EDITABLE_TRIP_STATUSES.includes(trip.status)) {
       throw new TripNotEditableError();
     }
 
