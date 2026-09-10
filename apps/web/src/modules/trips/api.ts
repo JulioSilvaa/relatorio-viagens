@@ -25,6 +25,10 @@ export interface UserDirectoryEntry {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
+  department: string;
+  cargo: string;
+  status: string;
   roleCode: string;
 }
 
@@ -71,8 +75,9 @@ export async function removeParticipant(
   });
 }
 
-export async function listUsers(): Promise<UserDirectoryEntry[]> {
-  const data = await apiFetch<{ users: UserDirectoryEntry[] }>("/api/users");
+export async function listUsers(includeInactive = false): Promise<UserDirectoryEntry[]> {
+  const query = includeInactive ? "?includeInactive=true" : "";
+  const data = await apiFetch<{ users: UserDirectoryEntry[] }>(`/api/users${query}`);
   return data.users;
 }
 

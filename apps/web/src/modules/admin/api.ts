@@ -44,3 +44,25 @@ export async function registerUser(
   );
   return data;
 }
+
+export async function updateUser(
+  userId: string,
+  input: RegisterUserInput,
+): Promise<UserDirectoryEntry> {
+  const data = await apiFetch<{ user: UserDirectoryEntry }>(`/api/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  return data.user;
+}
+
+export async function updateUserStatus(
+  userId: string,
+  status: "ATIVO" | "INATIVO",
+): Promise<UserDirectoryEntry> {
+  const data = await apiFetch<{ user: UserDirectoryEntry }>(
+    `/api/users/${userId}/status`,
+    { method: "PATCH", body: JSON.stringify({ status }) },
+  );
+  return data.user;
+}

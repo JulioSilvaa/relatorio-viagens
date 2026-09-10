@@ -46,6 +46,8 @@ export interface CreateUserInput {
   managerId?: string | null;
 }
 
+export type UpdateUserInput = CreateUserInput;
+
 export interface RoleRecord {
   id: string;
   code: string;

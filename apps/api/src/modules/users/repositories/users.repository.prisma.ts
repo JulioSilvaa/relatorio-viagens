@@ -1,6 +1,12 @@
 import { prisma } from '../../../config/database.js';
 import type { RoleType } from '@prisma/client';
-import type { CreateUserInput, PersistedUser, RoleRecord } from '../user.types.js';
+import type {
+  CreateUserInput,
+  PersistedUser,
+  RoleRecord,
+  UpdateUserInput,
+  UserStatusValue,
+} from '../user.types.js';
 import type { UserIdRef, UserDirectoryEntry, UsersRepository } from './users.repository.js';
 
 interface UserWithRoleCode {
@@ -103,6 +109,32 @@ export class PrismaUsersRepository implements UsersRepository {
     await prisma.user.update({ where: { id }, data: { passwordHash } });
   }
 
+  async update(id: string, input: UpdateUserInput & { roleId: string }): Promise<PersistedUser> {
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        name: input.name,
+        email: input.email,
+        phone: input.phone ?? null,
+        department: input.department,
+        cargo: input.cargo,
+        roleId: input.roleId,
+        managerId: input.managerId ?? null,
+      },
+      select: USER_SELECT,
+    });
+    return toPersistedUser({ ...user, roleCode: user.role.code });
+  }
+
+  async updateStatus(id: string, status: UserStatusValue): Promise<PersistedUser> {
+    const user = await prisma.user.update({
+      where: { id },
+      data: { status },
+      select: USER_SELECT,
+    });
+    return toPersistedUser({ ...user, roleCode: user.role.code });
+  }
+
   async findAllByRoleCode(code: string): Promise<UserIdRef[]> {
     const users = await prisma.user.findMany({
       where: { role: { code: code as RoleType } },
@@ -112,12 +144,24 @@ export class PrismaUsersRepository implements UsersRepository {
   }
 
   async findAllActive(): Promise<UserDirectoryEntry[]> {
+    return this.findDirectory({ status: 'ATIVO' });
+  }
+
+  async findAll(): Promise<UserDirectoryEntry[]> {
+    return this.findDirectory({});
+  }
+
+  private async findDirectory(where: { status?: 'ATIVO' }): Promise<UserDirectoryEntry[]> {
     const users = await prisma.user.findMany({
-      where: { status: 'ATIVO' },
+      where,
       select: {
         id: true,
         name: true,
         email: true,
+        phone: true,
+        department: true,
+        cargo: true,
+        status: true,
         role: { select: { code: true } },
       },
       orderBy: { name: 'asc' },

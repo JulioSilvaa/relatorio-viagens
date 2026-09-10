@@ -1,15 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, Settings2, UserPlus, Users } from "lucide-react";
+import { Copy, Pencil, Power, Settings2, UserPlus, Users } from "lucide-react";
 import { useSession } from "@/modules/auth/session-context";
 import { useUsers } from "@/modules/trips/hooks";
 import { parseMoneyInput } from "@/lib/format";
-import { useRegisterUser, useSaveSettings, useSettings } from "../hooks";
+import {
+  useRegisterUser,
+  useSaveSettings,
+  useSettings,
+  useUpdateUser,
+  useUpdateUserStatus,
+} from "../hooks";
 import { ErrorState } from "@/components/feedback/error-state";
 import { getErrorMessage } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,12 +69,15 @@ const EMPTY_FORM = {
 export default function AdminPage() {
   const { user } = useSession();
   const isAdmin = user?.roleCode === "MANAGER_ADMIN";
-  const usersQuery = useUsers(isAdmin);
+  const usersQuery = useUsers(isAdmin, true);
   const settingsQuery = useSettings();
   const saveSettings = useSaveSettings();
   const registerUser = useRegisterUser();
+  const updateUser = useUpdateUser();
+  const updateUserStatus = useUpdateUserStatus();
 
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
@@ -91,7 +102,24 @@ export default function AdminPage() {
   }
 
   function openRegisterDialog() {
+    setEditingUserId(null);
     setForm(EMPTY_FORM);
+    setFormError(null);
+    setInviteToken(null);
+    setInviteCopied(false);
+    setIsRegisterOpen(true);
+  }
+
+  function openEditDialog(member: NonNullable<typeof usersQuery.data>[number]) {
+    setEditingUserId(member.id);
+    setForm({
+      name: member.name,
+      email: member.email,
+      phone: member.phone ?? "",
+      department: member.department,
+      cargo: member.cargo,
+      roleCode: member.roleCode,
+    });
     setFormError(null);
     setInviteToken(null);
     setInviteCopied(false);
@@ -125,7 +153,7 @@ export default function AdminPage() {
     }
 
     try {
-      const result = await registerUser.mutateAsync({
+      const input = {
         name,
         email,
         phone: form.phone.trim() === "" ? null : form.phone.trim(),
@@ -136,13 +164,34 @@ export default function AdminPage() {
           | "FINANCE"
           | "FISCAL",
         cargo,
-      });
-      setInviteToken(result.inviteToken ?? null);
+      };
+      if (editingUserId) {
+        await updateUser.mutateAsync({ userId: editingUserId, input });
+        setIsRegisterOpen(false);
+      } else {
+        const result = await registerUser.mutateAsync(input);
+        setInviteToken(result.inviteToken ?? null);
+      }
     } catch (registerError) {
       setFormError(
         registerError instanceof Error
           ? registerError.message
           : "Não foi possível cadastrar o funcionário.",
+      );
+    }
+  }
+
+  async function handleToggleStatus(member: NonNullable<typeof usersQuery.data>[number]) {
+    try {
+      await updateUserStatus.mutateAsync({
+        userId: member.id,
+        status: member.status === "ATIVO" ? "INATIVO" : "ATIVO",
+      });
+    } catch (statusError) {
+      toast.error(
+        statusError instanceof Error
+          ? statusError.message
+          : "Não foi possível alterar o status do funcionário.",
       );
     }
   }
@@ -209,9 +258,14 @@ export default function AdminPage() {
                   className="flex items-center justify-between gap-2 py-2"
                 >
                   <div className="flex min-w-0 flex-col gap-0.5">
-                    <p className="truncate text-sm font-medium">
-                      {member.name}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium">
+                        {member.name}
+                      </p>
+                      {member.status === "INATIVO" ? (
+                        <Badge variant="destructive">Inativo</Badge>
+                      ) : null}
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">
                       {member.email}
                     </p>
@@ -220,6 +274,27 @@ export default function AdminPage() {
                     {ROLE_LABELS[member.roleCode as keyof typeof ROLE_LABELS] ??
                       member.roleCode}
                   </span>
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      title="Editar funcionário"
+                      onClick={() => openEditDialog(member)}
+                    >
+                      <Pencil aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      title={member.status === "ATIVO" ? "Desativar funcionário" : "Reativar funcionário"}
+                      onClick={() => void handleToggleStatus(member)}
+                      disabled={updateUserStatus.isPending}
+                    >
+                      <Power aria-hidden="true" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -277,9 +352,13 @@ export default function AdminPage() {
       <Dialog open={isRegisterOpen} onOpenChange={setIsRegisterOpen}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Cadastrar funcionário</DialogTitle>
+            <DialogTitle>
+              {editingUserId ? "Editar funcionário" : "Cadastrar funcionário"}
+            </DialogTitle>
             <DialogDescription>
-              O colaborador recebe um convite pelo e-mail para definir a senha.
+              {editingUserId
+                ? "Atualize os dados cadastrais do colaborador."
+                : "O colaborador recebe um convite pelo e-mail para definir a senha."}
             </DialogDescription>
           </DialogHeader>
 
@@ -301,6 +380,11 @@ export default function AdminPage() {
               >
                 <Copy aria-hidden="true" />
                 {inviteCopied ? "Copiado" : "Copiar"}
+              </Button>
+              <Button type="button" variant="outline" size="sm" asChild className="self-start">
+                <Link href={`/aceitar-convite?token=${encodeURIComponent(inviteToken)}`}>
+                  Abrir aceite do convite
+                </Link>
               </Button>
             </div>
           ) : (
@@ -392,7 +476,7 @@ export default function AdminPage() {
               type="button"
               variant="outline"
               onClick={() => setIsRegisterOpen(false)}
-              disabled={registerUser.isPending}
+              disabled={registerUser.isPending || updateUser.isPending}
             >
               {inviteToken ? "Fechar" : "Cancelar"}
             </Button>
@@ -400,9 +484,13 @@ export default function AdminPage() {
               <Button
                 type="button"
                 onClick={() => void handleRegisterSubmit()}
-                disabled={registerUser.isPending}
+                disabled={registerUser.isPending || updateUser.isPending}
               >
-                {registerUser.isPending ? "Cadastrando..." : "Cadastrar"}
+                {registerUser.isPending || updateUser.isPending
+                  ? "Salvando..."
+                  : editingUserId
+                    ? "Salvar alterações"
+                    : "Cadastrar"}
               </Button>
             )}
           </DialogFooter>

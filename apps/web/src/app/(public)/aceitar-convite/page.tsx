@@ -1,0 +1,1 @@
+export { default } from "@/modules/auth/pages/accept-invite-page";

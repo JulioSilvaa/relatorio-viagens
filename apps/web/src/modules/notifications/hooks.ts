@@ -27,6 +27,7 @@ export function useUnreadCount() {
 
 export function useNewNotificationAlert() {
   const { data: unread } = useUnreadCount();
+  const queryClient = useQueryClient();
   const previousRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -34,9 +35,20 @@ export function useNewNotificationAlert() {
     const previous = previousRef.current;
     previousRef.current = unread;
     if (shouldNotifySound(previous, unread)) {
-      playNotificationSound();
+      let cancelled = false;
+      void queryClient
+        .fetchQuery({
+          queryKey: notificationsKeys.all,
+          queryFn: listNotifications,
+        })
+        .then(() => {
+          if (!cancelled) playNotificationSound();
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [unread]);
+  }, [queryClient, unread]);
 }
 
 export function useDeleteNotification() {

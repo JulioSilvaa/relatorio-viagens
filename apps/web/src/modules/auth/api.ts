@@ -24,3 +24,10 @@ export async function fetchMe(): Promise<UserView> {
 export async function logout(): Promise<void> {
   await apiFetch<void>("/api/auth/logout", { method: "POST" });
 }
+
+export async function acceptInvite(token: string, password: string): Promise<void> {
+  await apiFetch<void>("/api/auth/accept-invite", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}

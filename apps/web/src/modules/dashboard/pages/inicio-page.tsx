@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { CircleHelp, Plane } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  Building2,
+  CircleHelp,
+  MapPin,
+  Plane,
+  Users,
+  WalletCards,
+} from "lucide-react";
 import { useSession } from "@/modules/auth/session-context";
 import { useEmployeeReport, useManagerReport } from "../hooks";
 import { StatCard } from "../components/stat-card";
@@ -143,32 +152,115 @@ function ManagerDashboard() {
     1,
     ...topCategories.map((item) => Number(item.total)),
   );
+  const topCities = [...data.porCidade]
+    .sort((a, b) => Number(b.total) - Number(a.total))
+    .slice(0, 5);
+  const topCostCenters = [...data.porCentroDeCusto]
+    .sort((a, b) => Number(b.total) - Number(a.total))
+    .slice(0, 5);
+  const maxCity = Math.max(1, ...topCities.map((item) => Number(item.total)));
+  const priorityStatuses = [
+    "EM_APROVACAO",
+    "EM_CORRECAO",
+    "FINANCEIRO",
+  ] as const;
+  const priorityItems = priorityStatuses
+    .map((status) => ({
+      status,
+      quantity:
+        data.reembolsosStatus.find((item) => item.status === status)
+          ?.quantidade ?? 0,
+    }))
+    .filter((item) => item.quantity > 0);
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Resumo</h1>
-<p className="text-sm text-muted-foreground">
-  {formatDate(data.periodoDe)} — {formatDate(data.periodoAte)}
-</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-primary">
+            Visão gerencial
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Resumo operacional</h1>
+          <p className="text-sm text-muted-foreground">
+            {formatDate(data.periodoDe)} — {formatDate(data.periodoAte)}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Link
+            href="/viagens"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium hover:bg-muted"
+          >
+            Ver viagens <ArrowRight className="size-4" aria-hidden="true" />
+          </Link>
+          <Link
+            href="/admin"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+          >
+            Administração
+          </Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Despesas" value={formatMoney(data.totalDespesas)} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <StatCard
+          label="Despesas no período"
+          value={formatMoney(data.totalDespesas)}
+          icon={<WalletCards className="size-4" aria-hidden="true" />}
+        />
         <StatCard
           label="Reembolsos"
           value={formatMoney(data.totalReembolsado)}
-        />
-        <StatCard
-          label="Em aprovação"
-          value={data.relatoriosPendentes}
-          hint="Relatórios"
+          icon={<Activity className="size-4" aria-hidden="true" />}
         />
         <StatCard
           label="Valores pendentes"
           value={formatMoney(data.valoresPendentes)}
+          hint="Acompanhar"
+        />
+        <StatCard
+          label="Relatórios pendentes"
+          value={data.relatoriosPendentes}
+          hint="Em aprovação"
+        />
+        <StatCard
+          label="Viagens"
+          value={data.quantidadeViagens}
+          icon={<Plane className="size-4" aria-hidden="true" />}
+        />
+        <StatCard
+          label="Cidades com despesas"
+          value={data.porCidade.length}
+          icon={<MapPin className="size-4" aria-hidden="true" />}
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CircleHelp className="size-4 text-warning" aria-hidden="true" />
+            Atenção necessária
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {priorityItems.length > 0 ? (
+            <div className="grid gap-2 sm:grid-cols-3">
+              {priorityItems.map((item) => (
+                <div
+                  key={item.status}
+                  className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+                >
+                  <TripStatusBadge status={item.status} />
+                  <span className="font-semibold tabular-nums">{item.quantity}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Nenhum fluxo exige atenção imediata.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -205,7 +297,10 @@ function ManagerDashboard() {
       {data.porColaborador.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Por colaborador</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="size-4 text-muted-foreground" aria-hidden="true" />
+              Despesas por colaborador
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {data.porColaborador.map((colaborador) => (
@@ -217,6 +312,80 @@ function ManagerDashboard() {
                 <span className="font-medium text-muted-foreground">
                   {formatMoney(colaborador.total)}
                 </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {topCities.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MapPin className="size-4 text-muted-foreground" aria-hidden="true" />
+                Principais cidades
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {topCities.map((item) => (
+                <div key={item.cidade} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>{item.cidade}</span>
+                    <span className="font-medium text-muted-foreground">
+                      {formatMoney(item.total)}
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-info"
+                      style={{ width: `${(Number(item.total) / maxCity) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {topCostCenters.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Building2 className="size-4 text-muted-foreground" aria-hidden="true" />
+                Centros de custo
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              {topCostCenters.map((item, index) => (
+                <div
+                  key={`${item.nome ?? "sem-centro"}-${index}`}
+                  className="flex items-center justify-between border-b border-border py-2 text-sm last:border-0"
+                >
+                  <span>{item.nome ?? "Sem centro de custo"}</span>
+                  <span className="font-medium text-muted-foreground">
+                    {formatMoney(item.total)}
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+
+      {data.evolucaoTemporal.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Evolução das despesas</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Acompanhe a variação dos valores ao longo do período selecionado.
+            </p>
+          </CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {data.evolucaoTemporal.map((item) => (
+              <div key={item.periodo} className="rounded-lg bg-muted/60 px-3 py-2">
+                <p className="text-xs text-muted-foreground">{item.periodo}</p>
+                <p className="mt-1 font-semibold">{formatMoney(item.total)}</p>
               </div>
             ))}
           </CardContent>

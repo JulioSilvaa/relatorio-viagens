@@ -82,10 +82,10 @@ export function useReturnTrip() {
   });
 }
 
-export function useUsers(enabled: boolean) {
+export function useUsers(enabled: boolean, includeInactive = false) {
   return useQuery({
-    queryKey: ["users"],
-    queryFn: listUsers,
+    queryKey: ["users", includeInactive],
+    queryFn: () => listUsers(includeInactive),
     enabled,
   });
 }

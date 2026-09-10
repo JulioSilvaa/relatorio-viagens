@@ -1,4 +1,10 @@
-import type { CreateUserInput, PersistedUser, RoleRecord } from '../user.types.js';
+import type {
+  CreateUserInput,
+  PersistedUser,
+  RoleRecord,
+  UpdateUserInput,
+  UserStatusValue,
+} from '../user.types.js';
 
 export interface UserIdRef {
   id: string;
@@ -9,6 +15,10 @@ export interface UserDirectoryEntry {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
+  department: string;
+  cargo: string;
+  status: string;
   roleCode: string;
 }
 
@@ -17,7 +27,10 @@ export interface UsersRepository {
   findByEmail(email: string): Promise<PersistedUser | null>;
   findById(id: string): Promise<PersistedUser | null>;
   findRoleByCode(code: string): Promise<RoleRecord | null>;
+  update(id: string, input: UpdateUserInput & { roleId: string }): Promise<PersistedUser>;
+  updateStatus(id: string, status: UserStatusValue): Promise<PersistedUser>;
   updatePassword(id: string, passwordHash: string): Promise<void>;
   findAllByRoleCode(code: string): Promise<UserIdRef[]>;
   findAllActive(): Promise<UserDirectoryEntry[]>;
+  findAll(): Promise<UserDirectoryEntry[]>;
 }

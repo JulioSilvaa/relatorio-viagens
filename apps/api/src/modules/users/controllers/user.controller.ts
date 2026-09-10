@@ -6,18 +6,27 @@ import { requirePermission } from '../../../shared/auth/require-permission.js';
 import { verifyCsrf } from '../../../shared/auth/csrf.js';
 import type { CreateUserService } from '../services/create-user.service.js';
 import type { ListUsersService } from '../services/list-users.service.js';
+import type { UpdateUserService } from '../services/update-user.service.js';
+import type { UpdateUserStatusService } from '../services/update-user-status.service.js';
 import { createUserSchema } from '../schemas/create-user.schema.js';
+import { updateUserSchema } from '../schemas/update-user.schema.js';
+import { updateUserStatusSchema } from '../schemas/update-user-status.schema.js';
 import { isProduction } from '../../../config/env.js';
+import { AppError } from '../../../shared/errors/app-error.js';
 
 export interface UsersDeps {
   createUserService: CreateUserService;
   listUsersService: ListUsersService;
+  updateUserService: UpdateUserService;
+  updateUserStatusService: UpdateUserStatusService;
   requireAuth: RequestHandler;
 }
 
 export function createUsersRouter({
   createUserService,
   listUsersService,
+  updateUserService,
+  updateUserStatusService,
   requireAuth,
 }: UsersDeps): Router {
   const router = Router();
@@ -26,9 +35,42 @@ export function createUsersRouter({
     '/',
     requireAuth,
     requirePermission('VIAGEM.CRIAR'),
-    asyncHandler(async (_req, res) => {
-      const users = await listUsersService.execute();
+    asyncHandler(async (req, res) => {
+      const users =
+        req.query.includeInactive === 'true'
+          ? await listUsersService.execute(true)
+          : await listUsersService.execute();
       res.json(success({ users }));
+    }),
+  );
+
+  router.put(
+    '/:id',
+    requireAuth,
+    requirePermission('USUARIO.EDITAR'),
+    verifyCsrf,
+    asyncHandler(async (req, res) => {
+      const userId = req.params.id;
+      if (!userId)
+        throw new AppError(400, 'USER_ID_REQUIRED', 'Identificador do funcionário é obrigatório.');
+      const dto = updateUserSchema.parse(req.body);
+      const user = await updateUserService.execute(userId, dto, req.auth!.userId);
+      res.json(success({ user }));
+    }),
+  );
+
+  router.patch(
+    '/:id/status',
+    requireAuth,
+    requirePermission('USUARIO.EDITAR'),
+    verifyCsrf,
+    asyncHandler(async (req, res) => {
+      const userId = req.params.id;
+      if (!userId)
+        throw new AppError(400, 'USER_ID_REQUIRED', 'Identificador do funcionário é obrigatório.');
+      const dto = updateUserStatusSchema.parse(req.body);
+      const user = await updateUserStatusService.execute(userId, dto, req.auth!.userId);
+      res.json(success({ user }));
     }),
   );
 
