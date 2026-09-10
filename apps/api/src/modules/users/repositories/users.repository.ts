@@ -5,6 +5,13 @@ export interface UserIdRef {
   name: string;
 }
 
+export interface UserDirectoryEntry {
+  id: string;
+  name: string;
+  email: string;
+  roleCode: string;
+}
+
 export interface UsersRepository {
   create(input: CreateUserInput & { roleId: string; status: 'ATIVO' }): Promise<PersistedUser>;
   findByEmail(email: string): Promise<PersistedUser | null>;
@@ -12,4 +19,5 @@ export interface UsersRepository {
   findRoleByCode(code: string): Promise<RoleRecord | null>;
   updatePassword(id: string, passwordHash: string): Promise<void>;
   findAllByRoleCode(code: string): Promise<UserIdRef[]>;
+  findAllActive(): Promise<UserDirectoryEntry[]>;
 }

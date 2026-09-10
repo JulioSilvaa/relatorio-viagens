@@ -49,6 +49,7 @@ export const tripBaseSchema = z.object({
   tipoVeiculo: vehicleTypeSchema.optional().nullable(),
   kmInicial: z.coerce.number().nonnegative().optional().nullable(),
   kmFinal: z.coerce.number().nonnegative().optional().nullable(),
+  taxaKm: z.coerce.number().positive().optional().nullable(),
   centroDeCustoId: z.string().uuid().optional().nullable(),
   observacoes: z.string().trim().min(1).optional().nullable(),
 });

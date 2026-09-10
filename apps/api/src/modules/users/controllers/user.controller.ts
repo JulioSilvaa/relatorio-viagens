@@ -5,16 +5,32 @@ import { success } from '../../../shared/http/http-response.js';
 import { requirePermission } from '../../../shared/auth/require-permission.js';
 import { verifyCsrf } from '../../../shared/auth/csrf.js';
 import type { CreateUserService } from '../services/create-user.service.js';
+import type { ListUsersService } from '../services/list-users.service.js';
 import { createUserSchema } from '../schemas/create-user.schema.js';
 import { isProduction } from '../../../config/env.js';
 
 export interface UsersDeps {
   createUserService: CreateUserService;
+  listUsersService: ListUsersService;
   requireAuth: RequestHandler;
 }
 
-export function createUsersRouter({ createUserService, requireAuth }: UsersDeps): Router {
+export function createUsersRouter({
+  createUserService,
+  listUsersService,
+  requireAuth,
+}: UsersDeps): Router {
   const router = Router();
+
+  router.get(
+    '/',
+    requireAuth,
+    requirePermission('VIAGEM.CRIAR'),
+    asyncHandler(async (_req, res) => {
+      const users = await listUsersService.execute();
+      res.json(success({ users }));
+    }),
+  );
 
   router.post(
     '/',

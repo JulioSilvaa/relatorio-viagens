@@ -5,6 +5,7 @@ import { createRequireAuth } from '../shared/auth/session.js';
 import { AuditService } from '../modules/audit/audit.service.js';
 import { PrismaUsersRepository } from '../modules/users/repositories/users.repository.prisma.js';
 import { CreateUserService } from '../modules/users/services/create-user.service.js';
+import { ListUsersService } from '../modules/users/services/list-users.service.js';
 import { createUsersRouter } from '../modules/users/controllers/user.controller.js';
 import {
   PrismaInvitesRepository,
@@ -130,6 +131,7 @@ export function buildContainer(): Container {
   const receipts = new PrismaReceiptsRepository();
 
   const createUserService = new CreateUserService(users, invites, audit, email);
+  const listUsersService = new ListUsersService(users);
   const loginService = new LoginService(users, sessions);
   const meService = new MeService(users);
   const logoutService = new LogoutService(sessions);
@@ -172,7 +174,7 @@ export function buildContainer(): Container {
 
   const requireAuth = createRequireAuth(sessions);
 
-  const usersRouter = createUsersRouter({ createUserService, requireAuth });
+  const usersRouter = createUsersRouter({ createUserService, listUsersService, requireAuth });
   const authRouter = createAuthRouter({
     loginService,
     meService,

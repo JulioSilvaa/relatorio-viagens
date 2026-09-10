@@ -1,7 +1,7 @@
 import { prisma } from '../../../config/database.js';
 import type { RoleType } from '@prisma/client';
 import type { CreateUserInput, PersistedUser, RoleRecord } from '../user.types.js';
-import type { UserIdRef, UsersRepository } from './users.repository.js';
+import type { UserIdRef, UserDirectoryEntry, UsersRepository } from './users.repository.js';
 
 interface UserWithRoleCode {
   id: string;
@@ -109,5 +109,22 @@ export class PrismaUsersRepository implements UsersRepository {
       select: { id: true, name: true },
     });
     return users;
+  }
+
+  async findAllActive(): Promise<UserDirectoryEntry[]> {
+    const users = await prisma.user.findMany({
+      where: { status: 'ATIVO' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: { select: { code: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    return users.map(({ role, ...user }) => ({
+      ...user,
+      roleCode: role.code,
+    }));
   }
 }

@@ -34,7 +34,10 @@ export class CreateTripService {
       }
     }
 
-    const taxaKm = computeTaxaKm(dto.tipoVeiculo, dto.kmInicial, dto.kmFinal);
+    const taxaKm =
+      dto.taxaKm != null
+        ? String(dto.taxaKm)
+        : computeTaxaKm(dto.tipoVeiculo, dto.kmInicial, dto.kmFinal);
 
     const created = await this.trips.createTrip({
       ...dto,
