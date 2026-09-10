@@ -26,14 +26,8 @@ function periodBounds(dataDe?: string, dataAte?: string): { from: Date; to: Date
   return { from, to };
 }
 
-function tripWhere(
-  filters: ManagerReportFilters,
-  bounds: { from: Date; to: Date },
-): Prisma.TripWhereInput {
-  const where: Prisma.TripWhereInput = {
-    deletadoEm: null,
-    dataSaida: { gte: bounds.from, lte: bounds.to },
-  };
+function tripScopeWhere(filters: ManagerReportFilters): Prisma.TripWhereInput {
+  const where: Prisma.TripWhereInput = { deletadoEm: null };
   if (filters.departamento) where.departamento = filters.departamento as DepartmentType;
   if (filters.status) where.status = filters.status as TripStatus;
   if (filters.centroDeCustoId) where.centroDeCustoId = filters.centroDeCustoId;
@@ -46,6 +40,16 @@ function tripWhere(
     ];
   }
   return where;
+}
+
+function tripWhere(
+  filters: ManagerReportFilters,
+  bounds: { from: Date; to: Date },
+): Prisma.TripWhereInput {
+  return {
+    ...tripScopeWhere(filters),
+    dataSaida: { gte: bounds.from, lte: bounds.to },
+  };
 }
 
 export class PrismaDashboardRepository implements DashboardRepository {
@@ -147,7 +151,12 @@ export class PrismaDashboardRepository implements DashboardRepository {
     ).length;
 
     const statusCount = new Map<string, number>();
-    for (const trip of trips) statusCount.set(trip.status, (statusCount.get(trip.status) ?? 0) + 1);
+    const statusRows = await prisma.trip.groupBy({
+      by: ['status'],
+      where: tripScopeWhere(filters),
+      _count: { _all: true },
+    });
+    for (const row of statusRows) statusCount.set(row.status, row._count._all);
 
     const totalReembolsado = Math.max(0, pagamentosCents - devolucoesCents);
 

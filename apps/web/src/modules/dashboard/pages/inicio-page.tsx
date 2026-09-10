@@ -227,6 +227,9 @@ function ManagerDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Viagens por status</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Considera todas as viagens, sem filtro de período.
+            </p>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {data.reembolsosStatus.map((item) => (

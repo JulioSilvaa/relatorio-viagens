@@ -527,6 +527,28 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
       expect(report.body.data.totalDespesas).toBe('75.00');
       expect(report.body.data.quantidadeViagens).toBe(2);
     });
+
+    it('reembolsosStatus conta todas as viagens, independente do período', async () => {
+      await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
+      await createUser({
+        email: 'gestor@empresa.com',
+        password: 'gest-pw-123',
+        role: 'MANAGER_ADMIN',
+      });
+      const ana = await login('ana@empresa.com', 'ana-pw-123');
+      const gestor = await login('gestor@empresa.com', 'gest-pw-123');
+      await createTrip(ana);
+      await createTrip(ana, { dataSaida: '2026-01-01', dataRetorno: '2026-01-03' });
+
+      const report = await gestor.agent.get('/api/dashboard/gerencial');
+      expect(report.status).toBe(200);
+      expect(report.body.data.quantidadeViagens).toBe(1);
+      const totalPorStatus = report.body.data.reembolsosStatus.reduce(
+        (acc: number, item: { status: string; quantidade: number }) => acc + item.quantidade,
+        0,
+      );
+      expect(totalPorStatus).toBe(2);
+    });
   });
 
   describe('CA-REL/EXP - relatórios PDF e exportação Excel', () => {
