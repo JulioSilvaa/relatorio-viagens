@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Briefcase, Home, Plus, User } from "lucide-react";
+import { Bell, Briefcase, Home, Plus, Settings, User } from "lucide-react";
 import { useSession } from "@/modules/auth/session-context";
 import { useNewNotificationAlert, useUnreadCount } from "@/modules/notifications/hooks";
 import { ConnectivityIndicator } from "./connectivity-indicator";
@@ -116,6 +116,7 @@ function MobileNavItem({
 function Sidebar() {
   const pathname = usePathname();
   const { data: unread } = useUnreadCount();
+  const { user } = useSession();
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-secondary/50 md:flex">
@@ -152,6 +153,23 @@ function Sidebar() {
             </Link>
           );
         })}
+        {user?.roleCode === "MANAGER_ADMIN" ? (
+          <Link
+            href="/admin"
+            aria-current={
+              pathname.startsWith("/admin") ? "page" : undefined
+            }
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              pathname.startsWith("/admin")
+                ? "bg-primary text-primary-foreground"
+                : "text-foreground hover:bg-accent",
+            )}
+          >
+            <Settings className="size-4 shrink-0" aria-hidden="true" />
+            <span className="flex-1">Administração</span>
+          </Link>
+        ) : null}
         <Link
           href="/viagens/nova"
           className="mt-2 flex items-center gap-3 rounded-lg border border-dashed border-border px-3 py-2.5 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
