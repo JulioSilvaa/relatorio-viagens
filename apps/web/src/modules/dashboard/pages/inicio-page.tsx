@@ -8,7 +8,7 @@ import { StatCard } from "../components/stat-card";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatMoney } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { getErrorMessage } from "@/lib/api";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { TripStatusBadge } from "@/modules/trips/components/trip-status-badge";
@@ -148,9 +148,9 @@ function ManagerDashboard() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Resumo</h1>
-        <p className="text-sm text-muted-foreground">
-          {data.periodoDe} — {data.periodoAte}
-        </p>
+<p className="text-sm text-muted-foreground">
+  {formatDate(data.periodoDe)} — {formatDate(data.periodoAte)}
+</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
