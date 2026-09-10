@@ -79,6 +79,7 @@ enum ReceiptType {
 }
 
 enum NotificationEventType {
+  VIAGEM_CRIADA
   RELATORIO_ENTREGUE
   RELATORIO_RETORNADO
   RELATORIO_APROVADO

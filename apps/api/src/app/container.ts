@@ -137,7 +137,7 @@ export function buildContainer(): Container {
   const forgotPasswordService = new ForgotPasswordService(users, resets, email);
   const resetPasswordService = new ResetPasswordService(users, resets, sessions);
 
-  const createTripService = new CreateTripService(trips, costCenters, audit);
+  const createTripService = new CreateTripService(trips, costCenters, audit, users, notifications);
   const editTripService = new EditTripService(trips, costCenters, audit);
   const listTripsService = new ListTripsService(trips);
   const getTripService = new GetTripService(trips);

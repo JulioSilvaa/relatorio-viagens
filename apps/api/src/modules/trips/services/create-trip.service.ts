@@ -1,4 +1,6 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import type { NotificationPublisher } from '../../notifications/notification-publisher.js';
+import type { UsersRepository } from '../../users/repositories/users.repository.js';
 import type { CostCentersRepository } from '../../cost-centers/repositories/cost-centers.repository.js';
 import { CostCenterNotFoundError } from '../trip.errors.js';
 import { tripToView } from '../presenters/trip.presenter.js';
@@ -17,6 +19,8 @@ export class CreateTripService {
     private readonly trips: TripsRepository,
     private readonly costCenters: CostCentersRepository,
     private readonly audit: AuditService,
+    private readonly users: UsersRepository,
+    private readonly notifier: NotificationPublisher,
   ) {}
 
   async execute(dto: CreateTripDto, actor: CreateTripActor): Promise<TripView> {
@@ -48,6 +52,16 @@ export class CreateTripService {
       entityId: created.id,
       newValue: `${created.cliente} (${created.cidade}-${created.uf})`,
     });
+
+    const managers = await this.users.findAllByRoleCode('MANAGER_ADMIN');
+    if (managers.length > 0) {
+      await this.notifier.notifyMany({
+        event: 'VIAGEM_CRIADA',
+        message: `Nova viagem criada: ${created.cliente} (${created.cidade}-${created.uf}).`,
+        tripId: created.id,
+        userIds: managers.map((manager) => manager.id),
+      });
+    }
 
     return tripToView(created);
   }

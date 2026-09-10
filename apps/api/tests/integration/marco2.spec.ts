@@ -579,11 +579,11 @@ describe('marco 2: viagens, despesas e aprovações', () => {
 
       const unread = await gestor.agent.get('/api/notifications/nao-lidas');
       expect(unread.status).toBe(200);
-      expect(unread.body.data.unread).toBe(1);
+      expect(unread.body.data.unread).toBe(2);
 
       const inbox = await gestor.agent.get('/api/notifications');
       expect(inbox.status).toBe(200);
-      expect(inbox.body.data).toHaveLength(1);
+      expect(inbox.body.data).toHaveLength(2);
       expect(inbox.body.data[0].event).toBe('RELATORIO_ENTREGUE');
 
       const read = await gestor.agent
