@@ -5,7 +5,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, Briefcase, Home, Plus, Settings, User } from "lucide-react";
 import { useSession } from "@/modules/auth/session-context";
-import { useNewNotificationAlert, useUnreadCount } from "@/modules/notifications/hooks";
+import {
+  useNewNotificationAlert,
+  useNotificationRealtime,
+  useUnreadCount,
+} from "@/modules/notifications/hooks";
 import { ConnectivityIndicator } from "./connectivity-indicator";
 import { UserMenu } from "./user-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -189,6 +193,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const router = useRouter();
   useNewNotificationAlert();
+  useNotificationRealtime();
 
   useEffect(() => {
     if (status === "unauthenticated") {

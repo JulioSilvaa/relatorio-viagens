@@ -1,12 +1,16 @@
 import type { NotificationEventType } from '@prisma/client';
 import type { NotificationPublisher } from '../notification-publisher.js';
+import type { NotificationRealtime } from '../../../shared/realtime/socket.js';
 import type {
   NotificationRecord,
   NotificationsRepository,
 } from '../repositories/notifications.repository.js';
 
 export class NotificationsService implements NotificationPublisher {
-  constructor(private readonly repository: NotificationsRepository) {}
+  constructor(
+    private readonly repository: NotificationsRepository,
+    private readonly realtime?: NotificationRealtime,
+  ) {}
 
   async notifyMany(input: {
     event: NotificationEventType;
@@ -23,6 +27,7 @@ export class NotificationsService implements NotificationPublisher {
         tripId: input.tripId,
       })),
     );
+    this.realtime?.notifyUsers(input.userIds);
   }
 
   createMany(

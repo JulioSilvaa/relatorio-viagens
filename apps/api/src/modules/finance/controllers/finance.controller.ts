@@ -46,7 +46,7 @@ const advanceRequestSchema = z.object({
 const advanceReviewSchema = z
   .object({
     aprovado: z.boolean(),
-    valorAprovado: z.coerce.number().positive().optional(),
+    valorAprovado: z.coerce.number().positive().nullable().optional(),
     justificativaAnalise: z.string().trim().min(2).max(1000),
   })
   .refine((value) => !value.aprovado || value.valorAprovado !== undefined, {

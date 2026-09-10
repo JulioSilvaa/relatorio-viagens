@@ -29,6 +29,7 @@ import { PrismaExpensesRepository } from '../modules/expenses/repositories/expen
 import { PrismaCostCentersRepository } from '../modules/cost-centers/repositories/cost-centers.repository.prisma.js';
 import { PrismaNotificationsRepository } from '../modules/notifications/repositories/notifications.repository.prisma.js';
 import { NotificationsService } from '../modules/notifications/services/notifications.service.js';
+import type { NotificationRealtime } from '../shared/realtime/socket.js';
 import { PrismaReceiptsRepository } from '../modules/receipts/receipts.repository.prisma.js';
 import { CreateTripService } from '../modules/trips/services/create-trip.service.js';
 import { EditTripService } from '../modules/trips/services/edit-trip.service.js';
@@ -121,7 +122,7 @@ export interface Container {
   exportsRouter: ReturnType<typeof createExportsRouter>;
 }
 
-export function buildContainer(): Container {
+export function buildContainer(realtime?: NotificationRealtime): Container {
   const users = new PrismaUsersRepository();
   const sessions = new PrismaSessionsRepository();
   const invites = new PrismaInvitesRepository();
@@ -133,7 +134,7 @@ export function buildContainer(): Container {
   const expenses = new PrismaExpensesRepository();
   const costCenters = new PrismaCostCentersRepository();
   const notificationsRepo = new PrismaNotificationsRepository();
-  const notifications = new NotificationsService(notificationsRepo);
+  const notifications = new NotificationsService(notificationsRepo, realtime);
   const receipts = new PrismaReceiptsRepository();
   const settingsRepo = new PrismaSettingsRepository();
   const kmRateService = new KmRateService(settingsRepo);

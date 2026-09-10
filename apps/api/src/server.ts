@@ -4,6 +4,9 @@ import { createApp } from './app/app.js';
 import { buildContainer, createHealthRouter } from './app/container.js';
 import { prisma } from './config/database.js';
 import type { Container } from './app/container.js';
+import { createServer } from 'node:http';
+import { createRealtimeServer } from './shared/realtime/socket.js';
+import { PrismaSessionsRepository } from './modules/auth/repositories/auth.repository.prisma.js';
 
 export function mountApp(container: Container) {
   return createApp({
@@ -30,10 +33,13 @@ export function mountApp(container: Container) {
 }
 
 function main(): void {
-  const container = buildContainer();
+  const httpServer = createServer();
+  const realtime = createRealtimeServer(httpServer, new PrismaSessionsRepository());
+  const container = buildContainer(realtime);
   const app = mountApp(container);
+  httpServer.on('request', app);
 
-  app.listen(env.PORT, () => {
+  httpServer.listen(env.PORT, () => {
     logger.info('API iniciada', { port: env.PORT, nodeEnv: env.NODE_ENV });
   });
 }

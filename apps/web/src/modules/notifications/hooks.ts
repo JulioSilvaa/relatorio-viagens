@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listNotifications, markNotificationRead, unreadCount, deleteNotification } from "./api";
 import { playNotificationSound, shouldNotifySound } from "@/lib/notification-sound";
+import { io } from "socket.io-client";
 
 export const notificationsKeys = {
   all: ["notifications"] as const,
@@ -49,6 +50,32 @@ export function useNewNotificationAlert() {
       };
     }
   }, [queryClient, unread]);
+}
+
+export function useNotificationRealtime(): void {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL ??
+      (window.location.port === "3001" ? "http://localhost:3000" : window.location.origin);
+    const socket = io(apiUrl, {
+      path: "/socket.io",
+      withCredentials: true,
+      transports: ["websocket", "polling"],
+    });
+
+    const refreshNotifications = () => {
+      void queryClient.invalidateQueries({ queryKey: notificationsKeys.all });
+      void queryClient.invalidateQueries({ queryKey: notificationsKeys.unread });
+    };
+
+    socket.on("notification.created", refreshNotifications);
+    return () => {
+      socket.off("notification.created", refreshNotifications);
+      socket.disconnect();
+    };
+  }, [queryClient]);
 }
 
 export function useDeleteNotification() {
