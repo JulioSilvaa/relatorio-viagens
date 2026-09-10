@@ -47,4 +47,8 @@ export class NotificationsService implements NotificationPublisher {
   markRead(id: string, userId: string): Promise<boolean> {
     return this.repository.markRead(id, userId);
   }
+
+  remove(id: string, userId: string): Promise<boolean> {
+    return this.repository.remove(id, userId);
+  }
 }

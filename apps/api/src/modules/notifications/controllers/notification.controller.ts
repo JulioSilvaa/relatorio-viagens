@@ -47,5 +47,18 @@ export function createNotificationsRouter({
     }),
   );
 
+  router.delete(
+    '/:id',
+    requireAuth,
+    verifyCsrf,
+    asyncHandler(async (req, res) => {
+      const removed = await notificationsService.remove(req.params.id!, req.auth!.userId);
+      if (!removed) {
+        throw new AppError(404, 'NOTIFICATION_NOT_FOUND', 'Notificação não encontrada.');
+      }
+      res.status(204).send();
+    }),
+  );
+
   return router;
 }

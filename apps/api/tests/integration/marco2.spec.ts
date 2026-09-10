@@ -594,5 +594,37 @@ describe('marco 2: viagens, despesas e aprovações', () => {
         (await prisma.notification.findUniqueOrThrow({ where: { id: notification.id } })).readAt,
       ).toBeTruthy();
     });
+
+    it('inbox: remove notificação própria e impede remoção de outro usuário', async () => {
+      await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
+      await createUser({
+        email: 'gestor@empresa.com',
+        password: 'gestor-pw-123',
+        role: 'MANAGER_ADMIN',
+      });
+      const ana = await login('ana@empresa.com', 'ana-pw-123');
+      const gestor = await login('gestor@empresa.com', 'gestor-pw-123');
+      const trip = await createTrip(ana);
+
+      await ana.agent.post(`/api/trips/${trip.id}/entregar`).set('x-csrf-token', ana.csrf);
+
+      const gestorRow = await prisma.user.findUniqueOrThrow({
+        where: { email: 'gestor@empresa.com' },
+      });
+      const notification = await prisma.notification.findFirstOrThrow({
+        where: { userId: gestorRow.id },
+      });
+
+      const cross = await ana.agent
+        .delete(`/api/notifications/${notification.id}`)
+        .set('x-csrf-token', ana.csrf);
+      expect(cross.status).toBe(404);
+
+      const removed = await gestor.agent
+        .delete(`/api/notifications/${notification.id}`)
+        .set('x-csrf-token', gestor.csrf);
+      expect(removed.status).toBe(204);
+      expect(await prisma.notification.findUnique({ where: { id: notification.id } })).toBeNull();
+    });
   });
 });

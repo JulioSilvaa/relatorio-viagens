@@ -21,4 +21,5 @@ export interface NotificationsRepository {
   listForUser(userId: string): Promise<NotificationRecord[]>;
   unreadCount(userId: string): Promise<number>;
   markRead(id: string, userId: string): Promise<boolean>;
+  remove(id: string, userId: string): Promise<boolean>;
 }
