@@ -164,6 +164,13 @@ export interface ManagerReportFilters {
   cliente?: string;
 }
 
+export interface DashboardAdvanceSummary {
+  totalSolicitado: string;
+  totalAprovado: string;
+  totalPago: string;
+  pendentesAnalise: number;
+}
+
 export interface DashboardManagerReport {
   periodoDe: string;
   periodoAte: string;
@@ -172,6 +179,7 @@ export interface DashboardManagerReport {
   valoresPendentes: string;
   quantidadeViagens: number;
   relatoriosPendentes: number;
+  adiantamentos: DashboardAdvanceSummary;
   porColaborador: Array<{ id: string; nome: string; total: string }>;
   porCategoria: Array<{
     categoria: { code: string; name: string } | null;
@@ -181,6 +189,10 @@ export interface DashboardManagerReport {
   porCentroDeCusto: Array<{ nome: string | null; total: string }>;
   evolucaoTemporal: Array<{ periodo: string; total: string }>;
   reembolsosStatus: Array<{ status: TripStatus; quantidade: number }>;
+  viagensPorDepartamento: Array<{ departamento: string; quantidade: number }>;
+  viagensPorRegiao: Array<{ regiao: string; quantidade: number }>;
+  cidadesMaisVisitadas: Array<{ cidade: string; uf: string; quantidade: number }>;
+  viagensPorColaborador: Array<{ id: string; nome: string; quantidade: number }>;
 }
 
 export interface DashboardEmployeeReport {

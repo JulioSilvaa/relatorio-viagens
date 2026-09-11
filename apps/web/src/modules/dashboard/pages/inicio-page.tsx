@@ -194,9 +194,15 @@ function ManagerDashboard() {
           </Link>
           <Link
             href="/admin"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium hover:bg-muted"
           >
             Administração
+          </Link>
+          <Link
+            href="/dashboard"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+          >
+            Dashboards
           </Link>
         </div>
       </div>

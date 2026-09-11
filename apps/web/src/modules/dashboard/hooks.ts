@@ -17,9 +17,13 @@ export function useEmployeeReport() {
   });
 }
 
-export function useManagerReport(filters: ManagerReportFilters = {}) {
+export function useManagerReport(
+  filters: ManagerReportFilters = {},
+  enabled = true,
+) {
   return useQuery({
     queryKey: dashboardKeys.manager(filters),
     queryFn: () => fetchManagerReport(filters),
+    enabled,
   });
 }

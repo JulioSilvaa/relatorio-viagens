@@ -3,7 +3,15 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Briefcase, Home, Plus, Settings, User } from "lucide-react";
+import {
+  BarChart3,
+  Bell,
+  Briefcase,
+  Home,
+  Plus,
+  Settings,
+  User,
+} from "lucide-react";
 import { useSession } from "@/modules/auth/session-context";
 import {
   useNewNotificationAlert,
@@ -158,21 +166,38 @@ function Sidebar() {
           );
         })}
         {user?.roleCode === "MANAGER_ADMIN" ? (
-          <Link
-            href="/admin"
-            aria-current={
-              pathname.startsWith("/admin") ? "page" : undefined
-            }
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              pathname.startsWith("/admin")
-                ? "bg-primary text-primary-foreground"
-                : "text-foreground hover:bg-accent",
-            )}
-          >
-            <Settings className="size-4 shrink-0" aria-hidden="true" />
-            <span className="flex-1">Administração</span>
-          </Link>
+          <>
+            <Link
+              href="/dashboard"
+              aria-current={
+                pathname.startsWith("/dashboard") ? "page" : undefined
+              }
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                pathname.startsWith("/dashboard")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground hover:bg-accent",
+              )}
+            >
+              <BarChart3 className="size-4 shrink-0" aria-hidden="true" />
+              <span className="flex-1">Dashboards</span>
+            </Link>
+            <Link
+              href="/admin"
+              aria-current={
+                pathname.startsWith("/admin") ? "page" : undefined
+              }
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                pathname.startsWith("/admin")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground hover:bg-accent",
+              )}
+            >
+              <Settings className="size-4 shrink-0" aria-hidden="true" />
+              <span className="flex-1">Administração</span>
+            </Link>
+          </>
         ) : null}
         <Link
           href="/viagens/nova"
