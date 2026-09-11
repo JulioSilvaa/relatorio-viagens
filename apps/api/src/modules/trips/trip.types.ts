@@ -48,6 +48,23 @@ export interface TripParticipantView {
   addedAt: Date;
 }
 
+export interface TripReceiptOcrView {
+  status: string;
+  origem: string;
+  cnpj: string | null;
+  nomeEstabelecimento: string | null;
+  data: string | null;
+  hora: string | null;
+  valorTotal: string | null;
+  numeroDocumento: string | null;
+  chaveAcesso: string | null;
+  itens: unknown[] | null;
+  erro: string | null;
+  extraidoEm: string | null;
+  conferidoPor: { id: string; name: string } | null;
+  conferidoEm: string | null;
+}
+
 export interface TripReceiptView {
   id: string;
   tipo: ReceiptType;
@@ -56,6 +73,7 @@ export interface TripReceiptView {
   fileSize: number;
   ativo: boolean;
   createdAt: Date;
+  ocr: TripReceiptOcrView | null;
 }
 
 export interface TripExpenseView {

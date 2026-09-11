@@ -58,7 +58,11 @@ const DETAIL_INCLUDE = {
       category: true,
       createdBy: { select: { id: true, name: true } },
       receipts: {
-        include: { ReceiptOcr: true },
+        include: {
+          ReceiptOcr: {
+            include: { conferidoPor: { select: { id: true, name: true } } },
+          },
+        },
         orderBy: { createdAt: 'asc' as const },
       },
     },
@@ -133,7 +137,23 @@ function toExpenseDetail(expense: PrismaExpenseRow): ExpenseDetailRecord {
         ? {
             status: receipt.ReceiptOcr.status,
             origem: receipt.ReceiptOcr.origem,
-            valorExtraido: receipt.ReceiptOcr.valorTotal?.toString() ?? null,
+            cnpj: receipt.ReceiptOcr.cnpj,
+            nomeEstabelecimento: receipt.ReceiptOcr.nomeEstabelecimento,
+            data: receipt.ReceiptOcr.data,
+            hora: receipt.ReceiptOcr.hora,
+            valorTotal: receipt.ReceiptOcr.valorTotal?.toString() ?? null,
+            numeroDocumento: receipt.ReceiptOcr.numeroDocumento,
+            chaveAcesso: receipt.ReceiptOcr.chaveAcesso,
+            itens: (receipt.ReceiptOcr.itens as unknown[]) ?? null,
+            erro: receipt.ReceiptOcr.erro,
+            extraidoEm: receipt.ReceiptOcr.extraidoEm,
+            conferidoPor: receipt.ReceiptOcr.conferidoPor
+              ? {
+                  id: receipt.ReceiptOcr.conferidoPor.id,
+                  name: receipt.ReceiptOcr.conferidoPor.name,
+                }
+              : null,
+            conferidoEm: receipt.ReceiptOcr.conferidoEm,
           }
         : null,
     })),

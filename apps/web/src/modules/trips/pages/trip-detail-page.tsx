@@ -28,6 +28,7 @@ import { TripStatusBadge } from "../components/trip-status-badge";
 import { ExpenseFormDialog } from "@/modules/expenses/components/expense-form-dialog";
 import { receiptFileUrl } from "@/modules/expenses/api";
 import { useChangeReimbursability } from "@/modules/expenses/hooks";
+import { ReceiptOcrDialog } from "@/modules/ocr/components/receipt-ocr-dialog";
 import { AdvanceSection } from "@/modules/advances/components/advance-section";
 import { useSession } from "@/modules/auth/session-context";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -57,14 +58,15 @@ import { getErrorMessage } from "@/lib/api";
 import { downloadReport } from "@/modules/reports/api";
 import type { ReportKind } from "@/modules/reports/api";
 import { formatDate, formatMoney, formatPeriodo } from "@/lib/format";
-import type {
-  TripExpenseView,
-  TripParticipantView,
-} from "@/types/domain";
+import type { TripExpenseView, TripParticipantView } from "@/types/domain";
 import { cn } from "cn";
 
 const EDITABLE_TRIP_STATUSES = new Set(["EM_ANDAMENTO", "EM_CORRECAO"]);
-const APPROVED_TRIP_STATUSES = new Set(["APROVADA", "FINANCEIRO", "FINALIZADA"]);
+const APPROVED_TRIP_STATUSES = new Set([
+  "APROVADA",
+  "FINANCEIRO",
+  "FINALIZADA",
+]);
 
 export default function TripDetailPage() {
   const params = useParams<{ id: string }>();
@@ -87,8 +89,12 @@ export default function TripDetailPage() {
     useState("");
   const [reimbursabilityError, setReimbursabilityError] = useState("");
   const [reportIncludeReceipts, setReportIncludeReceipts] = useState(true);
-  const [reportDownloading, setReportDownloading] =
-    useState<ReportKind | null>(null);
+  const [reportDownloading, setReportDownloading] = useState<ReportKind | null>(
+    null,
+  );
+  const [ocrReceipt, setOcrReceipt] = useState<
+    TripExpenseView["receipts"][number] | null
+  >(null);
   const { data: trip, isLoading, isError, error, refetch } = useTrip(params.id);
   const deliverTrip = useDeliverTrip(params.id);
   const approveTrip = useApproveTrip();
@@ -368,12 +374,16 @@ export default function TripDetailPage() {
         </CardContent>
       </Card>
 
-      {trip.participants.some((participant) => participant.userId === user?.id) ||
-      user?.roleCode === "MANAGER_ADMIN" ? (
+      {trip.participants.some(
+        (participant) => participant.userId === user?.id,
+      ) || user?.roleCode === "MANAGER_ADMIN" ? (
         <Card className="shadow-sm">
           <CardContent className="flex flex-col gap-3 p-5">
             <div className="flex items-center gap-2">
-              <FileText className="size-4 text-muted-foreground" aria-hidden="true" />
+              <FileText
+                className="size-4 text-muted-foreground"
+                aria-hidden="true"
+              />
               <p className="font-medium text-foreground">Relatórios</p>
             </div>
             {APPROVED_TRIP_STATUSES.has(trip.status) ? (
@@ -381,7 +391,9 @@ export default function TripDetailPage() {
                 <input
                   type="checkbox"
                   checked={reportIncludeReceipts}
-                  onChange={(event) => setReportIncludeReceipts(event.target.checked)}
+                  onChange={(event) =>
+                    setReportIncludeReceipts(event.target.checked)
+                  }
                   className="size-4 rounded border-input accent-primary"
                 />
                 Incluir comprovantes anexados
@@ -442,8 +454,8 @@ export default function TripDetailPage() {
               </p>
             </div>
             <p className="text-sm text-muted-foreground">
-              Revise as despesas e os comprovantes abaixo. Clique no selo de
-              uma despesa para alterar a reembolsabilidade.
+              Revise as despesas e os comprovantes abaixo. Clique no selo de uma
+              despesa para alterar a reembolsabilidade.
             </p>
             <div className="flex flex-col gap-2 pt-1">
               <Button
@@ -483,7 +495,11 @@ export default function TripDetailPage() {
         </Card>
       ) : null}
 
-      <AdvanceSection trip={trip} canEdit={canEdit} userRole={user?.roleCode ?? null} />
+      <AdvanceSection
+        trip={trip}
+        canEdit={canEdit}
+        userRole={user?.roleCode ?? null}
+      />
 
       <section aria-label="Despesas">
         <div className="flex items-center justify-between gap-2 px-0 pb-2">
@@ -568,8 +584,7 @@ export default function TripDetailPage() {
                     </div>
                     {despesa.alertaExcesso ? (
                       <p className="text-xs font-medium text-warning">
-                        Excede o limite em{" "}
-                        {formatMoney(despesa.alertaExcesso)}.
+                        Excede o limite em {formatMoney(despesa.alertaExcesso)}.
                       </p>
                     ) : null}
                     {despesa.justificativa ? (
@@ -583,18 +598,36 @@ export default function TripDetailPage() {
                           .filter((r) => r.ativo)
                           .map((receipt) => (
                             <li key={receipt.id}>
-                              <a
-                                href={receiptFileUrl(receipt.id)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs text-foreground underline-offset-3 hover:underline"
-                              >
-                                <Paperclip
-                                  className="size-3"
-                                  aria-hidden="true"
-                                />
-                                {receipt.fileName}
-                              </a>
+                              <div className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-1 text-xs text-foreground">
+                                <a
+                                  href={receiptFileUrl(receipt.id)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 underline-offset-3 hover:underline"
+                                >
+                                  <Paperclip
+                                    className="size-3"
+                                    aria-hidden="true"
+                                  />
+                                  {receipt.fileName}
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => setOcrReceipt(receipt)}
+                                  className="rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium transition-colors hover:bg-accent"
+                                  title="Ver dados extraídos / preencher manualmente"
+                                >
+                                  {receipt.ocr
+                                    ? receipt.ocr.origem === "MANUAL"
+                                      ? "Manual"
+                                      : receipt.ocr.status === "SUCESSO"
+                                        ? "OCR ok"
+                                        : receipt.ocr.status === "FALHA"
+                                          ? "OCR falhou"
+                                          : "OCR pendente"
+                                    : "Sem OCR"}
+                                </button>
+                              </div>
                             </li>
                           ))}
                       </ul>
@@ -614,7 +647,9 @@ export default function TripDetailPage() {
       {canEdit ? (
         <Card className="shadow-sm">
           <CardContent className="flex flex-col gap-2 p-5">
-            <p className="text-sm font-medium">Relatório pronto para entrega?</p>
+            <p className="text-sm font-medium">
+              Relatório pronto para entrega?
+            </p>
             <p className="text-xs text-muted-foreground">
               Só é possível entregar quando todas as despesas tiverem
               comprovante. Após a entrega, a viagem vai para aprovação.
@@ -695,16 +730,23 @@ export default function TripDetailPage() {
         onOpenChange={setIsExpenseFormOpen}
       />
 
-      <Dialog
-        open={isDeliverDialogOpen}
-        onOpenChange={setIsDeliverDialogOpen}
-      >
+      <ReceiptOcrDialog
+        key={ocrReceipt?.id ?? "none"}
+        receipt={ocrReceipt}
+        open={ocrReceipt !== null}
+        onOpenChange={(open) => {
+          if (!open) setOcrReceipt(null);
+        }}
+        onSaved={() => void refetch()}
+      />
+
+      <Dialog open={isDeliverDialogOpen} onOpenChange={setIsDeliverDialogOpen}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>Entregar relatório?</DialogTitle>
             <DialogDescription>
-              Após entregar, a viagem fica em aprovação e as despesas não poderão
-              ser alteradas.
+              Após entregar, a viagem fica em aprovação e as despesas não
+              poderão ser alteradas.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter showCloseButton={false}>
@@ -835,7 +877,9 @@ export default function TripDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="justificativaReembolsabilidade">Justificativa</Label>
+            <Label htmlFor="justificativaReembolsabilidade">
+              Justificativa
+            </Label>
             <textarea
               id="justificativaReembolsabilidade"
               value={reimbursabilityJustificativa}

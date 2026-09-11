@@ -15,6 +15,7 @@ export interface ReceiptsDeps {
   uploadReceiptService: UploadReceiptService;
   substituteReceiptService: SubstituteReceiptService;
   getReceiptFileService: GetReceiptFileService;
+  onReceiptCreated: (receiptId: string, actorId: string) => void;
 }
 
 const upload = multer({
@@ -29,6 +30,7 @@ export function createReceiptsRouter({
   uploadReceiptService,
   substituteReceiptService,
   getReceiptFileService,
+  onReceiptCreated,
 }: ReceiptsDeps): Router {
   const router = Router();
 
@@ -47,6 +49,7 @@ export function createReceiptsRouter({
         actorId: req.auth!.userId,
       });
       res.status(201).json(success({ receipt }));
+      onReceiptCreated(receipt.id, req.auth!.userId);
     }),
   );
 
@@ -66,6 +69,7 @@ export function createReceiptsRouter({
         actorId: req.auth!.userId,
       });
       res.json(success({ receipt }));
+      onReceiptCreated(receipt.id, req.auth!.userId);
     }),
   );
 

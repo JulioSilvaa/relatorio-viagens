@@ -73,9 +73,12 @@ import { CreateCostCenterService } from '../modules/cost-centers/services/create
 import { UpdateCostCenterService } from '../modules/cost-centers/services/update-cost-center.service.js';
 import { createCostCentersRouter } from '../modules/cost-centers/controllers/cost-center.controller.js';
 import { createNotificationsRouter } from '../modules/notifications/controllers/notification.controller.js';
+import { logger } from '../shared/logger.js';
+import { env } from '../config/env.js';
 import { SearchTripsService } from '../modules/trips/services/search-trips.service.js';
 import { PrismaReceiptOcrRepository } from '../modules/ocr/repositories/receipt-ocr.repository.prisma.js';
 import { NeutralOcrProvider } from '../modules/ocr/ocr-provider.neutro.js';
+import { TesseractOcrProvider } from '../modules/ocr/ocr-provider.tesseract.js';
 import { ExtractReceiptOcrService } from '../modules/ocr/services/extract-receipt-ocr.service.js';
 import { GetReceiptOcrService } from '../modules/ocr/services/get-receipt-ocr.service.js';
 import { SaveReceiptOcrService } from '../modules/ocr/services/save-receipt-ocr.service.js';
@@ -190,6 +193,34 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
   const substituteReceiptService = new SubstituteReceiptService(expenses, receipts, audit);
   const getReceiptFileService = new GetReceiptFileService(receipts, trips);
 
+  const ocrRepo = new PrismaReceiptOcrRepository();
+  const ocrProvider =
+    env.OCR_PROVIDER === 'tesseract'
+      ? new TesseractOcrProvider({
+          langPath: env.OCR_TESSERACT_LANG_PATH,
+          cachePath: env.OCR_TESSERACT_CACHE_PATH,
+          timeoutMs: env.OCR_TIMEOUT_MS,
+        })
+      : new NeutralOcrProvider();
+  const extractReceiptOcrService = new ExtractReceiptOcrService(
+    receipts,
+    trips,
+    ocrRepo,
+    ocrProvider,
+    audit,
+  );
+  const getReceiptOcrService = new GetReceiptOcrService(receipts, trips, ocrRepo);
+  const saveReceiptOcrService = new SaveReceiptOcrService(receipts, trips, ocrRepo, audit);
+  const runOcrOnUpload = (receiptId: string, actorId: string): void => {
+    if (!env.OCR_AUTO_ON_UPLOAD) return;
+    void extractReceiptOcrService.execute(receiptId, actorId, false).catch((error: unknown) => {
+      logger.error('OCR automático falhou no upload', {
+        receiptId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+
   const approveReportService = new ApproveReportService(trips, users, audit, notifications);
   const returnReportService = new ReturnReportService(trips, audit, notifications);
   const changeReimbursabilityService = new ChangeReimbursabilityService(expenses, audit);
@@ -266,6 +297,7 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
     uploadReceiptService,
     substituteReceiptService,
     getReceiptFileService,
+    onReceiptCreated: runOcrOnUpload,
   });
   const approvalsRouter = createApprovalsRouter({
     requireAuth,
@@ -284,17 +316,6 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
     notificationsService: notifications,
   });
 
-  const ocrRepo = new PrismaReceiptOcrRepository();
-  const ocrProvider = new NeutralOcrProvider();
-  const extractReceiptOcrService = new ExtractReceiptOcrService(
-    receipts,
-    trips,
-    ocrRepo,
-    ocrProvider,
-    audit,
-  );
-  const getReceiptOcrService = new GetReceiptOcrService(receipts, trips, ocrRepo);
-  const saveReceiptOcrService = new SaveReceiptOcrService(receipts, trips, ocrRepo, audit);
   const ocrRouter = createOcrRouter({
     requireAuth,
     extractReceiptOcrService,

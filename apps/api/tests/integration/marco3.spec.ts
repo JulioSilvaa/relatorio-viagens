@@ -103,7 +103,7 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
   }
 
   describe('CA-OCR - extração e preenchimento manual', () => {
-    it('extrai FALHA (neutro), preenche manualmente e registra auditoria', async () => {
+    it('extrai FALHA (provedor real sem texto reconhecível), preenche manualmente e registra auditoria', async () => {
       await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
       const ana = await login('ana@empresa.com', 'ana-pw-123');
       const trip = await createTrip(ana);
@@ -122,7 +122,7 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
         status: 'FALHA',
         origem: 'MANUAL',
       });
-      expect(extract.body.data.erro).toContain('OCR/IA');
+      expect(extract.body.data.erro).toContain('Falha na leitura do comprovante');
 
       const save = await ana.agent
         .put(`/api/ocr/receipts/${receiptId}/dados`)

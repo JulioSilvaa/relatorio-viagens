@@ -69,6 +69,24 @@ export function receiptToView(receipt: ExpenseDetailRecord['receipts'][number]):
     fileSize: receipt.fileSize,
     ativo: receipt.ativo,
     createdAt: receipt.createdAt,
+    ocr: receipt.ocr
+      ? {
+          status: receipt.ocr.status,
+          origem: receipt.ocr.origem,
+          cnpj: receipt.ocr.cnpj,
+          nomeEstabelecimento: receipt.ocr.nomeEstabelecimento,
+          data: receipt.ocr.data ? receipt.ocr.data.toISOString() : null,
+          hora: receipt.ocr.hora,
+          valorTotal: receipt.ocr.valorTotal,
+          numeroDocumento: receipt.ocr.numeroDocumento,
+          chaveAcesso: receipt.ocr.chaveAcesso,
+          itens: receipt.ocr.itens,
+          erro: receipt.ocr.erro,
+          extraidoEm: receipt.ocr.extraidoEm ? receipt.ocr.extraidoEm.toISOString() : null,
+          conferidoPor: receipt.ocr.conferidoPor,
+          conferidoEm: receipt.ocr.conferidoEm ? receipt.ocr.conferidoEm.toISOString() : null,
+        }
+      : null,
   };
 }
 

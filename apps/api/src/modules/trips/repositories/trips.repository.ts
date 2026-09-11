@@ -1,4 +1,11 @@
-import type { DepartmentType, TripStatus, UfType, VehicleType } from '@prisma/client';
+import type {
+  DepartmentType,
+  OcrProcessingStatus,
+  OcrSourceType,
+  TripStatus,
+  UfType,
+  VehicleType,
+} from '@prisma/client';
 import type { TripAdvanceRecord } from '../../finance/finance.types.js';
 import type { CreateTripData, UpdateTripData } from '../trip.types.js';
 
@@ -65,6 +72,23 @@ export interface TripParticipantRecord {
   cartaoLast4: string | null;
 }
 
+export interface ReceiptOcrDetail {
+  status: OcrProcessingStatus;
+  origem: OcrSourceType;
+  cnpj: string | null;
+  nomeEstabelecimento: string | null;
+  data: Date | null;
+  hora: string | null;
+  valorTotal: string | null;
+  numeroDocumento: string | null;
+  chaveAcesso: string | null;
+  itens: unknown[] | null;
+  erro: string | null;
+  extraidoEm: Date | null;
+  conferidoPor: { id: string; name: string } | null;
+  conferidoEm: Date | null;
+}
+
 export interface ReceiptDetailRecord {
   id: string;
   tipo: string;
@@ -73,7 +97,7 @@ export interface ReceiptDetailRecord {
   fileSize: number;
   ativo: boolean;
   createdAt: Date;
-  ocr: { status: string; origem: string; valorExtraido: string | null } | null;
+  ocr: ReceiptOcrDetail | null;
 }
 
 export interface ExpenseDetailRecord {

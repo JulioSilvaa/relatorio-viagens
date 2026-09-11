@@ -66,6 +66,23 @@ export interface TripParticipantView {
   addedAt: string;
 }
 
+export interface TripReceiptOcrView {
+  status: string;
+  origem: string;
+  cnpj: string | null;
+  nomeEstabelecimento: string | null;
+  data: string | null;
+  hora: string | null;
+  valorTotal: string | null;
+  numeroDocumento: string | null;
+  chaveAcesso: string | null;
+  itens: unknown[] | null;
+  erro: string | null;
+  extraidoEm: string | null;
+  conferidoPor: { id: string; name: string } | null;
+  conferidoEm: string | null;
+}
+
 export interface TripReceiptView {
   id: string;
   tipo: ReceiptTypeValue;
@@ -74,6 +91,7 @@ export interface TripReceiptView {
   fileSize: number;
   ativo: boolean;
   createdAt: string;
+  ocr: TripReceiptOcrView | null;
 }
 
 export interface TripExpenseView {
@@ -191,8 +209,16 @@ export interface DashboardManagerReport {
   reembolsosStatus: Array<{ status: TripStatus; quantidade: number }>;
   viagensPorDepartamento: Array<{ departamento: string; quantidade: number }>;
   viagensPorRegiao: Array<{ regiao: string; quantidade: number }>;
-  cidadesMaisVisitadas: Array<{ cidade: string; uf: string; quantidade: number }>;
-  viagensPorColaborador: Array<{ id: string; nome: string; quantidade: number }>;
+  cidadesMaisVisitadas: Array<{
+    cidade: string;
+    uf: string;
+    quantidade: number;
+  }>;
+  viagensPorColaborador: Array<{
+    id: string;
+    nome: string;
+    quantidade: number;
+  }>;
 }
 
 export interface DashboardEmployeeReport {

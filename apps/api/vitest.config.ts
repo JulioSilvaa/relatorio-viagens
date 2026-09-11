@@ -21,6 +21,8 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: testDatabaseUrl,
+      OCR_AUTO_ON_UPLOAD: 'false',
+      OCR_TIMEOUT_MS: '5000',
     },
   },
 });

@@ -140,8 +140,8 @@ function computeOcrSummary(trip: TripDetailRecord): ReportOcrSummary {
         else if (receipt.ocr.status === 'FALHA') falhas += 1;
         else pendentes += 1;
         if (receipt.ocr.origem === 'MANUAL') manual += 1;
-        if (receipt.ocr.valorExtraido) {
-          valorExtraidoCents += Math.round(Number(receipt.ocr.valorExtraido) * 100);
+        if (receipt.ocr.valorTotal) {
+          valorExtraidoCents += Math.round(Number(receipt.ocr.valorTotal) * 100);
         }
       } else {
         pendentes += 1;
