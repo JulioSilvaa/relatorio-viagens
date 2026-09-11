@@ -82,6 +82,7 @@ export default function AdminPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [inviteCreated, setInviteCreated] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [taxaDraft, setTaxaDraft] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -107,6 +108,7 @@ export default function AdminPage() {
     setForm(EMPTY_FORM);
     setFormError(null);
     setInviteToken(null);
+    setInviteCreated(false);
     setInviteCopied(false);
     setIsRegisterOpen(true);
   }
@@ -123,6 +125,7 @@ export default function AdminPage() {
     });
     setFormError(null);
     setInviteToken(null);
+    setInviteCreated(false);
     setInviteCopied(false);
     setIsRegisterOpen(true);
   }
@@ -172,6 +175,7 @@ export default function AdminPage() {
       } else {
         const result = await registerUser.mutateAsync(input);
         setInviteToken(result.inviteToken ?? null);
+        setInviteCreated(true);
       }
     } catch (registerError) {
       setFormError(
@@ -197,10 +201,10 @@ export default function AdminPage() {
     }
   }
 
-  async function copyToken() {
+  async function copyInviteLink() {
     if (!inviteToken) return;
     try {
-      await navigator.clipboard.writeText(inviteToken);
+      await navigator.clipboard.writeText(inviteLink);
       setInviteCopied(true);
     } catch {
       setInviteCopied(false);
@@ -229,6 +233,14 @@ export default function AdminPage() {
       setSettingsSaving(false);
     }
   }
+
+  const inviteLink =
+    typeof window === "undefined" || !inviteToken
+      ? ""
+      : new URL(
+          `/aceitar-convite?token=${encodeURIComponent(inviteToken)}`,
+          window.location.origin,
+        ).toString();
 
   return (
     <div className="flex flex-col gap-4">
@@ -365,30 +377,49 @@ export default function AdminPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {inviteToken ? (
+          {inviteCreated ? (
             <div className="flex flex-col gap-2 rounded-lg border border-border bg-secondary/30 p-4">
-              <p className="text-sm font-medium">Convite criado</p>
-              <p className="text-xs text-muted-foreground">
-                Em desenvolvimento, copie o token para uso no aceite do convite.
-              </p>
-              <code className="break-all rounded-md bg-background px-2 py-1 text-xs">
-                {inviteToken}
-              </code>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void copyToken()}
-                className="self-start"
-              >
-                <Copy aria-hidden="true" />
-                {inviteCopied ? "Copiado" : "Copiar"}
-              </Button>
-              <Button type="button" variant="outline" size="sm" asChild className="self-start">
-                <Link href={`/aceitar-convite?token=${encodeURIComponent(inviteToken)}`}>
-                  Abrir aceite do convite
-                </Link>
-              </Button>
+              {inviteToken ? (
+                <>
+                  <p className="text-sm font-medium">Convite criado</p>
+                  <p className="text-xs text-muted-foreground">
+                    Compartilhe o link abaixo com o colaborador para ele criar a
+                    senha e entrar.
+                  </p>
+                  <code className="break-all rounded-md bg-background px-2 py-1 text-xs">
+                    {inviteLink}
+                  </code>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void copyInviteLink()}
+                      className="self-start"
+                    >
+                      <Copy aria-hidden="true" />
+                      {inviteCopied ? "Copiado" : "Copiar link"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className="self-start"
+                    >
+                      <Link href={inviteLink}>Abrir aceite do convite</Link>
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium">Convite enviado</p>
+                  <p className="text-xs text-muted-foreground">
+                    O colaborador receberá um e-mail para definir a senha do
+                    primeiro acesso.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -481,9 +512,9 @@ export default function AdminPage() {
               onClick={() => setIsRegisterOpen(false)}
               disabled={registerUser.isPending || updateUser.isPending}
             >
-              {inviteToken ? "Fechar" : "Cancelar"}
+              {inviteCreated ? "Fechar" : "Cancelar"}
             </Button>
-            {inviteToken ? null : (
+            {inviteCreated ? null : (
               <Button
                 type="button"
                 onClick={() => void handleRegisterSubmit()}
