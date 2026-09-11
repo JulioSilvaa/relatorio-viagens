@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
+  FileText,
   Paperclip,
   Plus,
   SendHorizontal,
@@ -53,6 +54,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { getErrorMessage } from "@/lib/api";
+import { downloadReport } from "@/modules/reports/api";
+import type { ReportKind } from "@/modules/reports/api";
 import { formatDate, formatMoney, formatPeriodo } from "@/lib/format";
 import type {
   TripExpenseView,
@@ -61,6 +64,7 @@ import type {
 import { cn } from "cn";
 
 const EDITABLE_TRIP_STATUSES = new Set(["EM_ANDAMENTO", "EM_CORRECAO"]);
+const APPROVED_TRIP_STATUSES = new Set(["APROVADA", "FINANCEIRO", "FINALIZADA"]);
 
 export default function TripDetailPage() {
   const params = useParams<{ id: string }>();
@@ -82,6 +86,9 @@ export default function TripDetailPage() {
   const [reimbursabilityJustificativa, setReimbursabilityJustificativa] =
     useState("");
   const [reimbursabilityError, setReimbursabilityError] = useState("");
+  const [reportIncludeReceipts, setReportIncludeReceipts] = useState(true);
+  const [reportDownloading, setReportDownloading] =
+    useState<ReportKind | null>(null);
   const { data: trip, isLoading, isError, error, refetch } = useTrip(params.id);
   const deliverTrip = useDeliverTrip(params.id);
   const approveTrip = useApproveTrip();
@@ -233,6 +240,26 @@ export default function TripDetailPage() {
     }
   }
 
+  async function handleDownloadReport(kind: ReportKind) {
+    setReportDownloading(kind);
+    try {
+      await downloadReport(params.id, kind, reportIncludeReceipts);
+      if (kind === "oficial") {
+        toast.success("Relatório oficial baixado.");
+      } else {
+        toast.success("Resumo gerencial baixado.");
+      }
+    } catch (downloadError) {
+      toast.error(
+        downloadError instanceof Error
+          ? downloadError.message
+          : "Não foi possível baixar o relatório.",
+      );
+    } finally {
+      setReportDownloading(null);
+    }
+  }
+
   async function handleReimbursabilitySave() {
     if (!reimbursabilityTarget) return;
     if (reimbursabilityJustificativa.trim().length < 3) {
@@ -340,6 +367,67 @@ export default function TripDetailPage() {
           </p>
         </CardContent>
       </Card>
+
+      {trip.participants.some((participant) => participant.userId === user?.id) ||
+      user?.roleCode === "MANAGER_ADMIN" ? (
+        <Card className="shadow-sm">
+          <CardContent className="flex flex-col gap-3 p-5">
+            <div className="flex items-center gap-2">
+              <FileText className="size-4 text-muted-foreground" aria-hidden="true" />
+              <p className="font-medium text-foreground">Relatórios</p>
+            </div>
+            {APPROVED_TRIP_STATUSES.has(trip.status) ? (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={reportIncludeReceipts}
+                  onChange={(event) => setReportIncludeReceipts(event.target.checked)}
+                  className="size-4 rounded border-input accent-primary"
+                />
+                Incluir comprovantes anexados
+              </label>
+            ) : null}
+            <div className="flex flex-col gap-2 pt-1">
+              <Button
+                size="lg"
+                className="h-10 w-full"
+                onClick={() => void handleDownloadReport("oficial")}
+                disabled={
+                  reportDownloading !== null ||
+                  !APPROVED_TRIP_STATUSES.has(trip.status)
+                }
+                title={
+                  APPROVED_TRIP_STATUSES.has(trip.status)
+                    ? undefined
+                    : "Disponível após a aprovação do relatório"
+                }
+              >
+                <FileText aria-hidden="true" />
+                {reportDownloading === "oficial"
+                  ? "Baixando..."
+                  : "Baixar relatório oficial (PDF)"}
+              </Button>
+              {!APPROVED_TRIP_STATUSES.has(trip.status) ? (
+                <p className="text-xs text-muted-foreground">
+                  O relatório oficial fica disponível após a aprovação.
+                </p>
+              ) : null}
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-10 w-full"
+                onClick={() => void handleDownloadReport("gerencial")}
+                disabled={reportDownloading !== null}
+              >
+                <FileText aria-hidden="true" />
+                {reportDownloading === "gerencial"
+                  ? "Baixando..."
+                  : "Baixar resumo gerencial (PDF)"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {canApprove ? (
         <Card className="border-primary/40 shadow-sm">

@@ -62,6 +62,7 @@ export interface TripParticipantRecord {
   userId: string;
   name: string;
   addedAt: Date;
+  cartaoLast4: string | null;
 }
 
 export interface ReceiptDetailRecord {
@@ -72,6 +73,7 @@ export interface ReceiptDetailRecord {
   fileSize: number;
   ativo: boolean;
   createdAt: Date;
+  ocr: { status: string; origem: string; valorExtraido: string | null } | null;
 }
 
 export interface ExpenseDetailRecord {

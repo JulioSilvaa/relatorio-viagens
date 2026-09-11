@@ -570,7 +570,7 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
   });
 
   describe('CA-REL/EXP - relatórios PDF e exportação Excel', () => {
-    it('gera PDF oficial, resumo gerencial e bloqueia terceiros', async () => {
+    it('gera PDF oficial somente após aprovação, registra versão na auditoria e bloqueia terceiros', async () => {
       await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
       await createUser({ email: 'fiscal@empresa.com', password: 'fisc-pw-123', role: 'FISCAL' });
       await createUser({
@@ -584,10 +584,29 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
       const trip = await createTrip(ana);
       await addExpense(ana, trip.id);
 
+      const beforeApproval = await ana.agent.get(`/api/reports/trips/${trip.id}/oficial`);
+      expect(beforeApproval.status).toBe(422);
+      expect(beforeApproval.body.error.code).toBe('RELATORIO_NAO_APROVADO');
+
+      await deliverAndApprove(ana, gestor, trip.id);
+
       const pdf = await ana.agent.get(`/api/reports/trips/${trip.id}/oficial`);
       expect(pdf.status).toBe(200);
       expect(pdf.headers['content-type']).toBe('application/pdf');
       expect((pdf.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+
+      const pdf2 = await ana.agent.get(`/api/reports/trips/${trip.id}/oficial`);
+      expect(pdf2.status).toBe(200);
+      expect(pdf2.body).not.toEqual(pdf.body);
+
+      const audit = await gestor.agent.get(
+        `/api/audit?entidade=RELATORIO_OFICIAL&entidadeId=${trip.id}&operacao=GERAR`,
+      );
+      expect(audit.status).toBe(200);
+      expect(audit.body.data.total).toBe(2);
+      expect(
+        audit.body.data.items.map((item: { newValue: string }) => item.newValue).sort(),
+      ).toEqual(['v1', 'v2']);
 
       const manager = await gestor.agent.get(`/api/reports/trips/${trip.id}/gerencial`);
       expect(manager.status).toBe(200);

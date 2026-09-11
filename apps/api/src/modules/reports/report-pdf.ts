@@ -155,16 +155,23 @@ function tripInfo(doc: Doc, data: ReportData): void {
   if (trip.observacoes) kvPair(doc, 'Observações', trip.observacoes);
 }
 
+function maskCard(last4: string | null): string {
+  return last4 ? `•••• •••• •••• ${last4}` : '-';
+}
+
 function renderParticipantes(doc: Doc, data: ReportData): void {
   sectionTitle(doc, 'Participantes');
-  const columns: Column[] = [{ title: 'Nome', width: 499 }];
+  const columns: Column[] = [
+    { title: 'Nome', width: 320 },
+    { title: 'Cartão corporativo', width: 179 },
+  ];
   let y = tableStart(doc, columns);
   for (const participant of data.participantes) {
     if (y > 720) {
       doc.addPage();
       y = MARGIN;
     }
-    y = tableRow(doc, columns, [participant.nome], y);
+    y = tableRow(doc, columns, [participant.nome, maskCard(participant.cartaoLast4)], y);
     y += 2;
   }
   doc.y = y;
@@ -214,6 +221,18 @@ function renderDespesas(doc: Doc, data: ReportData): void {
   kvPair(doc, 'Total geral', brl(data.totalDespesas));
   kvPair(doc, 'Total reembolsável', brl(data.totalReembolsavel));
   doc.moveDown(0.6);
+}
+
+function renderOcrSummary(doc: Doc, data: ReportData): void {
+  sectionTitle(doc, 'Comprovantes e OCR');
+  const ocr = data.ocr;
+  kvPair(doc, 'Total de comprovantes', String(ocr.totalComprovantes));
+  kvPair(doc, 'Processados por OCR', String(ocr.comOcr));
+  kvPair(doc, 'Lançados manualmente', String(ocr.manual));
+  kvPair(doc, 'Pendentes de OCR', String(ocr.pendentes));
+  kvPair(doc, 'Falhas de OCR', String(ocr.falhas));
+  kvPair(doc, 'Valor total extraído', brl(ocr.valorExtraidoTotal));
+  doc.moveDown(0.4);
 }
 
 function renderFinanceiro(doc: Doc, data: ReportData): void {
@@ -301,7 +320,7 @@ function renderFooter(doc: Doc, data: ReportData): void {
     .fontSize(8)
     .fillColor('#888888')
     .text(
-      `Emitido em ${dateBR(data.emitidoEm)} às ${data.emitidoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} por ${data.emitidoPor} - Documento gerado eletronicamente.`,
+      `Emitido em ${dateBR(data.emitidoEm)} às ${data.emitidoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} por ${data.emitidoPor} - Versão v${data.versao} - Documento gerado eletronicamente.`,
     );
 }
 
@@ -336,6 +355,7 @@ export async function renderOfficialPdf(
     tripInfo(doc, data);
     renderParticipantes(doc, data);
     renderDespesas(doc, data);
+    renderOcrSummary(doc, data);
     renderFinanceiro(doc, data);
     renderFooter(doc, data);
     if (options.attachments.length > 0) {

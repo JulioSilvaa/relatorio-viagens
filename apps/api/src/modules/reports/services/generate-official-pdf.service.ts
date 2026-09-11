@@ -1,9 +1,16 @@
+import type { AuditService } from '../../../modules/audit/audit.service.js';
 import { renderOfficialPdf } from '../report-pdf.js';
-import { ReportForbiddenError } from '../reports.errors.js';
+import { ReportForbiddenError, ReportNotApprovedError } from '../reports.errors.js';
 import type { GeneratedOfficialReport, ReportsRepository } from '../report.types.js';
 
+const OFFICIAL_APPROVED_STATUSES = ['APROVADA', 'FINANCEIRO', 'FINALIZADA'];
+const AUDIT_ENTITY = 'RELATORIO_OFICIAL';
+
 export class GenerateOfficialPdfService {
-  constructor(private readonly repository: ReportsRepository) {}
+  constructor(
+    private readonly repository: ReportsRepository,
+    private readonly audit: AuditService,
+  ) {}
 
   async execute(
     tripId: string,
@@ -17,8 +24,31 @@ export class GenerateOfficialPdfService {
     if (!participant && !canViewAny) {
       throw new ReportForbiddenError();
     }
+    if (!OFFICIAL_APPROVED_STATUSES.includes(data.trip.status)) {
+      throw new ReportNotApprovedError();
+    }
+
+    const previous = await this.audit.list({
+      filters: { entityType: AUDIT_ENTITY, entityId: tripId, operation: 'GERAR' },
+      limit: 1,
+      offset: 0,
+    });
+    const versao = previous.total + 1;
+    data.versao = versao;
+
     const attachments = anexarComprovantes ? await this.repository.listImageReceipts(tripId) : [];
     const content = await renderOfficialPdf(data, { attachments });
+
+    await this.audit.record({
+      userId: actorId,
+      operation: 'GERAR',
+      entityType: AUDIT_ENTITY,
+      entityId: tripId,
+      field: 'versao',
+      oldValue: versao > 1 ? `v${versao - 1}` : undefined,
+      newValue: `v${versao}`,
+    });
+
     return {
       data,
       fileName: `relatorio-viagem-${tripId}.pdf`,

@@ -46,7 +46,10 @@ interface PrismaTripRow {
 const DETAIL_INCLUDE = {
   criadoPor: { select: { id: true, name: true } },
   participants: {
-    include: { user: { select: { id: true, name: true } } },
+    include: {
+      user: { select: { id: true, name: true } },
+      creditCard: { select: { last4: true } },
+    },
     orderBy: { createdAt: 'asc' as const },
   },
   expenses: {
@@ -54,7 +57,10 @@ const DETAIL_INCLUDE = {
     include: {
       category: true,
       createdBy: { select: { id: true, name: true } },
-      receipts: { orderBy: { createdAt: 'asc' as const } },
+      receipts: {
+        include: { ReceiptOcr: true },
+        orderBy: { createdAt: 'asc' as const },
+      },
     },
     orderBy: { createdAt: 'asc' as const },
   },
@@ -123,6 +129,13 @@ function toExpenseDetail(expense: PrismaExpenseRow): ExpenseDetailRecord {
       fileSize: receipt.fileSize,
       ativo: receipt.ativo,
       createdAt: receipt.createdAt,
+      ocr: receipt.ReceiptOcr
+        ? {
+            status: receipt.ReceiptOcr.status,
+            origem: receipt.ReceiptOcr.origem,
+            valorExtraido: receipt.ReceiptOcr.valorTotal?.toString() ?? null,
+          }
+        : null,
     })),
   };
 }
@@ -193,6 +206,7 @@ export class PrismaTripsRepository implements TripsRepository {
       userId: p.user.id,
       name: p.user.name,
       addedAt: p.createdAt,
+      cartaoLast4: p.creditCard?.last4 ?? null,
     }));
 
     const expenses = trip.expenses.map(toExpenseDetail);
@@ -269,7 +283,7 @@ export class PrismaTripsRepository implements TripsRepository {
       }
       throw error;
     }
-    return { userId: user.id, name: user.name, addedAt: created.createdAt };
+    return { userId: user.id, name: user.name, addedAt: created.createdAt, cartaoLast4: null };
   }
 
   async removeParticipant(tripId: string, userId: string): Promise<boolean> {
@@ -285,13 +299,17 @@ export class PrismaTripsRepository implements TripsRepository {
   async listParticipants(tripId: string): Promise<TripParticipantRecord[]> {
     const rows = await prisma.tripParticipant.findMany({
       where: { tripId },
-      include: { user: { select: { id: true, name: true } } },
+      include: {
+        user: { select: { id: true, name: true } },
+        creditCard: { select: { last4: true } },
+      },
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((row) => ({
       userId: row.user.id,
       name: row.user.name,
       addedAt: row.createdAt,
+      cartaoLast4: row.creditCard?.last4 ?? null,
     }));
   }
 

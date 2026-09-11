@@ -39,9 +39,18 @@ export interface ReportFinanceRecord {
   comprovanteNome: string | null;
 }
 
+export interface ReportOcrSummary {
+  totalComprovantes: number;
+  comOcr: number;
+  manual: number;
+  pendentes: number;
+  falhas: number;
+  valorExtraidoTotal: string;
+}
+
 export interface ReportData {
   trip: ReportTripData;
-  participantes: Array<{ id: string; nome: string }>;
+  participantes: Array<{ id: string; nome: string; cartaoLast4: string | null }>;
   despesas: ReportExpenseRow[];
   totalDespesas: string;
   totalReembolsavel: string;
@@ -53,6 +62,8 @@ export interface ReportData {
     totalReembolsos: string;
     totalDevolucoes: string;
   };
+  ocr: ReportOcrSummary;
+  versao: number;
   emitidoEm: Date;
   emitidoPor: string;
 }

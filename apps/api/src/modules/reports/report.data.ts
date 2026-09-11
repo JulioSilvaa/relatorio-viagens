@@ -7,6 +7,7 @@ import type {
   ReportData,
   ReportExpenseRow,
   ReportFinanceRecord,
+  ReportOcrSummary,
   ReportTripData,
 } from './report.types.js';
 
@@ -79,6 +80,7 @@ export function buildReportData(
   trip: TripDetailRecord,
   finance: TripFinanceData | undefined,
   emitidoPor: string,
+  versao = 1,
 ): ReportData {
   const despesas: ReportExpenseRow[] = (trip.expenses ?? [])
     .filter((expense) => expense.deletedAt === null)
@@ -106,13 +108,54 @@ export function buildReportData(
 
   return {
     trip: toTripData(trip),
-    participantes: trip.participants.map((p) => ({ id: p.userId, nome: p.name })),
+    participantes: trip.participants.map((p) => ({
+      id: p.userId,
+      nome: p.name,
+      cartaoLast4: p.cartaoLast4,
+    })),
     despesas,
     totalDespesas,
     totalReembolsavel,
     financeiro: { ...financeiro, totalAdiantamentos, totalReembolsos, totalDevolucoes },
+    ocr: computeOcrSummary(trip),
+    versao,
     emitidoEm: new Date(),
     emitidoPor,
+  };
+}
+
+function computeOcrSummary(trip: TripDetailRecord): ReportOcrSummary {
+  let totalComprovantes = 0;
+  let comOcr = 0;
+  let manual = 0;
+  let pendentes = 0;
+  let falhas = 0;
+  let valorExtraidoCents = 0;
+
+  for (const expense of trip.expenses ?? []) {
+    for (const receipt of expense.receipts.filter((r) => r.ativo)) {
+      totalComprovantes += 1;
+      if (receipt.ocr) {
+        if (receipt.ocr.status === 'SUCESSO') comOcr += 1;
+        else if (receipt.ocr.status === 'FALHA') falhas += 1;
+        else pendentes += 1;
+        if (receipt.ocr.origem === 'MANUAL') manual += 1;
+        if (receipt.ocr.valorExtraido) {
+          valorExtraidoCents += Math.round(Number(receipt.ocr.valorExtraido) * 100);
+        }
+      } else {
+        pendentes += 1;
+      }
+    }
+  }
+
+  return {
+    totalComprovantes,
+    comOcr,
+    manual,
+    pendentes,
+    falhas,
+    valorExtraidoTotal: fmt(valorExtraidoCents),
   };
 }
 
