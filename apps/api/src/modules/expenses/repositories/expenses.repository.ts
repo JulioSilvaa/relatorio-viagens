@@ -61,6 +61,11 @@ export interface CreateExpenseWithReceiptsInput {
   receipts: ReceiptInsertData[];
 }
 
+export interface CreatedExpenseWithReceipts {
+  expense: ExpenseRecord;
+  receipts: Array<{ id: string; fileName: string }>;
+}
+
 export interface ExpensesRepository {
   findCategoryById(id: string): Promise<ExpenseCategoryRecord | null>;
   findCategoryByCode(code: string): Promise<ExpenseCategoryRecord | null>;
@@ -73,7 +78,9 @@ export interface ExpensesRepository {
   getLimit(categoryId: string): Promise<ExpenseLimitRecord | null>;
   listLimits(): Promise<ExpenseLimitRecord[]>;
   upsertLimit(categoryId: string, valor: string, updatedById: string): Promise<ExpenseLimitRecord>;
-  createExpenseWithReceipts(input: CreateExpenseWithReceiptsInput): Promise<ExpenseRecord>;
+  createExpenseWithReceipts(
+    input: CreateExpenseWithReceiptsInput,
+  ): Promise<CreatedExpenseWithReceipts>;
   findById(id: string): Promise<ExpenseRecord | null>;
   listExpensesForTrip(tripId: string): Promise<ExpenseRecord[]>;
   findExpenseForMutation(id: string): Promise<ExpenseForMutationRecord | null>;

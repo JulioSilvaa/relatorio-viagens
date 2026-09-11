@@ -9,75 +9,61 @@ import type { OcrExtractInput, OcrExtractionResult, OcrProvider } from './ocr.ty
 const NEUTRAL_FALLBACK_MESSAGE =
   'Falha na leitura do comprovante (OCR). Confira a imagem ou preencha os dados manualmente.';
 
-const FILE_SIGNATURES: Array<{ label: string; test: (bytes: Uint8Array) => boolean }> = [
-  {
-    label: 'png',
-    test: (bytes) =>
-      bytes.length >= 8 &&
-      bytes[0] === 0x89 &&
-      bytes[1] === 0x50 &&
-      bytes[2] === 0x4e &&
-      bytes[3] === 0x47 &&
-      bytes[4] === 0x0d &&
-      bytes[5] === 0x0a &&
-      bytes[6] === 0x1a &&
-      bytes[7] === 0x0a,
-  },
-  {
-    label: 'jpeg',
-    test: (bytes) =>
-      bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
-  },
-  {
-    label: 'gif',
-    test: (bytes) =>
-      bytes.length >= 4 &&
-      bytes[0] === 0x47 &&
-      bytes[1] === 0x49 &&
-      bytes[2] === 0x46 &&
-      bytes[3] === 0x38,
-  },
-  { label: 'bmp', test: (bytes) => bytes.length >= 2 && bytes[0] === 0x42 && bytes[1] === 0x4d },
-  {
-    label: 'tiff',
-    test: (bytes) =>
-      (bytes.length >= 4 &&
-        bytes[0] === 0x49 &&
-        bytes[1] === 0x49 &&
-        bytes[2] === 0x2a &&
-        bytes[3] === 0x00) ||
-      (bytes.length >= 4 &&
-        bytes[0] === 0x4d &&
-        bytes[1] === 0x4d &&
-        bytes[2] === 0x00 &&
-        bytes[3] === 0x2a),
-  },
-  {
-    label: 'webp',
-    test: (bytes) =>
-      bytes.length >= 12 &&
-      bytes[0] === 0x52 &&
-      bytes[1] === 0x49 &&
-      bytes[2] === 0x46 &&
-      bytes[3] === 0x46 &&
-      bytes[8] === 0x57 &&
-      bytes[9] === 0x45 &&
-      bytes[10] === 0x42 &&
-      bytes[11] === 0x50,
-  },
-  {
-    label: 'pdf',
-    test: (bytes) =>
-      bytes.length >= 4 &&
-      bytes[0] === 0x25 &&
-      bytes[1] === 0x50 &&
-      bytes[2] === 0x44 &&
-      bytes[3] === 0x46,
-  },
-];
+const PDF_UNSUPPORTED_MESSAGE =
+  'Comprovante PDF não suportado pela leitura automática. Preencha os dados manualmente.';
 
-function isReadableImage(bytes: Uint8Array): boolean {
-  return FILE_SIGNATURES.some(({ test }) => test(bytes));
+function isPng(bytes: Uint8Array): boolean {
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (bytes.length < 8 || !signature.every((value, index) => bytes[index] === value)) {
+    return false;
+  }
+  const iend = [0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44];
+  return (
+    bytes.length >= 20 && iend.every((value, index) => bytes[bytes.length - 12 + index] === value)
+  );
+}
+
+function isJpeg(bytes: Uint8Array): boolean {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) {
+    return false;
+  }
+  const tail = bytes.subarray(Math.max(0, bytes.length - 64));
+  for (let index = tail.length - 2; index >= 0; index -= 1) {
+    if (tail[index] === 0xff && tail[index + 1] === 0xd9) return true;
+  }
+  return false;
+}
+
+function isWebp(bytes: Uint8Array): boolean {
+  const riff = [0x52, 0x49, 0x46, 0x46];
+  const webp = [0x57, 0x45, 0x42, 0x50];
+  const vp8 = bytes[12] === 0x56 && bytes[13] === 0x50 && bytes[14] === 0x38;
+  return (
+    bytes.length >= 20 &&
+    riff.every((value, index) => bytes[index] === value) &&
+    webp.every((value, index) => bytes[8 + index] === value) &&
+    vp8
+  );
+}
+
+function isPdf(bytes: Uint8Array): boolean {
+  return (
+    bytes.length >= 4 &&
+    bytes[0] === 0x25 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x44 &&
+    bytes[3] === 0x46
+  );
+}
+
+type ImageValidation = 'ok' | 'unsupported' | 'not-an-image';
+
+function validateInput(bytes: Uint8Array): ImageValidation {
+  if (isPdf(bytes)) return 'unsupported';
+  if (isPng(bytes)) return 'ok';
+  if (isJpeg(bytes)) return 'ok';
+  if (isWebp(bytes)) return 'ok';
+  return 'not-an-image';
 }
 
 export interface TesseractOcrProviderOptions {
@@ -109,7 +95,11 @@ export class TesseractOcrProvider implements OcrProvider {
   }
 
   async extract(input: OcrExtractInput): Promise<OcrExtractionResult> {
-    if (!isReadableImage(input.fileData)) {
+    const validation = validateInput(new Uint8Array(input.fileData));
+    if (validation === 'unsupported') {
+      return { status: 'FALHA', erro: PDF_UNSUPPORTED_MESSAGE };
+    }
+    if (validation === 'not-an-image') {
       return { status: 'FALHA', erro: NEUTRAL_FALLBACK_MESSAGE };
     }
     const timeoutMs = this.options.timeoutMs ?? 20000;

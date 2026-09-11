@@ -178,21 +178,6 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
   const cancelTripService = new CancelTripService(trips, audit);
   const deleteTripService = new DeleteTripService(trips, audit);
 
-  const createExpenseService = new CreateExpenseService(trips, expenses, audit);
-  const editExpenseService = new EditExpenseService(trips, expenses, audit);
-  const deleteExpenseService = new DeleteExpenseService(expenses, audit);
-  const listExpensesService = new ListExpensesService(trips, expenses);
-  const getExpenseService = new GetExpenseService(expenses, trips);
-  const listCategoriesService = new ListCategoriesService(expenses);
-  const createCategoryService = new CreateCategoryService(expenses, audit);
-  const updateCategoryService = new UpdateCategoryService(expenses, audit);
-  const listLimitsService = new ListLimitsService(expenses);
-  const configureLimitService = new ConfigureLimitService(expenses, audit);
-
-  const uploadReceiptService = new UploadReceiptService(expenses, receipts, audit);
-  const substituteReceiptService = new SubstituteReceiptService(expenses, receipts, audit);
-  const getReceiptFileService = new GetReceiptFileService(receipts, trips);
-
   const ocrRepo = new PrismaReceiptOcrRepository();
   const ocrProvider =
     env.OCR_PROVIDER === 'tesseract'
@@ -220,6 +205,21 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
       });
     });
   };
+
+  const createExpenseService = new CreateExpenseService(trips, expenses, audit, runOcrOnUpload);
+  const editExpenseService = new EditExpenseService(trips, expenses, audit);
+  const deleteExpenseService = new DeleteExpenseService(expenses, audit);
+  const listExpensesService = new ListExpensesService(trips, expenses);
+  const getExpenseService = new GetExpenseService(expenses, trips);
+  const listCategoriesService = new ListCategoriesService(expenses);
+  const createCategoryService = new CreateCategoryService(expenses, audit);
+  const updateCategoryService = new UpdateCategoryService(expenses, audit);
+  const listLimitsService = new ListLimitsService(expenses);
+  const configureLimitService = new ConfigureLimitService(expenses, audit);
+
+  const uploadReceiptService = new UploadReceiptService(expenses, receipts, audit);
+  const substituteReceiptService = new SubstituteReceiptService(expenses, receipts, audit);
+  const getReceiptFileService = new GetReceiptFileService(receipts, trips);
 
   const approveReportService = new ApproveReportService(trips, users, audit, notifications);
   const returnReportService = new ReturnReportService(trips, audit, notifications);

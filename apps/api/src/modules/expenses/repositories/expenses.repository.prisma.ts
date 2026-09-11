@@ -6,6 +6,7 @@ import {
 } from '../expense.errors.js';
 import type {
   CreateExpenseWithReceiptsInput,
+  CreatedExpenseWithReceipts,
   ExpenseCategoryRecord,
   ExpenseForMutationRecord,
   ExpenseLimitRecord,
@@ -147,7 +148,9 @@ export class PrismaExpensesRepository implements ExpensesRepository {
     };
   }
 
-  async createExpenseWithReceipts(input: CreateExpenseWithReceiptsInput): Promise<ExpenseRecord> {
+  async createExpenseWithReceipts(
+    input: CreateExpenseWithReceiptsInput,
+  ): Promise<CreatedExpenseWithReceipts> {
     const expenseId = await prisma.$transaction(async (tx) => {
       const created = await tx.expense.create({
         data: {
@@ -180,7 +183,12 @@ export class PrismaExpensesRepository implements ExpensesRepository {
       where: { id: expenseId },
       include: EXPENSE_INCLUDE,
     });
-    return toExpense(expense);
+    const receipts = await prisma.receipt.findMany({
+      where: { expenseId },
+      select: { id: true, fileName: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return { expense: toExpense(expense), receipts };
   }
 
   async findById(id: string): Promise<ExpenseRecord | null> {

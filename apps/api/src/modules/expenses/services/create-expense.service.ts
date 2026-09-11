@@ -30,6 +30,7 @@ export class CreateExpenseService {
     private readonly trips: TripsRepository,
     private readonly expenses: ExpensesRepository,
     private readonly audit: AuditService,
+    private readonly onReceiptCreated: (receiptId: string, actorId: string) => void = () => {},
   ) {}
 
   async execute(
@@ -88,18 +89,19 @@ export class CreateExpenseService {
       uploadedById: actorId,
     }));
 
-    const created = await this.expenses.createExpenseWithReceipts({
-      tripId: dto.tripId,
-      categoryId: category.id,
-      createdById: actorId,
-      createdByName: actorName,
-      valor,
-      dataDespesa: dto.dataDespesa,
-      reembolsavel: dto.reembolsavel,
-      justificativa: dto.justificativa,
-      alertaExcesso,
-      receipts,
-    });
+    const { expense: created, receipts: createdReceipts } =
+      await this.expenses.createExpenseWithReceipts({
+        tripId: dto.tripId,
+        categoryId: category.id,
+        createdById: actorId,
+        createdByName: actorName,
+        valor,
+        dataDespesa: dto.dataDespesa,
+        reembolsavel: dto.reembolsavel,
+        justificativa: dto.justificativa,
+        alertaExcesso,
+        receipts,
+      });
 
     await this.audit.record({
       userId: actorId,
@@ -118,6 +120,10 @@ export class CreateExpenseService {
         field: 'comprovante',
         newValue: receipt.fileName,
       });
+    }
+
+    for (const receipt of createdReceipts) {
+      this.onReceiptCreated(receipt.id, actorId);
     }
 
     return expenseToView(created);
