@@ -1,25 +1,32 @@
 import { prisma } from '../../../config/database.js';
-import type { NotificationEventType } from '@prisma/client';
-import type { NotificationRecord, NotificationsRepository } from './notifications.repository.js';
-
-interface NotificationInsert {
-  userId: string;
-  event: NotificationEventType;
-  message: string;
-  tripId?: string;
-}
+import type {
+  NotificationInput,
+  NotificationRecord,
+  NotificationsRepository,
+} from './notifications.repository.js';
 
 export class PrismaNotificationsRepository implements NotificationsRepository {
-  async createMany(inputs: ReadonlyArray<NotificationInsert>): Promise<void> {
-    if (inputs.length === 0) return;
-    await prisma.notification.createMany({
+  async createMany(inputs: ReadonlyArray<NotificationInput>): Promise<NotificationRecord[]> {
+    if (inputs.length === 0) return [];
+    const rows = await prisma.notification.createManyAndReturn({
       data: inputs.map((input) => ({
         userId: input.userId,
         event: input.event,
         message: input.message,
+        detail: input.detail ?? null,
         tripId: input.tripId ?? null,
       })),
     });
+    return rows.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      event: row.event,
+      message: row.message,
+      detail: row.detail,
+      tripId: row.tripId,
+      readAt: row.readAt,
+      createdAt: row.createdAt,
+    }));
   }
 
   async listForUser(userId: string): Promise<NotificationRecord[]> {
@@ -29,8 +36,10 @@ export class PrismaNotificationsRepository implements NotificationsRepository {
     });
     return rows.map((row) => ({
       id: row.id,
+      userId: row.userId,
       event: row.event,
       message: row.message,
+      detail: row.detail,
       tripId: row.tripId,
       readAt: row.readAt,
       createdAt: row.createdAt,

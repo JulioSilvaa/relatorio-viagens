@@ -41,6 +41,7 @@ export class ReturnReportService {
       await this.notifier.notifyMany({
         event: 'RELATORIO_RETORNADO',
         message: `Relatório retornado para correção: ${trip.cliente} (${trip.cidade}-${trip.uf}).`,
+        detail: justificativa.trim(),
         tripId,
         userIds: participants,
       });

@@ -54,6 +54,7 @@ export class PayAdvanceService {
       await this.notifier.notifyMany({
         event: 'ADIANTAMENTO_PAGO',
         message: `Adiantamento de R$ ${advance.valorAprovado ?? advance.valorSolicitado} pago para a viagem: ${trip.cliente} (${trip.cidade}-${trip.uf}).`,
+        detail: input.observacoesPagamento?.trim() || undefined,
         tripId: advance.tripId,
         userIds: participants,
       });

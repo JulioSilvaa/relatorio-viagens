@@ -218,7 +218,8 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
         where: { event: 'PROBLEMA_FISCAL', tripId: trip.id },
       });
       expect(alert).toBeTruthy();
-      expect(alert!.message).toContain('Nota ilegível');
+      expect(alert!.detail).toBe('Nota ilegível');
+      expect(alert!.message).not.toContain('Nota ilegível');
     });
 
     it('bloqueia usuário sem permissão fiscal', async () => {
@@ -320,6 +321,7 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
         where: { event: 'ADIANTAMENTO_PAGO' },
       });
       expect(advanceAlert).toBeTruthy();
+      expect(advanceAlert!.detail).toBe('PIX efetuado');
 
       const notReceived = await financeiro.agent
         .post(`/api/finance/trips/${trip.id}/receber`)
@@ -526,6 +528,22 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
       expect(report.status).toBe(200);
       expect(report.body.data.totalDespesas).toBe('75.00');
       expect(report.body.data.quantidadeViagens).toBe(2);
+      expect(report.body.data.adiantamentos).toEqual({
+        totalSolicitado: '0.00',
+        totalAprovado: '0.00',
+        totalPago: '0.00',
+        pendentesAnalise: 0,
+      });
+      expect(report.body.data.viagensPorDepartamento).toEqual([
+        { departamento: 'COMERCIAL', quantidade: 2 },
+      ]);
+      expect(report.body.data.viagensPorRegiao).toEqual([{ regiao: 'Sudeste', quantidade: 2 }]);
+      expect(report.body.data.cidadesMaisVisitadas).toMatchObject([
+        { cidade: 'São Paulo', uf: 'SP', quantidade: 2 },
+      ]);
+      expect(report.body.data.viagensPorColaborador).toEqual([
+        expect.objectContaining({ quantidade: 2 }),
+      ]);
     });
 
     it('reembolsosStatus conta todas as viagens, independente do período', async () => {

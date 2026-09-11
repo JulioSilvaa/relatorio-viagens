@@ -15,19 +15,31 @@ export class NotificationsService implements NotificationPublisher {
   async notifyMany(input: {
     event: NotificationEventType;
     message: string;
+    detail?: string;
     tripId?: string;
     userIds: string[];
   }): Promise<void> {
     if (input.userIds.length === 0) return;
-    await this.repository.createMany(
+    const records = await this.repository.createMany(
       input.userIds.map((userId) => ({
         userId,
         event: input.event,
         message: input.message,
+        detail: input.detail,
         tripId: input.tripId,
       })),
     );
-    this.realtime?.notifyUsers(input.userIds);
+    this.realtime?.notifyUsers(
+      records.map((record) => ({
+        userId: record.userId,
+        id: record.id,
+        event: record.event,
+        message: record.message,
+        detail: record.detail,
+        tripId: record.tripId,
+        createdAt: record.createdAt,
+      })),
+    );
   }
 
   createMany(
@@ -35,9 +47,10 @@ export class NotificationsService implements NotificationPublisher {
       userId: string;
       event: NotificationEventType;
       message: string;
+      detail?: string;
       tripId?: string;
     }>,
-  ): Promise<void> {
+  ): Promise<NotificationRecord[]> {
     return this.repository.createMany(inputs);
   }
 

@@ -492,6 +492,12 @@ describe('marco 2: viagens, despesas e aprovações', () => {
         'EM_CORRECAO',
       );
 
+      const returnedAlert = await prisma.notification.findFirst({
+        where: { event: 'RELATORIO_RETORNADO', tripId: trip.id },
+      });
+      expect(returnedAlert).toBeTruthy();
+      expect(returnedAlert!.detail).toBe('Comprovantes ilegíveis');
+
       const reenviar = await ana.agent
         .post(`/api/trips/${trip.id}/entregar`)
         .set('x-csrf-token', ana.csrf);

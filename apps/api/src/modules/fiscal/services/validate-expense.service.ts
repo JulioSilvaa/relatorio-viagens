@@ -44,7 +44,8 @@ export class ValidateExpenseService {
     if (status === 'PROBLEMA') {
       await this.notifier.notifyMany({
         event: 'PROBLEMA_FISCAL',
-        message: `Problema fiscal na despesa: ${motivo}`,
+        message: `Problema fiscal na despesa de: ${existing.category?.name ?? 'despesa'}.`,
+        detail: motivo ?? undefined,
         tripId: existing.tripId,
         userIds: [existing.criadoPor.id],
       });

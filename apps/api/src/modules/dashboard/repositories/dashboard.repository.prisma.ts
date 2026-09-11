@@ -9,6 +9,36 @@ import type {
 
 const EMPLOYEE_PAYMENT_WINDOW_DAYS = 30;
 
+const REGIAO_BY_UF: Record<string, string> = {
+  AC: 'Norte',
+  AP: 'Norte',
+  AM: 'Norte',
+  PA: 'Norte',
+  RO: 'Norte',
+  RR: 'Norte',
+  TO: 'Norte',
+  MA: 'Nordeste',
+  PI: 'Nordeste',
+  CE: 'Nordeste',
+  RN: 'Nordeste',
+  PB: 'Nordeste',
+  PE: 'Nordeste',
+  AL: 'Nordeste',
+  SE: 'Nordeste',
+  BA: 'Nordeste',
+  DF: 'Centro-Oeste',
+  GO: 'Centro-Oeste',
+  MT: 'Centro-Oeste',
+  MS: 'Centro-Oeste',
+  SP: 'Sudeste',
+  RJ: 'Sudeste',
+  MG: 'Sudeste',
+  ES: 'Sudeste',
+  PR: 'Sul',
+  SC: 'Sul',
+  RS: 'Sul',
+};
+
 function cents(value: { toString(): string }): number {
   return Math.round(Number(value.toString()) * 100);
 }
@@ -58,7 +88,14 @@ export class PrismaDashboardRepository implements DashboardRepository {
     const tripQuery = tripWhere(filters, bounds);
     const trips = await prisma.trip.findMany({
       where: tripQuery,
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        departamento: true,
+        cidade: true,
+        uf: true,
+        criadoPor: { select: { id: true, name: true } },
+      },
     });
     const tripIds = trips.map((trip) => trip.id);
 
@@ -83,12 +120,41 @@ export class PrismaDashboardRepository implements DashboardRepository {
       orderBy: { createdAt: 'asc' },
     });
 
+    const advances = tripIds.length
+      ? await prisma.tripAdvance.findMany({ where: { tripId: { in: tripIds } } })
+      : [];
+
     const payments = await prisma.tripPayment.findMany({ where: { tripId: { in: tripIds } } });
     const refunds = await prisma.tripRefund.findMany({ where: { tripId: { in: tripIds } } });
 
     const totalDespesasCents = expenses.reduce((sum, e) => sum + cents(e.valor), 0);
     const pagamentosCents = payments.reduce((sum, p) => sum + cents(p.valor), 0);
     const devolucoesCents = refunds.reduce((sum, r) => sum + cents(r.valor), 0);
+
+    const totalSolicitadoCents = advances.reduce(
+      (sum, advance) => sum + cents(advance.valorSolicitado),
+      0,
+    );
+    const totalAprovadoCents = advances.reduce(
+      (sum, advance) =>
+        sum +
+        (advance.valorAprovado &&
+        (advance.status === 'APROVADO' ||
+          advance.status === 'PAGAMENTO_PENDENTE' ||
+          advance.status === 'PAGO')
+          ? cents(advance.valorAprovado)
+          : 0),
+      0,
+    );
+    const totalPagoCents = advances.reduce(
+      (sum, advance) =>
+        sum +
+        (advance.status === 'PAGO' && advance.valorAprovado ? cents(advance.valorAprovado) : 0),
+      0,
+    );
+    const pendentesAnalise = advances.filter(
+      (advance) => advance.status === 'SOLICITADO' || advance.status === 'EM_ANALISE',
+    ).length;
 
     const reembolsavelPorTrip = new Map<string, number>();
     for (const expense of expenses) {
@@ -150,6 +216,43 @@ export class PrismaDashboardRepository implements DashboardRepository {
       ['EM_APROVACAO', 'EM_CORRECAO', 'FINANCEIRO'].includes(trip.status),
     ).length;
 
+    const viagensPorDepartamentoMap = new Map<string, number>();
+    const viagensPorRegiaoMap = new Map<string, number>();
+    const cidadesVisitadasMap = new Map<
+      string,
+      { cidade: string; uf: string; quantidade: number }
+    >();
+    const viagensPorColaboradorMap = new Map<
+      string,
+      { id: string; nome: string; quantidade: number }
+    >();
+    for (const trip of trips) {
+      viagensPorDepartamentoMap.set(
+        trip.departamento,
+        (viagensPorDepartamentoMap.get(trip.departamento) ?? 0) + 1,
+      );
+      const regiao = REGIAO_BY_UF[trip.uf.toUpperCase()] ?? 'Outras regiões';
+      viagensPorRegiaoMap.set(regiao, (viagensPorRegiaoMap.get(regiao) ?? 0) + 1);
+
+      const cidadeKey = `${trip.uf.toUpperCase()}|${trip.cidade}`;
+      const cidadeEntry = cidadesVisitadasMap.get(cidadeKey) ?? {
+        cidade: trip.cidade,
+        uf: trip.uf.toUpperCase(),
+        quantidade: 0,
+      };
+      cidadeEntry.quantidade += 1;
+      cidadesVisitadasMap.set(cidadeKey, cidadeEntry);
+
+      const author = trip.criadoPor;
+      const colabEntry = viagensPorColaboradorMap.get(author.id) ?? {
+        id: author.id,
+        nome: author.name,
+        quantidade: 0,
+      };
+      colabEntry.quantidade += 1;
+      viagensPorColaboradorMap.set(author.id, colabEntry);
+    }
+
     const statusCount = new Map<string, number>();
     const statusRows = await prisma.trip.groupBy({
       by: ['status'],
@@ -168,6 +271,12 @@ export class PrismaDashboardRepository implements DashboardRepository {
       valoresPendentes: fmt(valoresPendentesCents),
       quantidadeViagens: trips.length,
       relatoriosPendentes,
+      adiantamentos: {
+        totalSolicitado: fmt(totalSolicitadoCents),
+        totalAprovado: fmt(totalAprovadoCents),
+        totalPago: fmt(totalPagoCents),
+        pendentesAnalise,
+      },
       porColaborador: [...porColaboradorMap.entries()].map(([id, entry]) => ({
         id,
         nome: entry.nome,
@@ -192,6 +301,18 @@ export class PrismaDashboardRepository implements DashboardRepository {
         status,
         quantidade,
       })),
+      viagensPorDepartamento: [...viagensPorDepartamentoMap.entries()].map(
+        ([departamento, quantidade]) => ({ departamento, quantidade }),
+      ),
+      viagensPorRegiao: [...viagensPorRegiaoMap.entries()]
+        .map(([regiao, quantidade]) => ({ regiao, quantidade }))
+        .sort((a, b) => b.quantidade - a.quantidade),
+      cidadesMaisVisitadas: [...cidadesVisitadasMap.values()].sort(
+        (a, b) => b.quantidade - a.quantidade,
+      ),
+      viagensPorColaborador: [...viagensPorColaboradorMap.values()].sort(
+        (a, b) => b.quantidade - a.quantidade,
+      ),
     };
   }
 

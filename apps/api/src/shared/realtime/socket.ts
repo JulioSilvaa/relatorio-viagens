@@ -3,8 +3,17 @@ import { Server } from 'socket.io';
 import type { SessionStore } from '../auth/session.js';
 import { hashToken } from '../utils/crypto.js';
 
+export interface RealtimeNotificationPayload {
+  id: string;
+  event: string;
+  message: string;
+  detail: string | null;
+  tripId: string | null;
+  createdAt: Date;
+}
+
 export interface NotificationRealtime {
-  notifyUsers(userIds: string[]): void;
+  notifyUsers(notifications: Array<RealtimeNotificationPayload & { userId: string }>): void;
 }
 
 function sessionToken(cookieHeader: string | undefined): string | null {
@@ -18,9 +27,17 @@ function sessionToken(cookieHeader: string | undefined): string | null {
 export class SocketNotificationRealtime implements NotificationRealtime {
   constructor(private readonly io: Server) {}
 
-  notifyUsers(userIds: string[]): void {
-    for (const userId of userIds) {
-      this.io.to(`user:${userId}`).emit('notification.created');
+  notifyUsers(notifications: Array<RealtimeNotificationPayload & { userId: string }>): void {
+    for (const notification of notifications) {
+      const payload = {
+        id: notification.id,
+        event: notification.event,
+        message: notification.message,
+        detail: notification.detail,
+        tripId: notification.tripId,
+        createdAt: notification.createdAt,
+      };
+      this.io.to(`user:${notification.userId}`).emit('notification.created', payload);
     }
   }
 }

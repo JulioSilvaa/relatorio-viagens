@@ -536,6 +536,7 @@ model Notification {
   user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   event     NotificationEventType
   message   String
+  detail    String?
   tripId    String?               @db.Uuid
   trip      Trip?                 @relation(fields: [tripId], references: [id])
   readAt    DateTime?

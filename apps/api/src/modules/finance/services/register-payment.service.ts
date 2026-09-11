@@ -70,6 +70,7 @@ export class RegisterPaymentService {
       await this.notifier.notifyMany({
         event: 'REEMBOLSO_PAGO',
         message: `Reembolso de R$ ${payment.valor} pago para a viagem: ${trip.cliente} (${trip.cidade}-${trip.uf}).`,
+        detail: input.observacoes?.trim() || undefined,
         tripId,
         userIds: participants,
       });

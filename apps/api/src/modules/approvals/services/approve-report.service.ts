@@ -54,13 +54,15 @@ export class ApproveReportService {
       newValue: 'APROVADA',
     });
 
+    const participants = await this.trips.listParticipantIds(tripId);
     const finance = await this.users.findAllByRoleCode('FINANCE');
-    if (finance.length > 0) {
+    const userIds = [...participants, ...finance.map((user) => user.id)];
+    if (userIds.length > 0) {
       await this.notifier.notifyMany({
         event: 'RELATORIO_APROVADO',
         message: `Relatório aprovado: ${trip.cliente} (${trip.cidade}-${trip.uf}).`,
         tripId,
-        userIds: finance.map((user) => user.id),
+        userIds,
       });
     }
   }

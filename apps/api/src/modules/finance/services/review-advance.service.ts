@@ -72,7 +72,8 @@ export class ReviewAdvanceService {
         event: input.aprovado ? 'ADIANTAMENTO_APROVADO' : 'ADIANTAMENTO_RECUSADO',
         message: input.aprovado
           ? `Adiantamento de R$ ${valorAprovado} aprovado para a viagem: ${trip.cliente} (${trip.cidade}-${trip.uf}).`
-          : `Adiantamento recusado para a viagem: ${trip.cliente} (${trip.cidade}-${trip.uf}). ${input.justificativaAnalise}`,
+          : `Adiantamento recusado para a viagem: ${trip.cliente} (${trip.cidade}-${trip.uf}).`,
+        detail: input.justificativaAnalise.trim() || undefined,
         tripId: advance.tripId,
         userIds: participants,
       });
