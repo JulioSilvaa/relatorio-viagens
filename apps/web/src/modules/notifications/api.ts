@@ -4,8 +4,18 @@ export interface AppNotification {
   id: string;
   event: string;
   message: string;
+  detail: string | null;
   tripId: string | null;
   readAt: string | null;
+  createdAt: string;
+}
+
+export interface RealtimeNotification {
+  id: string;
+  event: string;
+  message: string;
+  detail: string | null;
+  tripId: string | null;
   createdAt: string;
 }
 

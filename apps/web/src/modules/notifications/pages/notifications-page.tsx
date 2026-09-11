@@ -104,6 +104,14 @@ export default function NotificationsPage() {
                       <p className="text-sm text-foreground">
                         {notification.message}
                       </p>
+                      {notification.detail ? (
+                        <p className="mt-1.5 rounded-lg border border-border bg-muted/40 px-2.5 py-2 text-xs text-foreground">
+                          <span className="font-medium text-muted-foreground">
+                            Comentário:
+                          </span>{" "}
+                          {notification.detail}
+                        </p>
+                      ) : null}
                       <p className="mt-1 text-xs text-muted-foreground">
                         {formatDateTime(notification.createdAt)}
                       </p>
@@ -113,6 +121,7 @@ export default function NotificationsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="cursor-pointer"
                           disabled={markRead.isPending}
                           onClick={() => {
                             markRead.mutate(notification.id);
