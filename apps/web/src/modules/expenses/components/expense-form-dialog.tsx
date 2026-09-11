@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useExpenseCategories, useCreateExpense } from "../hooks";
@@ -29,6 +29,22 @@ import {
 import { cn } from "cn";
 
 const MAX_RECEIPTS = 5;
+
+function ReceiptPreview({ file }: { file: File }) {
+  const [src] = useState(() => URL.createObjectURL(file));
+
+  useEffect(() => {
+    return () => URL.revokeObjectURL(src);
+  }, [src]);
+
+  return (
+    <img
+      src={src}
+      alt={`Pré-visualização de ${file.name}`}
+      className="size-16 shrink-0 rounded-lg border border-border object-cover"
+    />
+  );
+}
 
 const RECEIPT_TYPE_LABELS: Record<ReceiptTypeValue, string> = {
   NOTA_FISCAL: "Nota fiscal",
@@ -308,15 +324,19 @@ export function ExpenseFormDialog({
               </span>
             </label>
             {files.length > 0 ? (
-              <ul className="flex flex-col gap-1">
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {files.map((file, index) => (
                   <li
                     key={`${file.name}-${index}`}
-                    className="flex items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 text-sm"
+                    className="flex items-center gap-2 rounded-lg bg-muted p-2"
                   >
-                    <span className="min-w-0 truncate text-foreground">
-                      {file.name}
-                    </span>
+                    <ReceiptPreview file={file} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-foreground">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(file.size / 1024).toFixed(0)} KB
+                      </p>
+                    </div>
                     <button
                       type="button"
                       aria-label={`Remover ${file.name}`}
@@ -325,7 +345,7 @@ export function ExpenseFormDialog({
                           current.filter((_, i) => i !== index),
                         )
                       }
-                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                      className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
                     >
                       <X className="size-4" aria-hidden="true" />
                     </button>
