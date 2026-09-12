@@ -31,6 +31,7 @@ const MANAGER_ADMIN = [
   "DESPESA.EDITAR",
   "DESPESA.EXCLUIR",
   "RELATORIO.VISUALIZAR",
+  "RELATORIO.PDF.GERAR",
   "RELATORIO.APROVAR",
   "RELATORIO.RETORNAR",
   "CONFIG.CATEGORIA.GERENCIAR",
@@ -48,11 +49,12 @@ const MANAGER_ADMIN = [
 const FINANCE = [
   "FINANCEIRO.REEMBOLSO.PROCESSAR",
   "RELATORIO.VISUALIZAR",
+  "RELATORIO.PDF.GERAR",
   "CONFIG.CENTRO_CUSTO.VISUALIZAR",
   "ADIANTAMENTO.PAGAR",
 ];
 
-const FISCAL = ["FISCAL.DOCUMENTO.VALIDAR"];
+const FISCAL = ["FISCAL.DOCUMENTO.VALIDAR", "RELATORIO.PDF.GERAR"];
 
 const ROLES: ReadonlyArray<{
   code: RoleType;
@@ -60,31 +62,31 @@ const ROLES: ReadonlyArray<{
   description: string;
   permissions: readonly string[];
 }> = [
-  {
-    code: "EMPLOYEE",
-    name: "Colaborador",
-    description: "Operacional: cria viagens e lança despesas.",
-    permissions: EMPLOYEE,
-  },
-  {
-    code: "MANAGER_ADMIN",
-    name: "Gestor/Admin",
-    description: "Visão global, aprovação e configurações.",
-    permissions: MANAGER_ADMIN,
-  },
-  {
-    code: "FINANCE",
-    name: "Financeiro",
-    description: "Processos financeiros e reembolsos.",
-    permissions: FINANCE,
-  },
-  {
-    code: "FISCAL",
-    name: "Fiscal",
-    description: "Validação de documentos fiscais.",
-    permissions: FISCAL,
-  },
-];
+    {
+      code: "EMPLOYEE",
+      name: "Colaborador",
+      description: "Operacional: cria viagens e lança despesas.",
+      permissions: EMPLOYEE,
+    },
+    {
+      code: "MANAGER_ADMIN",
+      name: "Gestor/Admin",
+      description: "Visão global, aprovação e configurações.",
+      permissions: MANAGER_ADMIN,
+    },
+    {
+      code: "FINANCE",
+      name: "Financeiro",
+      description: "Processos financeiros e reembolsos.",
+      permissions: FINANCE,
+    },
+    {
+      code: "FISCAL",
+      name: "Fiscal",
+      description: "Validação de documentos fiscais.",
+      permissions: FISCAL,
+    },
+  ];
 
 export async function seedRoles(prisma: PrismaClient): Promise<void> {
   for (const role of ROLES) {

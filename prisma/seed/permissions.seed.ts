@@ -79,6 +79,11 @@ export const PERMISSIONS = [
     description: "Visualizar relatório, despesas e comprovantes (RF-APR-001).",
   },
   {
+    code: "RELATORIO.PDF.GERAR",
+    name: "Gerar PDF de relatório",
+    description: "Gerar PDFs oficiais e gerenciais conforme o perfil.",
+  },
+  {
     code: "RELATORIO.APROVAR",
     name: "Aprovar relatório",
     description: "Aprovar relatório (RF-APR-002).",

@@ -15,6 +15,38 @@ export interface CreateExpenseInput {
   tipoComprovante: ReceiptTypeValue;
 }
 
+export interface OcrPreviewResult {
+  status: "SUCESSO" | "FALHA";
+  erro?: string;
+  data?: {
+    textoOriginal?: string;
+    cnpj?: string;
+    chaveAcesso?: string;
+    numeroDocumento?: string;
+    nomeEstabelecimento?: string;
+    data?: string;
+    valorTotal?: string;
+    valorProdutos?: string;
+    desconto?: string;
+    tributos?: string;
+    serie?: string;
+    inscricaoEstadual?: string;
+    emitente?: string;
+    destinatario?: string;
+    formaPagamento?: string;
+    protocoloAutorizacao?: string;
+  };
+}
+
+export async function preAnalyzeReceipt(file: File): Promise<OcrPreviewResult> {
+  const formData = new FormData();
+  formData.set("comprovante", file);
+  return apiFetch<OcrPreviewResult>("/api/ocr/pre-analisar", {
+    method: "POST",
+    body: formData,
+  });
+}
+
 export async function listExpenseCategories(): Promise<ExpenseCategoryView[]> {
   const data = await apiFetch<{ categories: ExpenseCategoryView[] }>(
     "/api/expenses-categories",
@@ -34,9 +66,7 @@ export async function createExpense(
   formData.set("reembolsavel", String(input.reembolsavel));
   formData.set("justificativa", input.justificativa);
   formData.set("tipoComprovante", input.tipoComprovante);
-  for (const file of files) {
-    formData.append("comprovantes", file);
-  }
+  if (files[0]) formData.set("comprovante", files[0]);
 
   const data = await apiFetch<{ expense: TripExpenseView }>("/api/expenses", {
     method: "POST",
@@ -58,6 +88,20 @@ export async function changeReimbursability(
     },
   );
   return data.reembolsavel;
+}
+
+export async function updateExpense(
+  expenseId: string,
+  input: { justificativa: string },
+): Promise<TripExpenseView> {
+  const data = await apiFetch<{ expense: TripExpenseView }>(
+    `/api/expenses/${expenseId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
+  return data.expense;
 }
 
 export function receiptFileUrl(receiptId: string): string {

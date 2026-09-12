@@ -13,6 +13,10 @@ import {
 
 const app: Express = buildApp();
 type Agent = ReturnType<typeof request.agent>;
+const VALID_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+);
 
 interface Session {
   agent: Agent;
@@ -79,7 +83,7 @@ describe('marco 2: viagens, despesas e aprovações', () => {
     for (const [key, value] of Object.entries(fields)) {
       req = req.field(key, value);
     }
-    return req.attach('comprovantes', Buffer.from('%PNG-test-content'), 'comprovante.png');
+    return req.attach('comprovante', VALID_PNG, 'comprovante.png');
   }
 
   describe('CA-VIA-001 - criação de viagem', () => {
@@ -385,7 +389,7 @@ describe('marco 2: viagens, despesas e aprovações', () => {
         .field('reembolsavel', 'true')
         .field('justificativa', 'Reembolso por quilometragem rodada')
         .field('tipoComprovante', 'OUTRO')
-        .attach('comprovantes', Buffer.from('%PNG-test-km'), 'km.png');
+        .attach('comprovante', VALID_PNG, 'km.png');
 
       expect(res.status).toBe(201);
       expect(Number(res.body.data.expense.valor)).toBe(9);
@@ -433,7 +437,7 @@ describe('marco 2: viagens, despesas e aprovações', () => {
         .post(`/api/expenses/${expenseId}/receipts`)
         .set('x-csrf-token', ana.csrf)
         .field('tipoComprovante', 'CUPOM_FISCAL')
-        .attach('comprovante', Buffer.from('%PNG-second'), 'segunda.png');
+        .attach('comprovante', VALID_PNG, 'segunda.png');
       expect(extra.status).toBe(201);
 
       const file = await ana.agent.get(`/api/receipts/${receiptId}/arquivo`);
@@ -444,7 +448,7 @@ describe('marco 2: viagens, despesas e aprovações', () => {
         .post(`/api/expenses/${expenseId}/receipts/${receiptId}/substituir`)
         .set('x-csrf-token', ana.csrf)
         .field('tipoComprovante', 'NOTA_FISCAL')
-        .attach('comprovante', Buffer.from('%PNG-nova'), 'nova.png');
+        .attach('comprovante', VALID_PNG, 'nova.png');
       expect(substitute.status).toBe(200);
 
       const oldReceipt = await prisma.receipt.findUniqueOrThrow({ where: { id: receiptId } });

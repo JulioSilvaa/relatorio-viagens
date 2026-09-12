@@ -3,6 +3,7 @@ import type { ReceiptInsertData } from '../../receipts/receipt.types.js';
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
 import { EDITABLE_TRIP_STATUSES } from '../../trips/trip.types.js';
 import { assertValidUpload, sha256 } from '../../../shared/upload/files.js';
+import { optimizeReceiptImage } from '../../../shared/upload/images.js';
 import {
   ExpenseCategoryInactiveError,
   ExpenseCategoryNotFoundError,
@@ -10,6 +11,7 @@ import {
   ExpenseInvalidValueError,
   ExpenseKmDataMissingError,
   ExpenseReceiptRequiredError,
+  ExpenseSingleReceiptError,
   ExpenseTripNotFoundError,
   ExpenseTripNotEditableError,
 } from '../expense.errors.js';
@@ -30,8 +32,8 @@ export class CreateExpenseService {
     private readonly trips: TripsRepository,
     private readonly expenses: ExpensesRepository,
     private readonly audit: AuditService,
-    private readonly onReceiptCreated: (receiptId: string, actorId: string) => void = () => {},
-  ) {}
+    private readonly onReceiptCreated: (receiptId: string, actorId: string) => void = () => { },
+  ) { }
 
   async execute(
     dto: CreateExpenseDto,
@@ -42,10 +44,12 @@ export class CreateExpenseService {
     if (!files || files.length === 0) {
       throw new ExpenseReceiptRequiredError();
     }
+    if (files.length > 1) {
+      throw new ExpenseSingleReceiptError();
+    }
     for (const file of files) {
       assertValidUpload(file);
     }
-
     const trip = await this.trips.findById(dto.tripId);
     if (!trip || trip.deletadoEm) {
       throw new ExpenseTripNotFoundError();
@@ -78,8 +82,9 @@ export class CreateExpenseService {
     }
 
     const alertaExcesso = await this.computeExcesso(category.id, valor);
+    const optimizedFiles = await Promise.all(files.map(optimizeReceiptImage));
 
-    const receipts: ReceiptInsertData[] = files.map((file) => ({
+    const receipts: ReceiptInsertData[] = optimizedFiles.map((file) => ({
       fileData: file.buffer,
       fileType: file.mimetype,
       fileName: file.originalname,

@@ -30,6 +30,12 @@ export class ExpenseReceiptRequiredError extends AppError {
   }
 }
 
+export class ExpenseSingleReceiptError extends AppError {
+  constructor() {
+    super(422, 'EXPENSE_SINGLE_RECEIPT_ONLY', 'Cada despesa pode possuir apenas um comprovante.');
+  }
+}
+
 export class ExpenseCategoryNotFoundError extends AppError {
   constructor() {
     super(422, 'EXPENSE_CATEGORY_NOT_FOUND', 'Categoria de despesa não encontrada.');

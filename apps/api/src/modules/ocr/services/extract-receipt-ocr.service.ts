@@ -11,7 +11,7 @@ export class ExtractReceiptOcrService {
     private readonly ocr: ReceiptOcrRepository,
     private readonly provider: OcrProvider,
     private readonly audit: AuditService,
-  ) {}
+  ) { }
 
   async execute(
     receiptId: string,
@@ -51,6 +51,7 @@ export class ExtractReceiptOcrService {
           numeroDocumento: extraction.data.numeroDocumento ?? '',
           chaveAcesso: extraction.data.chaveAcesso ?? '',
           itens: extraction.data.itens ?? [],
+          dadosOriginais: extraction.data,
           erro: null,
         },
         extraidoEm,

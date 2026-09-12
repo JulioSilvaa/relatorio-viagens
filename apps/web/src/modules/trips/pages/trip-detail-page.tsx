@@ -5,8 +5,10 @@ import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
   FileText,
   Paperclip,
+  Pencil,
   Plus,
   SendHorizontal,
   Trash2,
@@ -26,6 +28,7 @@ import {
 } from "../hooks";
 import { TripStatusBadge } from "../components/trip-status-badge";
 import { ExpenseFormDialog } from "@/modules/expenses/components/expense-form-dialog";
+import { ExpenseEditDialog } from "@/modules/expenses/components/expense-edit-dialog";
 import { receiptFileUrl } from "@/modules/expenses/api";
 import { useChangeReimbursability } from "@/modules/expenses/hooks";
 import { ReceiptOcrDialog } from "@/modules/ocr/components/receipt-ocr-dialog";
@@ -95,6 +98,7 @@ export default function TripDetailPage() {
   const [ocrReceipt, setOcrReceipt] = useState<
     TripExpenseView["receipts"][number] | null
   >(null);
+  const [editingExpense, setEditingExpense] = useState<TripExpenseView | null>(null);
   const { data: trip, isLoading, isError, error, refetch } = useTrip(params.id);
   const deliverTrip = useDeliverTrip(params.id);
   const approveTrip = useApproveTrip();
@@ -143,6 +147,10 @@ export default function TripDetailPage() {
     trip.participants.some((participant) => participant.userId === user.id);
   const canApprove =
     trip.status === "EM_APROVACAO" && user?.roleCode === "MANAGER_ADMIN";
+  const canGeneratePdf =
+    user?.roleCode === "MANAGER_ADMIN" ||
+    user?.roleCode === "FINANCE" ||
+    user?.roleCode === "FISCAL";
   const kmReembolsavel =
     trip.tipoVeiculo === "PROPRIO" &&
     trip.kmInicial !== null &&
@@ -374,9 +382,7 @@ export default function TripDetailPage() {
         </CardContent>
       </Card>
 
-      {trip.participants.some(
-        (participant) => participant.userId === user?.id,
-      ) || user?.roleCode === "MANAGER_ADMIN" ? (
+      {canGeneratePdf ? (
         <Card className="shadow-sm">
           <CardContent className="flex flex-col gap-3 p-5">
             <div className="flex items-center gap-2">
@@ -533,111 +539,128 @@ export default function TripDetailPage() {
             </CardContent>
           </Card>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
             {trip.despesas.map((despesa) => (
               <li key={despesa.id}>
-                <Card className="shadow-sm">
-                  <CardContent className="flex flex-col gap-2 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground">
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 [&::-webkit-details-marker]:hidden">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium text-foreground">
                           {despesa.category?.name ?? "Sem categoria"}
                         </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {formatDate(despesa.dataDespesa)} ·{" "}
-                          {despesa.criadoPor.name}
-                        </p>
+                        {despesa.alertaExcesso ? (
+                          <Badge variant="destructive">Acima do limite</Badge>
+                        ) : null}
                       </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {formatDate(despesa.dataDespesa)} · {despesa.criadoPor.name}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <div className="text-right">
                         <p className="text-sm font-semibold text-foreground">
                           {formatMoney(despesa.valor)}
                         </p>
-                        {canApprove ? (
-                          <Button
-                            variant={
-                              despesa.reembolsavel ? "secondary" : "outline"
-                            }
-                            size="sm"
-                            onClick={() => {
-                              setReimbursabilityTarget(despesa);
-                              setReimbursabilityJustificativa("");
-                              setReimbursabilityError("");
-                            }}
-                            title="Alterar reembolsabilidade"
-                          >
-                            {despesa.reembolsavel
-                              ? "Reembolsável"
-                              : "Não reembolsável"}
-                          </Button>
-                        ) : (
-                          <Badge
-                            variant={
-                              despesa.reembolsavel ? "secondary" : "outline"
-                            }
-                          >
-                            {despesa.reembolsavel
-                              ? "Reembolsável"
-                              : "Não reembolsável"}
-                          </Badge>
-                        )}
+                        <p className="text-[11px] text-muted-foreground">
+                          {despesa.receipts.filter((receipt) => receipt.ativo).length} comprovante(s)
+                        </p>
                       </div>
+                      <ChevronDown
+                        className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
+                        aria-hidden="true"
+                      />
                     </div>
-                    {despesa.alertaExcesso ? (
-                      <p className="text-xs font-medium text-warning">
-                        Excede o limite em {formatMoney(despesa.alertaExcesso)}.
-                      </p>
-                    ) : null}
+                  </summary>
+                  <div className="flex flex-col gap-3 border-t border-border bg-muted/20 px-3 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {canApprove ? (
+                        <Button
+                          variant={despesa.reembolsavel ? "secondary" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            setReimbursabilityTarget(despesa);
+                            setReimbursabilityJustificativa("");
+                            setReimbursabilityError("");
+                          }}
+                          title="Alterar reembolsabilidade"
+                        >
+                          {despesa.reembolsavel ? "Reembolsável" : "Não reembolsável"}
+                        </Button>
+                      ) : (
+                        <Badge variant={despesa.reembolsavel ? "secondary" : "outline"}>
+                          {despesa.reembolsavel ? "Reembolsável" : "Não reembolsável"}
+                        </Badge>
+                      )}
+                      {despesa.alertaExcesso ? (
+                        <span className="text-xs font-medium text-warning">
+                          Excede em {formatMoney(despesa.alertaExcesso)}
+                        </span>
+                      ) : null}
+                    </div>
                     {despesa.justificativa ? (
-                      <p className="text-sm text-muted-foreground">
-                        {despesa.justificativa}
-                      </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 flex-1 text-sm text-muted-foreground">{despesa.justificativa}</p>
+                        {canEdit && despesa.criadoPor.id === user?.id ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Editar descrição da despesa"
+                            title="Editar descrição"
+                            onClick={() => setEditingExpense(despesa)}
+                          >
+                            <Pencil aria-hidden="true" />
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : canEdit && despesa.criadoPor.id === user?.id ? (
+                      <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setEditingExpense(despesa)}>
+                        <Pencil aria-hidden="true" />
+                        Adicionar descrição
+                      </Button>
                     ) : null}
-                    {despesa.receipts.filter((r) => r.ativo).length > 0 ? (
-                      <ul className="flex flex-wrap gap-2">
+                    {despesa.receipts.filter((receipt) => receipt.ativo).length > 0 ? (
+                      <ul className="flex flex-col gap-1.5">
                         {despesa.receipts
-                          .filter((r) => r.ativo)
+                          .filter((receipt) => receipt.ativo)
                           .map((receipt) => (
-                            <li key={receipt.id}>
-                              <div className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-1 text-xs text-foreground">
-                                <a
-                                  href={receiptFileUrl(receipt.id)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 underline-offset-3 hover:underline"
-                                >
-                                  <Paperclip
-                                    className="size-3"
-                                    aria-hidden="true"
-                                  />
-                                  {receipt.fileName}
-                                </a>
-                                <button
-                                  type="button"
-                                  onClick={() => setOcrReceipt(receipt)}
-                                  className="rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium transition-colors hover:bg-accent"
-                                  title="Ver dados extraídos / preencher manualmente"
-                                >
-                                  {receipt.ocr
-                                    ? receipt.ocr.origem === "MANUAL"
-                                      ? "Manual"
-                                      : receipt.ocr.status === "SUCESSO"
-                                        ? "OCR ok"
-                                        : receipt.ocr.status === "FALHA"
-                                          ? "OCR falhou"
-                                          : "OCR pendente"
-                                    : "Sem OCR"}
-                                </button>
-                              </div>
+                            <li key={receipt.id} className="flex items-center justify-between gap-2 text-xs">
+                              <a
+                                href={receiptFileUrl(receipt.id)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex min-w-0 items-center gap-1.5 text-foreground underline-offset-3 hover:underline"
+                              >
+                                <Paperclip className="size-3 shrink-0" aria-hidden="true" />
+                                <span className="truncate">{receipt.fileName}</span>
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => setOcrReceipt(receipt)}
+                                className="shrink-0 rounded-full border border-border px-1.5 py-0.5 font-medium transition-colors hover:bg-accent"
+                                title="Ver dados extraídos / preencher manualmente"
+                              >
+                                {receipt.ocr
+                                  ? receipt.ocr.origem === "MANUAL"
+                                    ? "Manual"
+                                    : receipt.ocr.status === "SUCESSO"
+                                      ? "OCR ok"
+                                      : receipt.ocr.status === "FALHA"
+                                        ? "OCR falhou"
+                                        : "OCR pendente"
+                                  : "Sem OCR"}
+                              </button>
                             </li>
                           ))}
                       </ul>
                     ) : (
                       <p className="text-xs font-medium text-destructive">
-                        Sem comprovante — a entrega do relatório está bloqueada.
+                        Sem comprovante — a entrega está bloqueada.
                       </p>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </details>
               </li>
             ))}
           </ul>
@@ -701,6 +724,11 @@ export default function TripDetailPage() {
                   >
                     <span className="text-foreground">{participant.name}</span>
                     <span className="flex items-center gap-2">
+                      {participant.cartaoLast4 ? (
+                        <span className="text-xs text-muted-foreground">
+                          {participant.cartaoBandeira ?? "Cartão"} · •••• {participant.cartaoLast4}
+                        </span>
+                      ) : null}
                       <span className="text-xs text-muted-foreground">
                         Desde {formatDate(participant.addedAt)}
                       </span>
@@ -728,6 +756,14 @@ export default function TripDetailPage() {
         tripId={trip.id}
         open={isExpenseFormOpen}
         onOpenChange={setIsExpenseFormOpen}
+      />
+      <ExpenseEditDialog
+        tripId={trip.id}
+        expense={editingExpense}
+        open={editingExpense !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingExpense(null);
+        }}
       />
 
       <ReceiptOcrDialog

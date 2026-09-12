@@ -14,6 +14,7 @@ interface PrismaReceiptOcrRow {
   numeroDocumento: string | null;
   chaveAcesso: string | null;
   itens: Prisma.JsonValue | null;
+  dadosOriginais: Prisma.JsonValue | null;
   erro: string | null;
   extraidoEm: Date | null;
   conferidoPorId: string | null;
@@ -38,6 +39,9 @@ function toRecord(row: PrismaReceiptOcrRow): ReceiptOcrRecord {
     numeroDocumento: row.numeroDocumento,
     chaveAcesso: row.chaveAcesso,
     itens: Array.isArray(row.itens) ? (row.itens as unknown[]) : null,
+    dadosOriginais: row.dadosOriginais && typeof row.dadosOriginais === 'object'
+      ? (row.dadosOriginais as ReceiptOcrRecord['dadosOriginais'])
+      : null,
     erro: row.erro,
     extraidoEm: row.extraidoEm,
     conferidoPorId: row.conferidoPorId,
@@ -48,7 +52,7 @@ function toRecord(row: PrismaReceiptOcrRow): ReceiptOcrRecord {
   };
 }
 
-function jsonValue(value: unknown[] | null | undefined): Prisma.InputJsonValue {
+function jsonValue(value: unknown): Prisma.InputJsonValue {
   return (value ?? Prisma.JsonNull) as unknown as Prisma.InputJsonValue;
 }
 
@@ -88,7 +92,13 @@ export class PrismaReceiptOcrRepository implements ReceiptOcrRepository {
     if (existing) {
       const row = await prisma.receiptOcr.update({
         where: { receiptId },
-        data: { ...toUnchecked(data), extraidoEm },
+        data: {
+          ...toUnchecked(data),
+          extraidoEm,
+          ...(existing.dadosOriginais === null && data.dadosOriginais
+            ? { dadosOriginais: jsonValue(data.dadosOriginais) }
+            : {}),
+        },
         include: OCR_INCLUDE,
       });
       return toRecord(row);
@@ -106,6 +116,7 @@ export class PrismaReceiptOcrRepository implements ReceiptOcrRepository {
         numeroDocumento: text(data.numeroDocumento),
         chaveAcesso: text(data.chaveAcesso),
         itens: jsonValue(data.itens),
+        dadosOriginais: jsonValue(data.dadosOriginais),
         erro: text(data.erro),
         extraidoEm,
       },
@@ -137,19 +148,19 @@ export class PrismaReceiptOcrRepository implements ReceiptOcrRepository {
     const existing = await prisma.receiptOcr.findUnique({ where: { receiptId } });
     const row = existing
       ? await prisma.receiptOcr.update({
-          where: { receiptId },
-          data: {
-            ...toUnchecked(data),
-            status: 'SUCESSO',
-            conferidoPorId,
-            conferidoEm: new Date(),
-          },
-          include: OCR_INCLUDE,
-        })
+        where: { receiptId },
+        data: {
+          ...toUnchecked(data),
+          status: 'SUCESSO',
+          conferidoPorId,
+          conferidoEm: new Date(),
+        },
+        include: OCR_INCLUDE,
+      })
       : await prisma.receiptOcr.create({
-          data: { ...ensure, conferidoPorId, conferidoEm: new Date() },
-          include: OCR_INCLUDE,
-        });
+        data: { ...ensure, conferidoPorId, conferidoEm: new Date() },
+        include: OCR_INCLUDE,
+      });
     return toRecord(row);
   }
 }

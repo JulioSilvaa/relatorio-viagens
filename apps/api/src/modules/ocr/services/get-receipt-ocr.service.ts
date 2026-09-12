@@ -8,7 +8,7 @@ export class GetReceiptOcrService {
     private readonly receipts: ReceiptsRepository,
     private readonly trips: TripsRepository,
     private readonly ocr: ReceiptOcrRepository,
-  ) {}
+  ) { }
 
   async execute(
     receiptId: string,
@@ -30,6 +30,7 @@ export class GetReceiptOcrService {
       numeroDocumento: null,
       chaveAcesso: null,
       itens: null,
+      dadosOriginais: null,
       erro: null,
       extraidoEm: null,
       conferidoPorId: null,

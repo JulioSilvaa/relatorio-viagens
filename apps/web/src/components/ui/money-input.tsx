@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ChangeEvent } from "react";
+import { useEffect, useRef, type ChangeEvent } from "react";
 import { cn } from "cn";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +15,7 @@ export interface MoneyInputProps {
   onValueChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  readOnly?: boolean;
   "aria-label"?: string;
   "aria-invalid"?: boolean;
   className?: string;
@@ -26,12 +27,17 @@ export function MoneyInput({
   onValueChange,
   placeholder = "0,00",
   disabled,
+  readOnly,
   "aria-label": ariaLabel,
   "aria-invalid": ariaInvalid,
   className,
 }: MoneyInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const lastDigitsRef = useRef(moneyDigits(value));
+
+  useEffect(() => {
+    lastDigitsRef.current = moneyDigits(value);
+  }, [value]);
 
   function applyMask(target: HTMLInputElement, digits: string) {
     const display = digits ? `R$ ${formatMoneyInputValue(digits)}` : "";
@@ -54,8 +60,9 @@ export function MoneyInput({
     });
   }
 
-  const display = value
-    ? `R$ ${formatMoneyInputValue(Number(value).toFixed(2))}`
+  const numericValue = Number(value);
+  const display = value && Number.isFinite(numericValue)
+    ? `R$ ${formatMoneyInputValue(numericValue.toFixed(2))}`
     : "";
 
   return (
@@ -69,6 +76,7 @@ export function MoneyInput({
       value={display}
       onChange={handleChange}
       disabled={disabled}
+      readOnly={readOnly}
       aria-label={ariaLabel}
       aria-invalid={ariaInvalid}
       className={cn("tabular-nums", className)}

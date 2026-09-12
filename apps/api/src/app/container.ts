@@ -78,7 +78,7 @@ import { env } from '../config/env.js';
 import { SearchTripsService } from '../modules/trips/services/search-trips.service.js';
 import { PrismaReceiptOcrRepository } from '../modules/ocr/repositories/receipt-ocr.repository.prisma.js';
 import { NeutralOcrProvider } from '../modules/ocr/ocr-provider.neutro.js';
-import { TesseractOcrProvider } from '../modules/ocr/ocr-provider.tesseract.js';
+import { PaddleOcrProvider } from '../modules/ocr/ocr-provider.paddle.js';
 import { ExtractReceiptOcrService } from '../modules/ocr/services/extract-receipt-ocr.service.js';
 import { GetReceiptOcrService } from '../modules/ocr/services/get-receipt-ocr.service.js';
 import { SaveReceiptOcrService } from '../modules/ocr/services/save-receipt-ocr.service.js';
@@ -180,12 +180,8 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
 
   const ocrRepo = new PrismaReceiptOcrRepository();
   const ocrProvider =
-    env.OCR_PROVIDER === 'tesseract'
-      ? new TesseractOcrProvider({
-          langPath: env.OCR_TESSERACT_LANG_PATH,
-          cachePath: env.OCR_TESSERACT_CACHE_PATH,
-          timeoutMs: env.OCR_TIMEOUT_MS,
-        })
+    env.OCR_PROVIDER === 'paddleocr'
+      ? new PaddleOcrProvider(env.OCR_PADDLE_URL, env.OCR_TIMEOUT_MS)
       : new NeutralOcrProvider();
   const extractReceiptOcrService = new ExtractReceiptOcrService(
     receipts,
@@ -321,6 +317,7 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
     extractReceiptOcrService,
     getReceiptOcrService,
     saveReceiptOcrService,
+    ocrProvider,
   });
 
   const fiscalRepo = new PrismaFiscalValidationRepository();

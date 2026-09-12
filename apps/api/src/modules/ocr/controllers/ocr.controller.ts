@@ -8,12 +8,16 @@ import { FISCAL_READ_PERMISSION } from '../ocr.constants.js';
 import type { ExtractReceiptOcrService } from '../services/extract-receipt-ocr.service.js';
 import type { GetReceiptOcrService } from '../services/get-receipt-ocr.service.js';
 import type { SaveReceiptOcrService } from '../services/save-receipt-ocr.service.js';
+import type { OcrProvider } from '../ocr.types.js';
+import multer from 'multer';
+import { MAX_UPLOAD_BYTES } from '../../../shared/upload/files.js';
 
 export interface OcrDeps {
   requireAuth: RequestHandler;
   extractReceiptOcrService: ExtractReceiptOcrService;
   getReceiptOcrService: GetReceiptOcrService;
   saveReceiptOcrService: SaveReceiptOcrService;
+  ocrProvider: OcrProvider;
 }
 
 const saveOcrSchema = z.object({
@@ -49,8 +53,14 @@ export function createOcrRouter({
   extractReceiptOcrService,
   getReceiptOcrService,
   saveReceiptOcrService,
+  ocrProvider,
 }: OcrDeps): Router {
   const router = Router();
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
+  });
+  const uploadComprovante = upload.single('comprovante') as unknown as RequestHandler;
 
   router.get(
     '/receipts/:receiptId',
@@ -62,6 +72,28 @@ export function createOcrRouter({
         canManageFiscal(req),
       );
       res.json(success(record));
+    }),
+  );
+
+  router.post(
+    '/pre-analisar',
+    requireAuth,
+    uploadComprovante,
+    verifyCsrf,
+    asyncHandler(async (req, res) => {
+      const file = req.file as Express.Multer.File | undefined;
+      if (!file) {
+        res.status(422).json({
+          error: { code: 'OCR_FILE_REQUIRED', message: 'Adicione um comprovante.' },
+        });
+        return;
+      }
+      const result = await ocrProvider.extract({
+        fileData: file.buffer,
+        fileType: file.mimetype,
+        fileName: file.originalname,
+      });
+      res.json(success(result));
     }),
   );
 

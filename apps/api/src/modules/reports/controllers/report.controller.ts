@@ -13,10 +13,7 @@ export interface ReportsDeps {
 function canViewAny(request: {
   auth?: { user: { roleCode: string; permissions: string[] } };
 }): boolean {
-  return (
-    request.auth!.user.roleCode === 'MANAGER_ADMIN' ||
-    request.auth!.user.permissions.includes('RELATORIO.VISUALIZAR')
-  );
+  return request.auth!.user.permissions.includes('RELATORIO.PDF.GERAR');
 }
 
 export function createReportsRouter({

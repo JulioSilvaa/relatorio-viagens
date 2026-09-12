@@ -33,9 +33,11 @@ export async function downloadReport(
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = objectUrl;
-  anchor.download = `relatorio-${kind}-${tripId}.pdf`;
+  anchor.download = kind === "oficial"
+    ? "relatorio-oficial-viagem.pdf"
+    : "resumo-gerencial-viagem.pdf";
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(objectUrl);
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }

@@ -5,7 +5,6 @@ export const ALLOWED_UPLOAD_MIMES = [
   'image/jpeg',
   'image/png',
   'image/webp',
-  'application/pdf',
 ] as const;
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;

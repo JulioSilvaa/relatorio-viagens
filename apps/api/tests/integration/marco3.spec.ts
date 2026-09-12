@@ -13,6 +13,10 @@ import {
 
 const app: Express = buildApp();
 type Agent = ReturnType<typeof request.agent>;
+const VALID_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+);
 
 interface Session {
   agent: Agent;
@@ -75,8 +79,8 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
       req = req.field(key, value);
     }
     const res = await req.attach(
-      'comprovantes',
-      Buffer.from('%PNG-test-content'),
+      'comprovante',
+      VALID_PNG,
       'comprovante.png',
     );
     expect(res.status).toBe(201);
@@ -585,17 +589,27 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
       await addExpense(ana, trip.id);
 
       const beforeApproval = await ana.agent.get(`/api/reports/trips/${trip.id}/oficial`);
-      expect(beforeApproval.status).toBe(422);
-      expect(beforeApproval.body.error.code).toBe('RELATORIO_NAO_APROVADO');
+      expect(beforeApproval.status).toBe(403);
+      expect(beforeApproval.body.error.code).toBe('RELATORIO_FORBIDDEN');
+
+      const beforeApprovalByManager = await gestor.agent.get(
+        `/api/reports/trips/${trip.id}/oficial`,
+      );
+      expect(beforeApprovalByManager.status).toBe(422);
+      expect(beforeApprovalByManager.body.error.code).toBe('RELATORIO_NAO_APROVADO');
 
       await deliverAndApprove(ana, gestor, trip.id);
 
-      const pdf = await ana.agent.get(`/api/reports/trips/${trip.id}/oficial`);
+      const employeePdf = await ana.agent.get(`/api/reports/trips/${trip.id}/oficial`);
+      expect(employeePdf.status).toBe(403);
+      expect(employeePdf.body.error.code).toBe('RELATORIO_FORBIDDEN');
+
+      const pdf = await gestor.agent.get(`/api/reports/trips/${trip.id}/oficial`);
       expect(pdf.status).toBe(200);
       expect(pdf.headers['content-type']).toBe('application/pdf');
       expect((pdf.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
 
-      const pdf2 = await ana.agent.get(`/api/reports/trips/${trip.id}/oficial`);
+      const pdf2 = await gestor.agent.get(`/api/reports/trips/${trip.id}/oficial`);
       expect(pdf2.status).toBe(200);
       expect(pdf2.body).not.toEqual(pdf.body);
 
@@ -612,9 +626,9 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
       expect(manager.status).toBe(200);
       expect(manager.headers['content-type']).toBe('application/pdf');
 
-      const forbidden = await fiscal.agent.get(`/api/reports/trips/${trip.id}/oficial`);
-      expect(forbidden.status).toBe(403);
-      expect(forbidden.body.error.code).toBe('RELATORIO_FORBIDDEN');
+      const fiscalPdf = await fiscal.agent.get(`/api/reports/trips/${trip.id}/oficial`);
+      expect(fiscalPdf.status).toBe(200);
+      expect(fiscalPdf.headers['content-type']).toBe('application/pdf');
     });
 
     it('exporta Excel de despesas', async () => {

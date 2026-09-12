@@ -1,5 +1,6 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
 import { assertValidUpload, sha256, type UploadedFile } from '../../../shared/upload/files.js';
+import { optimizeReceiptImage } from '../../../shared/upload/images.js';
 import {
   ExpenseForbiddenError,
   ExpenseNotFoundError,
@@ -23,7 +24,7 @@ export class UploadReceiptService {
     private readonly expenses: ExpensesRepository,
     private readonly receipts: ReceiptsRepository,
     private readonly audit: AuditService,
-  ) {}
+  ) { }
 
   async execute(input: UploadReceiptInput): Promise<ReceiptRecord> {
     assertValidUpload(input.file);
@@ -38,15 +39,16 @@ export class UploadReceiptService {
     if (!EDITABLE_TRIP_STATUSES.includes(expense.trip.status)) {
       throw new ExpenseTripNotEditableError();
     }
+    const optimizedFile = await optimizeReceiptImage(input.file);
 
     const created = (
       await this.receipts.createReceipts(input.expenseId, [
         {
-          fileData: input.file.buffer,
-          fileType: input.file.mimetype,
-          fileName: input.file.originalname,
-          fileSize: input.file.size,
-          fileHash: sha256(input.file.buffer),
+          fileData: optimizedFile.buffer,
+          fileType: optimizedFile.mimetype,
+          fileName: optimizedFile.originalname,
+          fileSize: optimizedFile.size,
+          fileHash: sha256(optimizedFile.buffer),
           tipo: input.tipo,
           uploadedById: input.actorId,
         },

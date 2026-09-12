@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ImagePlus, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ImagePlus, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { useExpenseCategories, useCreateExpense } from "../hooks";
-import { parseMoneyInput } from "@/lib/format";
-import { RECEIPT_TYPES, type ReceiptTypeValue } from "@/types/domain";
+import { preAnalyzeReceipt } from "../api";
+import { saveReceiptOcr } from "@/modules/ocr/api";
+import { formatDate, parseMoneyInput } from "@/lib/format";
+import type { ReceiptTypeValue } from "@/types/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,13 +30,21 @@ import {
 } from "@/components/ui/select";
 import { cn } from "cn";
 
-const MAX_RECEIPTS = 5;
-
 function ReceiptPreview({ file }: { file: File }) {
-  const [src] = useState(() => URL.createObjectURL(file));
+  const src = useMemo(() => URL.createObjectURL(file), [file]);
+  const revokeTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    return () => URL.revokeObjectURL(src);
+    if (revokeTimer.current !== null) {
+      window.clearTimeout(revokeTimer.current);
+      revokeTimer.current = null;
+    }
+    return () => {
+      revokeTimer.current = window.setTimeout(() => {
+        URL.revokeObjectURL(src);
+        revokeTimer.current = null;
+      }, 0);
+    };
   }, [src]);
 
   return (
@@ -45,14 +55,6 @@ function ReceiptPreview({ file }: { file: File }) {
     />
   );
 }
-
-const RECEIPT_TYPE_LABELS: Record<ReceiptTypeValue, string> = {
-  NOTA_FISCAL: "Nota fiscal",
-  CUPOM_FISCAL: "Cupom fiscal",
-  NOTA_MANUAL: "Nota manual",
-  COMPROVANTE_CARTAO: "Comprovante de cartão",
-  OUTRO: "Outro",
-};
 
 interface ExpenseFormDialogProps {
   tripId: string;
@@ -79,6 +81,10 @@ export function ExpenseFormDialog({
   const [reembolsavel, setReembolsavel] = useState("true");
   const [justificativa, setJustificativa] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
+  const [ocrData, setOcrData] = useState<NonNullable<Awaited<ReturnType<typeof preAnalyzeReceipt>>['data']> | null>(null);
+  const [formStarted, setFormStarted] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
   const [prevOpen, setPrevOpen] = useState(open);
@@ -92,6 +98,10 @@ export function ExpenseFormDialog({
       setReembolsavel("true");
       setJustificativa("");
       setFiles([]);
+      setAnalyzing(false);
+      setAnalysisMessage(null);
+      setOcrData(null);
+      setFormStarted(false);
       setErrors({});
     }
   }
@@ -100,7 +110,6 @@ export function ExpenseFormDialog({
 
   function setField(key: string, value: string) {
     if (key === "categoryCode") {
-      if (value !== "KM_RODADOS") setValor("");
       setCategoryCode(value);
     } else if (key === "tipoComprovante") {
       setTipoComprovante(value as ReceiptTypeValue);
@@ -114,10 +123,67 @@ export function ExpenseFormDialog({
     setErrors((current) => ({ ...current, [key]: undefined }));
   }
 
-  function handleFilesChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(event.target.files ?? []).slice(0, MAX_RECEIPTS);
+  async function analyzeFile(firstFile: File) {
+    setAnalyzing(true);
+    setAnalysisMessage(null);
+    try {
+      const result = await preAnalyzeReceipt(firstFile);
+      if (result.status === "SUCESSO" && result.data) {
+        setOcrData(result.data);
+        setDataDespesa(
+          result.data.data?.slice(0, 10) ?? "",
+        );
+        if (result.data.valorTotal && Number.isFinite(Number(result.data.valorTotal))) {
+          setValor((current) => current || result.data!.valorTotal!);
+        }
+        if (result.data.nomeEstabelecimento) {
+          setJustificativa(result.data.nomeEstabelecimento);
+        }
+        const hasUsefulFields = Boolean(
+          result.data.valorTotal ||
+          result.data.valorProdutos ||
+          result.data.nomeEstabelecimento ||
+          result.data.numeroDocumento ||
+          result.data.chaveAcesso,
+        );
+        setAnalysisMessage(
+          hasUsefulFields
+            ? "Dados preenchidos pelo OCR. Revise antes de salvar."
+            : "Leitura parcial: apenas alguns dados foram reconhecidos. Confira e preencha o restante.",
+        );
+      } else {
+        setOcrData(null);
+        setAnalysisMessage(result.erro ?? "Não foi possível ler a imagem. Preencha os dados manualmente.");
+      }
+    } catch {
+      setAnalysisMessage("Não foi possível analisar a imagem. Preencha os dados manualmente.");
+    } finally {
+      setAnalyzing(false);
+      setFormStarted(true);
+    }
+  }
+
+  async function handleFilesChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []).slice(0, 1);
     setFiles(selected);
     setErrors((current) => ({ ...current, files: undefined }));
+    const firstFile = selected[0];
+    if (firstFile) await analyzeFile(firstFile);
+  }
+
+  function removeFile(inputId: string) {
+    const input = document.getElementById(inputId) as HTMLInputElement | null;
+    if (input) input.value = "";
+    setFiles([]);
+    setOcrData(null);
+    setAnalysisMessage(null);
+    setAnalyzing(false);
+    setFormStarted(false);
+  }
+
+  function retryAnalysis() {
+    const firstFile = files[0];
+    if (firstFile) void analyzeFile(firstFile);
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -134,7 +200,7 @@ export function ExpenseFormDialog({
       fieldErrors.valor = "O valor deve ser maior que zero.";
     }
     if (!justificativa.trim() || justificativa.trim().length < 3) {
-      fieldErrors.justificativa = "Informe a justificativa (mín. 3 caracteres).";
+      fieldErrors.justificativa = "Informe a descrição (mín. 3 caracteres).";
     }
     if (files.length === 0) {
       fieldErrors.files = "Adicione ao menos 1 comprovante.";
@@ -146,7 +212,7 @@ export function ExpenseFormDialog({
     }
 
     try {
-      await createExpense.mutateAsync({
+      const createdExpense = await createExpense.mutateAsync({
         input: {
           tripId,
           categoryCode,
@@ -158,6 +224,21 @@ export function ExpenseFormDialog({
         },
         files,
       });
+      const receipt = createdExpense.receipts?.find((item) => item.ativo) ?? createdExpense.receipts?.[0];
+      if (ocrData && receipt) {
+        try {
+          await saveReceiptOcr(receipt.id, {
+            cnpj: ocrData.cnpj,
+            nomeEstabelecimento: justificativa.trim() || ocrData.nomeEstabelecimento,
+            data: dataDespesa || ocrData.data,
+            valorTotal: parsedValor ?? (ocrData.valorTotal ? Number(ocrData.valorTotal) : undefined),
+            numeroDocumento: ocrData.numeroDocumento,
+            chaveAcesso: ocrData.chaveAcesso,
+          });
+        } catch {
+          toast.warning("Despesa salva, mas não foi possível confirmar os dados da IA.");
+        }
+      }
       toast.success("Despesa registrada.");
       onOpenChange(false);
     } catch (error) {
@@ -173,208 +254,247 @@ export function ExpenseFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>Nova despesa</DialogTitle>
+          <DialogTitle>{formStarted ? "Nova despesa" : "Adicionar comprovante"}</DialogTitle>
           <DialogDescription>
-            Informe os dados e anexe os comprovantes.
+            {formStarted
+              ? "Revise os dados reconhecidos e complemente o que faltar."
+              : "Escolha primeiro a foto do comprovante para tentar preencher os dados automaticamente."}
           </DialogDescription>
         </DialogHeader>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-4"
-          noValidate
-        >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="categoria">Categoria</Label>
-            <Select value={categoryCode} onValueChange={(value) => setField("categoryCode", value)}>
-              <SelectTrigger id="categoria" className="w-full">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.code}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            {errors.categoryCode ? (
-              <p className="text-sm text-danger">{errors.categoryCode}</p>
-            ) : null}
-          </div>
-
-          {!isKmRodados ? (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="valor">Valor</Label>
-              <MoneyInput
-                id="valor"
-                value={valor}
-                onValueChange={(value) => {
-                  setValor(value);
-                  setErrors((current) => ({ ...current, valor: undefined }));
-                }}
-                aria-invalid={Boolean(errors.valor)}
-              />
-              {errors.valor ? (
-                <p className="text-sm text-danger">{errors.valor}</p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-              Valor calculado a partir do KM percorrido da viagem.
-            </p>
-          )}
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="dataDespesa">Data da despesa</Label>
-            <Input
-              id="dataDespesa"
-              type="date"
-              value={dataDespesa}
-              onChange={(event) => setField("dataDespesa", event.target.value)}
-              aria-invalid={Boolean(errors.dataDespesa)}
-            />
-            {errors.dataDespesa ? (
-              <p className="text-sm text-danger">{errors.dataDespesa}</p>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="reembolsavel">Reembolsável</Label>
-            <Select
-              value={reembolsavel}
-              onValueChange={(value) => setField("reembolsavel", value)}
-            >
-              <SelectTrigger id="reembolsavel" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="true">Sim</SelectItem>
-                  <SelectItem value="false">Não</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="tipoComprovante">Tipo de comprovante</Label>
-            <Select
-              value={tipoComprovante}
-              onValueChange={(value) => setField("tipoComprovante", value)}
-            >
-              <SelectTrigger id="tipoComprovante" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {RECEIPT_TYPES.map((tipo) => (
-                    <SelectItem key={tipo} value={tipo}>
-                      {RECEIPT_TYPE_LABELS[tipo]}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="justificativa">Justificativa</Label>
-            <textarea
-              id="justificativa"
-              value={justificativa}
-              onChange={(event) => setField("justificativa", event.target.value)}
-              rows={3}
-              placeholder="Ex.: Deslocamento até o cliente"
-              aria-invalid={Boolean(errors.justificativa)}
-              className={cn(
-                "w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30",
-              )}
-            />
-            {errors.justificativa ? (
-              <p className="text-sm text-danger">{errors.justificativa}</p>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="comprovantes">Comprovantes</Label>
+        {!formStarted ? (
+          <div className="flex flex-col gap-3">
             <input
-              id="comprovantes"
+              id="comprovantes-inicial"
               type="file"
               accept="image/*"
-              multiple
-              onChange={handleFilesChange}
+              onChange={(event) => void handleFilesChange(event)}
               className="hidden"
             />
             <label
-              htmlFor="comprovantes"
-              className={cn(
-                "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-input px-3 py-6 text-center transition-colors hover:bg-muted/50",
-                errors.files && "border-destructive",
-              )}
+              htmlFor="comprovantes-inicial"
+              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-input px-3 py-8 text-center hover:bg-muted/50"
             >
-              <ImagePlus className="size-5 text-muted-foreground" aria-hidden="true" />
-              <span className="text-sm font-medium">
-                Adicionar comprovantes
-              </span>
+              <ImagePlus className="size-6 text-muted-foreground" aria-hidden="true" />
+              <span className="text-sm font-medium">Escolher comprovante</span>
               <span className="text-xs text-muted-foreground">
-                Até {MAX_RECEIPTS} imagens (foto ou arquivo)
+                A análise começa ao selecionar a imagem.
               </span>
             </label>
-            {files.length > 0 ? (
-              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {files.map((file, index) => (
-                  <li
-                    key={`${file.name}-${index}`}
-                    className="flex items-center gap-2 rounded-lg bg-muted p-2"
-                  >
-                    <ReceiptPreview file={file} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-foreground">{file.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(file.size / 1024).toFixed(0)} KB
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      aria-label={`Remover ${file.name}`}
-                      onClick={() =>
-                        setFiles((current) =>
-                          current.filter((_, i) => i !== index),
-                        )
-                      }
-                      className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="size-4" aria-hidden="true" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+            {files[0] ? (
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 p-2">
+                <ReceiptPreview file={files[0]} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-foreground">{files[0].name}</p>
+                  <p className="text-xs text-muted-foreground">Pronto para análise</p>
+                </div>
+                <Button type="button" variant="ghost" size="icon" aria-label="Remover comprovante" onClick={() => removeFile("comprovantes-inicial")}>
+                  <X aria-hidden="true" />
+                </Button>
+              </div>
             ) : null}
-            {errors.files ? (
-              <p className="text-sm text-danger">{errors.files}</p>
+            {analyzing ? (
+              <p className="text-sm text-muted-foreground">
+                Analisando comprovante...
+              </p>
             ) : null}
           </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+            {ocrData ? (
+              <div className="flex flex-col gap-1 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
+                <p className="font-medium text-foreground">
+                  Dados reconhecidos por IA — revise antes de salvar
+                </p>
+                {ocrData.nomeEstabelecimento ? <p>Estabelecimento: {ocrData.nomeEstabelecimento}</p> : null}
+                {ocrData.cnpj ? <p>CNPJ: {ocrData.cnpj}</p> : null}
+                {ocrData.chaveAcesso ? (
+                  <p className="break-all">Chave SEFAZ: {ocrData.chaveAcesso}</p>
+                ) : null}
+                {ocrData.numeroDocumento ? (
+                  <p>Número do documento: {ocrData.numeroDocumento}</p>
+                ) : null}
+                {ocrData.serie ? <p>Série: {ocrData.serie}</p> : null}
+                {ocrData.inscricaoEstadual ? <p>Inscrição estadual: {ocrData.inscricaoEstadual}</p> : null}
+                {ocrData.emitente ? <p>Emitente: {ocrData.emitente}</p> : null}
+                {ocrData.destinatario ? <p>Destinatário: {ocrData.destinatario}</p> : null}
+                {ocrData.data ? <p>Data: {formatDate(ocrData.data)}</p> : null}
+                {ocrData.valorTotal ? <p>Valor: R$ {ocrData.valorTotal.replace('.', ',')}</p> : null}
+                {ocrData.valorProdutos ? <p>Produtos: R$ {ocrData.valorProdutos.replace('.', ',')}</p> : null}
+                {ocrData.desconto ? <p>Desconto: R$ {ocrData.desconto.replace('.', ',')}</p> : null}
+                {ocrData.tributos ? <p>Tributos: R$ {ocrData.tributos.replace('.', ',')}</p> : null}
+                {ocrData.formaPagamento ? <p>Pagamento: {ocrData.formaPagamento}</p> : null}
+                {ocrData.protocoloAutorizacao ? <p>Protocolo: {ocrData.protocoloAutorizacao}</p> : null}
+              </div>
+            ) : null}
+            {analysisMessage ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg bg-muted px-3 py-2">
+                <p className="text-sm text-muted-foreground">{analysisMessage}</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={retryAnalysis}
+                  disabled={analyzing}
+                  className="shrink-0"
+                >
+                  <RefreshCw aria-hidden="true" />
+                  Ler novamente
+                </Button>
+              </div>
+            ) : null}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="categoria">Categoria</Label>
+              <Select value={categoryCode} onValueChange={(value) => setField("categoryCode", value)}>
+                <SelectTrigger id="categoria" className="w-full">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.code}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {errors.categoryCode ? (
+                <p className="text-sm text-danger">{errors.categoryCode}</p>
+              ) : null}
+            </div>
 
-          <DialogFooter showCloseButton={false}>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={createExpense.isPending}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={createExpense.isPending || categoriesQuery.isLoading}
-            >
-              {createExpense.isPending ? "Salvando..." : "Salvar despesa"}
-            </Button>
-          </DialogFooter>
-        </form>
+            {!isKmRodados ? (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="valor">Valor</Label>
+                <MoneyInput
+                  id="valor"
+                  value={valor}
+                  onValueChange={(value) => {
+                    setValor(value);
+                    setErrors((current) => ({ ...current, valor: undefined }));
+                  }}
+                  aria-invalid={Boolean(errors.valor)}
+                />
+                {errors.valor ? (
+                  <p className="text-sm text-danger">{errors.valor}</p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+                Valor calculado a partir do KM percorrido da viagem.
+              </p>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="dataDespesa">Data da despesa</Label>
+              <Input
+                id="dataDespesa"
+                type="date"
+                value={dataDespesa}
+                onChange={(event) => setField("dataDespesa", event.target.value)}
+                aria-invalid={Boolean(errors.dataDespesa)}
+              />
+              {errors.dataDespesa ? (
+                <p className="text-sm text-danger">{errors.dataDespesa}</p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="reembolsavel">Reembolsável</Label>
+              <Select
+                value={reembolsavel}
+                onValueChange={(value) => setField("reembolsavel", value)}
+              >
+                <SelectTrigger id="reembolsavel" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="true">Sim</SelectItem>
+                    <SelectItem value="false">Não</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="justificativa">Descrição</Label>
+              <textarea
+                id="justificativa"
+                value={justificativa}
+                onChange={(event) => setField("justificativa", event.target.value)}
+                rows={3}
+                placeholder="Ex.: Almoço com cliente ou abastecimento"
+                aria-invalid={Boolean(errors.justificativa)}
+                className={cn(
+                  "w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30",
+                )}
+              />
+              {errors.justificativa ? (
+                <p className="text-sm text-danger">{errors.justificativa}</p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="comprovante">Comprovante</Label>
+              <input
+                id="comprovante"
+                type="file"
+                accept="image/*"
+                onChange={handleFilesChange}
+                className="hidden"
+              />
+              <label
+                htmlFor="comprovante"
+                className={cn(
+                  "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-input px-3 py-5 text-center transition-colors hover:bg-muted/50",
+                  errors.files && "border-destructive",
+                )}
+              >
+                <ImagePlus className="size-5 text-muted-foreground" aria-hidden="true" />
+                <span className="text-sm font-medium">
+                  {files[0] ? "Substituir comprovante" : "Adicionar comprovante"}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Uma imagem por despesa
+                </span>
+              </label>
+              {files[0] ? (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 p-2">
+                  <ReceiptPreview file={files[0]} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-foreground">{files[0].name}</p>
+                    <p className="text-xs text-muted-foreground">Será enviado ao salvar a despesa</p>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" aria-label="Remover comprovante" onClick={() => removeFile("comprovante")}>
+                    <X aria-hidden="true" />
+                  </Button>
+                </div>
+              ) : null}
+              {errors.files ? (
+                <p className="text-sm text-danger">{errors.files}</p>
+              ) : null}
+            </div>
+
+            <DialogFooter showCloseButton={false}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={createExpense.isPending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={createExpense.isPending || categoriesQuery.isLoading}
+              >
+                {createExpense.isPending ? "Salvando..." : "Salvar despesa"}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

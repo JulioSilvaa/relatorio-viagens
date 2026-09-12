@@ -10,7 +10,7 @@ export class GenerateOfficialPdfService {
   constructor(
     private readonly repository: ReportsRepository,
     private readonly audit: AuditService,
-  ) {}
+  ) { }
 
   async execute(
     tripId: string,
@@ -20,8 +20,7 @@ export class GenerateOfficialPdfService {
     anexarComprovantes: boolean,
   ): Promise<GeneratedOfficialReport> {
     const data = await this.repository.getReportData(tripId, emitidoPor);
-    const participant = data.participantes.some((p) => p.id === actorId);
-    if (!participant && !canViewAny) {
+    if (!canViewAny) {
       throw new ReportForbiddenError();
     }
     if (!OFFICIAL_APPROVED_STATUSES.includes(data.trip.status)) {
@@ -51,7 +50,7 @@ export class GenerateOfficialPdfService {
 
     return {
       data,
-      fileName: `relatorio-viagem-${tripId}.pdf`,
+      fileName: 'relatorio-oficial-viagem.pdf',
       content,
     };
   }

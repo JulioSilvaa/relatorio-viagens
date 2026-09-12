@@ -1,12 +1,22 @@
 import type { OcrProcessingStatus, OcrSourceType } from '@prisma/client';
 
 export interface OcrExtractionFields {
+  textoOriginal?: string;
   cnpj?: string;
   nomeEstabelecimento?: string;
   data?: Date;
   hora?: string;
   valorTotal?: string;
+  valorProdutos?: string;
+  desconto?: string;
+  tributos?: string;
   numeroDocumento?: string;
+  serie?: string;
+  inscricaoEstadual?: string;
+  emitente?: string;
+  destinatario?: string;
+  formaPagamento?: string;
+  protocoloAutorizacao?: string;
   chaveAcesso?: string;
   itens?: unknown[];
 }
@@ -37,6 +47,7 @@ export interface ReceiptOcrRecord {
   numeroDocumento: string | null;
   chaveAcesso: string | null;
   itens: unknown[] | null;
+  dadosOriginais: OcrExtractionFields | null;
   erro: string | null;
   extraidoEm: Date | null;
   conferidoPorId: string | null;
@@ -57,6 +68,7 @@ export interface SaveReceiptOcrData {
   numeroDocumento?: string | null;
   chaveAcesso?: string | null;
   itens?: unknown[] | null;
+  dadosOriginais?: OcrExtractionFields | null;
   erro?: string | null;
 }
 

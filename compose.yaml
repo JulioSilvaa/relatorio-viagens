@@ -1,4 +1,20 @@
 services:
+  ocr:
+    build:
+      context: ./apps/ocr
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8000"
+    volumes:
+      - ocr_models:/root/.paddleocr
+    healthcheck:
+      test:
+        ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   db:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -33,6 +49,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      ocr:
+        condition: service_healthy
     volumes:
       - .:/app
       - /app/node_modules
@@ -61,3 +79,4 @@ services:
 
 volumes:
   db_data:
+  ocr_models:

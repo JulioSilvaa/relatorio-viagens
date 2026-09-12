@@ -24,10 +24,10 @@ export interface ExpensesDeps {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_UPLOAD_BYTES, files: 5 },
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
 });
 
-const uploadComprovantes = upload.array('comprovantes', 5) as unknown as RequestHandler;
+const uploadComprovante = upload.single('comprovante') as unknown as RequestHandler;
 
 export function createExpensesRouter({
   requireAuth,
@@ -43,11 +43,11 @@ export function createExpensesRouter({
     '/',
     requireAuth,
     requirePermission('DESPESA.CRIAR'),
-    uploadComprovantes,
+    uploadComprovante,
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = createExpenseSchema.parse(req.body);
-      const files = (req.files as Express.Multer.File[]) ?? [];
+      const files = req.file ? [req.file] : [];
       const expense = await createExpenseService.execute(
         dto,
         files,

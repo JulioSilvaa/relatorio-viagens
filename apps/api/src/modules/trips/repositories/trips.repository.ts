@@ -70,23 +70,35 @@ export interface TripParticipantRecord {
   name: string;
   addedAt: Date;
   cartaoLast4: string | null;
+  cartaoBandeira: string | null;
 }
 
 export interface ReceiptOcrDetail {
   status: OcrProcessingStatus;
+  textoOriginal: string | null;
   origem: OcrSourceType;
   cnpj: string | null;
   nomeEstabelecimento: string | null;
   data: Date | null;
   hora: string | null;
   valorTotal: string | null;
+  valorProdutos: string | null;
+  desconto: string | null;
+  tributos: string | null;
   numeroDocumento: string | null;
+  serie: string | null;
+  inscricaoEstadual: string | null;
+  emitente: string | null;
+  destinatario: string | null;
+  formaPagamento: string | null;
+  protocoloAutorizacao: string | null;
   chaveAcesso: string | null;
   itens: unknown[] | null;
   erro: string | null;
   extraidoEm: Date | null;
   conferidoPor: { id: string; name: string } | null;
   conferidoEm: Date | null;
+  dadosOriginais: Record<string, unknown> | null;
 }
 
 export interface ReceiptDetailRecord {

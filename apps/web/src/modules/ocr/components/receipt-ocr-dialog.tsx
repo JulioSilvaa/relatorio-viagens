@@ -155,7 +155,7 @@ export function ReceiptOcrDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-xl overflow-x-hidden overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Dados do comprovante</DialogTitle>
           <DialogDescription>
@@ -178,7 +178,7 @@ export function ReceiptOcrDialog({
             {record?.erro ?? receipt.ocr?.erro}
           </p>
         ) : null}
-        <div className="grid grid-cols-1 gap-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3">
           <div className="flex flex-col gap-2">
             <Label htmlFor="ocr-estabelecimento">Estabelecimento</Label>
             <Input
@@ -188,7 +188,7 @@ export function ReceiptOcrDialog({
               placeholder="Nome do estabelecimento"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="ocr-cnpj">CNPJ</Label>
               <Input
@@ -247,7 +247,7 @@ export function ReceiptOcrDialog({
             </div>
           </div>
         </div>
-        <DialogFooter showCloseButton={false}>
+        <DialogFooter className="flex-wrap" showCloseButton={false}>
           <Button
             type="button"
             variant="outline"

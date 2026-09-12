@@ -1,401 +1,262 @@
 import PDFDocument from 'pdfkit';
-import type { PdfAttachment, ReportData } from './report.types.js';
+import type { PdfAttachment, ReportData, ReportOcrFieldSet } from './report.types.js';
 
 type Doc = InstanceType<typeof PDFDocument>;
 
-const MARGIN = 48;
+const PAGE_WIDTH = 595.28;
+const MARGIN = 44;
+const CONTENT_TOP = 102;
+const CONTENT_BOTTOM = 770;
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const COLORS = {
-  primary: '#1f4e79',
-  secondary: '#333333',
-  emphasis: '#7f1d1d',
-  line: '#bbbbbb',
-  headerBg: '#e8eef4',
+  ink: '#17212b', muted: '#5f6b76', teal: '#0f5c63', tealSoft: '#e5f1f0',
+  blueSoft: '#eaf1f7', line: '#cbd5dc', faint: '#f4f7f8', warning: '#a44a16', white: '#ffffff',
 };
 
+interface Column { title: string; width: number; align?: 'left' | 'right'; }
+interface PageContext { title: string; subtitle: string; emittedAt: Date; emittedBy: string; version: number; }
+
 function brl(value: string): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    Number(value),
-  );
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value));
 }
 
 function dateBR(date: Date): string {
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
 }
 
-function render(content: (doc: Doc) => void): Promise<Buffer> {
+function cleanStatus(status: string): string { return status.replaceAll('_', ' '); }
+
+function render(content: (doc: Doc) => void, context: PageContext): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: MARGIN, pdfVersion: '1.7' });
+    const doc = new PDFDocument({ size: 'A4', margin: MARGIN, pdfVersion: '1.7', bufferPages: true, info: { Title: context.title, Author: 'VIAFLOW' } });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
     content(doc);
+    renderPageChrome(doc, context);
     doc.end();
   });
 }
 
-function sectionTitle(doc: Doc, text: string): void {
-  doc.moveDown(0.6);
-  doc.font('Helvetica-Bold').fontSize(13).fillColor(COLORS.primary).text(text.toUpperCase());
-  doc
-    .moveTo(MARGIN, doc.y)
-    .lineTo(595.28 - MARGIN, doc.y)
-    .lineWidth(1)
-    .strokeColor(COLORS.line)
-    .stroke();
-  doc.moveDown(0.4);
+function renderPageChrome(doc: Doc, context: PageContext): void {
+  const { start, count } = doc.bufferedPageRange();
+  for (let index = start; index < start + count; index += 1) {
+    doc.switchToPage(index);
+    doc.rect(0, 0, PAGE_WIDTH, 72).fill(COLORS.ink);
+    doc.rect(0, 72, PAGE_WIDTH, 4).fill(COLORS.teal);
+    doc.font('Helvetica-Bold').fontSize(14).fillColor(COLORS.white).text('VIAFLOW', MARGIN, 22, { lineBreak: false });
+    doc.font('Helvetica').fontSize(8.5).fillColor('#c8d6db').text(context.subtitle, MARGIN, 43, { lineBreak: false });
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.white).text(context.title, MARGIN, 25, { width: CONTENT_WIDTH, align: 'right', lineBreak: false });
+    doc.moveTo(MARGIN, 775).lineTo(PAGE_WIDTH - MARGIN, 775).lineWidth(0.5).strokeColor(COLORS.line).stroke();
+    doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.muted).text(
+      `Emitido em ${dateBR(context.emittedAt)} às ${context.emittedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} por ${context.emittedBy} · Versão ${context.version}`,
+      MARGIN, 782, { width: CONTENT_WIDTH - 70, lineBreak: false },
+    );
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.muted).text(`PÁGINA ${index + 1}`, PAGE_WIDTH - MARGIN - 70, 782, { width: 70, align: 'right', lineBreak: false });
+  }
 }
 
-function kvPair(doc: Doc, label: string, value: string): void {
-  doc
-    .font('Helvetica-Bold')
-    .fontSize(9)
-    .fillColor(COLORS.primary)
-    .text(label, MARGIN, doc.y, { width: 150, continued: true });
-  doc
-    .font('Helvetica')
-    .fillColor(COLORS.secondary)
-    .text(value, { width: 595.28 - MARGIN * 2 - 150 });
-}
+function newPage(doc: Doc): void { doc.addPage(); doc.y = CONTENT_TOP; }
+function ensureSpace(doc: Doc, height: number): void { if (doc.y + height > CONTENT_BOTTOM) newPage(doc); }
 
-interface Column {
-  title: string;
-  width: number;
-  align?: 'left' | 'right';
-}
-
-function tableStart(doc: Doc, columns: Column[]): number {
-  const tableX = MARGIN;
+function sectionTitle(doc: Doc, title: string, note?: string): void {
+  ensureSpace(doc, 34);
   const y = doc.y;
-  doc.font('Helvetica-Bold').fontSize(8.5);
-  doc.fillColor('#ffffff');
-  const totalHeaderWidth = columns.reduce((sum, c) => sum + c.width, 0);
-  let x = tableX;
-  doc.rect(MARGIN, y, totalHeaderWidth, 16).fill(COLORS.primary);
-  doc.fillColor('#ffffff');
-  for (const column of columns) {
-    doc.text(column.title, x + 4, y + 4.5, { width: column.width - 8 });
-    x += column.width;
-  }
-  doc.fillColor(COLORS.secondary);
-  doc.moveDown(0.2);
-  return y + 16 + 4;
+  doc.font('Helvetica-Bold').fontSize(11).fillColor(COLORS.ink).text(title, MARGIN, y, { width: 290, lineBreak: false });
+  if (note) doc.font('Helvetica').fontSize(8).fillColor(COLORS.muted).text(note, PAGE_WIDTH - MARGIN - 190, y + 2, { width: 190, align: 'right', lineBreak: false });
+  doc.moveTo(MARGIN, y + 20).lineTo(PAGE_WIDTH - MARGIN, y + 20).lineWidth(1).strokeColor(COLORS.teal).stroke();
+  doc.y = y + 28;
 }
 
-function tableRow(
-  doc: Doc,
-  columns: Column[],
-  cells: string[],
-  yStart?: number,
-  options?: { emphasized?: boolean },
-): number {
-  const tableX = MARGIN;
-  const y = yStart ?? doc.y;
-  doc.font(options?.emphasized ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5);
-  doc.fillColor(options?.emphasized ? '#ffffff' : COLORS.secondary);
-  const totalWidth = columns.reduce((sum, c) => sum + c.width, 0);
-  if (options?.emphasized) {
-    doc.rect(tableX, y - 4.5, totalWidth, 16).fill('#f59e0b');
-    doc.fillColor('#ffffff');
+function fieldGrid(doc: Doc, fields: Array<{ label: string; value: string }>, columns = 2): void {
+  const gap = 12;
+  const columnWidth = (CONTENT_WIDTH - gap * (columns - 1)) / columns;
+  for (let index = 0; index < fields.length; index += columns) {
+    const row = fields.slice(index, index + columns);
+    const height = Math.max(38, ...row.map((field) => doc.heightOfString(field.value || '-', { width: columnWidth - 16, lineGap: 1 }) + 24));
+    ensureSpace(doc, height + 6);
+    const y = doc.y;
+    for (let offset = 0; offset < row.length; offset += 1) {
+      const field = row[offset];
+      if (!field) continue;
+      const x = MARGIN + offset * (columnWidth + gap);
+      doc.rect(x, y, columnWidth, height).fill(COLORS.faint);
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.muted).text(field.label.toUpperCase(), x + 8, y + 7, { width: columnWidth - 16 });
+      doc.font('Helvetica').fontSize(9).fillColor(COLORS.ink).text(field.value || '-', x + 8, y + 19, { width: columnWidth - 16, lineGap: 1 });
+    }
+    doc.y = y + height + 6;
   }
-  let x = tableX;
-  for (let i = 0; i < columns.length; i += 1) {
-    const column = columns[i];
-    if (!column) continue;
-    const cell = cells[i] ?? '';
-    doc.text(cell, x + 4, y, {
-      width: column.width - 8,
-      align: column.align ?? 'left',
-      lineGap: 1,
-    });
-    x += column.width;
-  }
-  doc.fillColor(COLORS.secondary);
-  const height = 20;
-  doc
-    .moveTo(tableX, y + height - 8)
-    .lineTo(tableX + totalWidth, y + height - 8)
-    .lineWidth(0.5)
-    .strokeColor(COLORS.line)
-    .stroke();
-  return y + height;
 }
 
-function renderHeader(doc: Doc, title: string, subtitle: string): void {
-  doc.font('Helvetica-Bold').fontSize(16).fillColor(COLORS.primary).text(title.toUpperCase());
-  doc.font('Helvetica').fontSize(10).fillColor(COLORS.secondary).text(subtitle);
-  doc
-    .moveTo(MARGIN, doc.y + 4)
-    .lineTo(595.28 - MARGIN, doc.y + 4)
-    .lineWidth(1.5)
-    .strokeColor(COLORS.primary)
-    .stroke();
-  doc.moveDown(0.6);
+function summaryBand(doc: Doc, data: ReportData): void {
+  const tiles = [
+    { label: 'DESPESAS LANÇADAS', value: brl(data.totalDespesas), tone: COLORS.teal },
+    { label: 'TOTAL REEMBOLSÁVEL', value: brl(data.totalReembolsavel), tone: '#315a7d' },
+    { label: 'COMPROVANTES', value: String(data.ocr.totalComprovantes), tone: COLORS.warning },
+  ];
+  const gap = 8; const width = (CONTENT_WIDTH - gap * 2) / 3;
+  ensureSpace(doc, 65);
+  const y = doc.y;
+  for (let index = 0; index < tiles.length; index += 1) {
+    const tile = tiles[index]; if (!tile) continue;
+    const x = MARGIN + index * (width + gap);
+    doc.rect(x, y, width, 58).fill(tile.tone);
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('#dce9eb').text(tile.label, x + 9, y + 10, { width: width - 18 });
+    doc.font('Helvetica-Bold').fontSize(15).fillColor(COLORS.white).text(tile.value, x + 9, y + 27, { width: width - 18 });
+  }
+  doc.y = y + 72;
+}
+
+function maskCard(last4: string | null, brand: string | null): string { return last4 ? `${brand ?? 'Cartão'} · •••• ${last4}` : 'Não vinculado'; }
+
+function drawTableHeader(doc: Doc, columns: Column[]): void {
+  ensureSpace(doc, 25);
+  const y = doc.y; let x = MARGIN;
+  doc.rect(MARGIN, y, CONTENT_WIDTH, 19).fill(COLORS.ink);
+  doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.white);
+  for (const column of columns) { doc.text(column.title.toUpperCase(), x + 5, y + 6, { width: column.width - 10, align: column.align ?? 'left' }); x += column.width; }
+  doc.y = y + 19;
+}
+
+function drawTableRow(doc: Doc, columns: Column[], cells: string[], rowIndex: number, emphasized = false): boolean {
+  const padding = 6;
+  doc.font(emphasized ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.2);
+  const height = Math.max(22, ...columns.map((column, index) => doc.heightOfString(cells[index] ?? '-', { width: column.width - padding * 2, lineGap: 1 }) + padding * 2));
+  if (doc.y + height > CONTENT_BOTTOM) return false;
+  const y = doc.y; let x = MARGIN;
+  if (emphasized) doc.rect(MARGIN, y, CONTENT_WIDTH, height).fill(COLORS.tealSoft);
+  else if (rowIndex % 2 === 1) doc.rect(MARGIN, y, CONTENT_WIDTH, height).fill(COLORS.faint);
+  doc.fillColor(COLORS.ink);
+  for (let index = 0; index < columns.length; index += 1) {
+    const column = columns[index]; if (!column) continue;
+    doc.text(cells[index] ?? '-', x + padding, y + padding, { width: column.width - padding * 2, align: column.align ?? 'left', lineGap: 1 }); x += column.width;
+  }
+  doc.moveTo(MARGIN, y + height).lineTo(PAGE_WIDTH - MARGIN, y + height).lineWidth(0.35).strokeColor(COLORS.line).stroke();
+  doc.y = y + height;
+  return true;
+}
+
+function renderTable(doc: Doc, columns: Column[], rows: string[][], total?: string[]): void {
+  drawTableHeader(doc, columns);
+  let rowIndex = 0;
+  for (const row of rows) {
+    if (!drawTableRow(doc, columns, row, rowIndex)) { newPage(doc); drawTableHeader(doc, columns); drawTableRow(doc, columns, row, rowIndex); }
+    rowIndex += 1;
+  }
+  if (total && !drawTableRow(doc, columns, total, rowIndex, true)) { newPage(doc); drawTableHeader(doc, columns); drawTableRow(doc, columns, total, rowIndex, true); }
+  doc.y += 10;
 }
 
 function tripInfo(doc: Doc, data: ReportData): void {
   const trip = data.trip;
-  kvPair(doc, 'Cliente', trip.cliente);
-  kvPair(doc, 'Destino', `${trip.cidade}/${trip.uf}`);
-  kvPair(doc, 'Período', `${dateBR(trip.dataSaida)} a ${dateBR(trip.dataRetorno)}`);
-  kvPair(doc, 'Departamento', trip.departamento);
-  kvPair(doc, 'Status', trip.status.replace('_', ' '));
-  kvPair(doc, 'Motivo', trip.motivo);
-  kvPair(
-    doc,
-    'Veículo',
-    trip.tipoVeiculo
-      ? `${trip.tipoVeiculo}${trip.veiculo ? ` - ${trip.veiculo}` : ''}`
-      : (trip.veiculo ?? '-'),
-  );
-  kvPair(doc, 'Placa', trip.placa ?? '-');
-  kvPair(doc, 'Km', trip.kmInicial && trip.kmFinal ? `${trip.kmInicial} - ${trip.kmFinal}` : '-');
-  kvPair(doc, 'Taxa por Km', trip.taxaKm ? brl(trip.taxaKm) : '-');
-  kvPair(doc, 'Centro de custo', trip.centroDeCusto ?? '-');
-  if (trip.observacoes) kvPair(doc, 'Observações', trip.observacoes);
-}
-
-function maskCard(last4: string | null): string {
-  return last4 ? `•••• •••• •••• ${last4}` : '-';
+  sectionTitle(doc, 'Visão geral da viagem', 'CONTEXTO E RESPONSABILIDADE');
+  summaryBand(doc, data);
+  fieldGrid(doc, [
+    { label: 'Cliente', value: trip.cliente }, { label: 'Status', value: cleanStatus(trip.status) },
+    { label: 'Destino', value: `${trip.cidade}/${trip.uf}` }, { label: 'Período', value: `${dateBR(trip.dataSaida)} a ${dateBR(trip.dataRetorno)}` },
+    { label: 'Departamento', value: trip.departamento }, { label: 'Centro de custo', value: trip.centroDeCusto ?? '-' },
+    { label: 'Motivo', value: trip.motivo }, { label: 'Veículo', value: trip.tipoVeiculo ? `${trip.tipoVeiculo}${trip.veiculo ? ` · ${trip.veiculo}` : ''}` : (trip.veiculo ?? '-') },
+    { label: 'Placa', value: trip.placa ?? '-' }, { label: 'Quilometragem', value: trip.kmInicial && trip.kmFinal ? `${trip.kmInicial} km a ${trip.kmFinal} km` : '-' },
+    { label: 'Taxa por km', value: trip.taxaKm ? brl(trip.taxaKm) : '-' },
+  ]);
+  if (trip.observacoes) fieldGrid(doc, [{ label: 'Observações', value: trip.observacoes }], 1);
 }
 
 function renderParticipantes(doc: Doc, data: ReportData): void {
-  sectionTitle(doc, 'Participantes');
-  const columns: Column[] = [
-    { title: 'Nome', width: 320 },
-    { title: 'Cartão corporativo', width: 179 },
-  ];
-  let y = tableStart(doc, columns);
-  for (const participant of data.participantes) {
-    if (y > 720) {
-      doc.addPage();
-      y = MARGIN;
-    }
-    y = tableRow(doc, columns, [participant.nome, maskCard(participant.cartaoLast4)], y);
-    y += 2;
-  }
-  doc.y = y;
+  sectionTitle(doc, 'Participantes', 'PESSOAS E CARTÕES VINCULADOS');
+  renderTable(doc, [{ title: 'Participante', width: 310 }, { title: 'Cartão corporativo', width: CONTENT_WIDTH - 310 }], data.participantes.map((participant) => [participant.nome, maskCard(participant.cartaoLast4, participant.cartaoBandeira)]));
 }
 
 function renderDespesas(doc: Doc, data: ReportData): void {
-  sectionTitle(doc, 'Despesas');
+  sectionTitle(doc, 'Despesas', 'LANÇAMENTOS E EXCEÇÕES');
   const columns: Column[] = [
-    { title: 'Data', width: 55 },
-    { title: 'Categoria', width: 110 },
-    { title: 'Autor', width: 85 },
-    { title: 'Descrição', width: 130 },
-    { title: 'Reemb.', width: 40, align: 'right' },
-    { title: 'Alerta', width: 16 },
-    { title: 'Valor', width: 63, align: 'right' },
+    { title: 'Data', width: 50 }, { title: 'Categoria', width: 95 }, { title: 'Responsável', width: 78 }, { title: 'Descrição', width: 139 },
+    { title: 'Reemb.', width: 43, align: 'right' }, { title: 'Alerta', width: 42 }, { title: 'Valor', width: 60, align: 'right' },
   ];
-  let y = tableStart(doc, columns);
-  for (const expense of data.despesas) {
-    if (y > 700) {
-      doc.addPage();
-      y = MARGIN;
-    }
-    const descricao =
-      expense.justificativa.length > 80
-        ? `${expense.justificativa.slice(0, 77)}...`
-        : expense.justificativa;
-    y = tableRow(
-      doc,
-      columns,
-      [
-        dateBR(expense.dataDespesa),
-        expense.categoria,
-        expense.autor,
-        descricao,
-        expense.reembolsavel ? 'sim' : 'não',
-        expense.alertaExcesso ? '!' : '',
-        brl(expense.valor),
-      ],
-      y,
-    );
-    y += 2;
-  }
-  y = tableRow(doc, columns, ['', 'TOTAL', '', '', '', '', brl(data.totalDespesas)], y, {
-    emphasized: true,
-  });
-  doc.y = y + 8;
-  kvPair(doc, 'Total geral', brl(data.totalDespesas));
-  kvPair(doc, 'Total reembolsável', brl(data.totalReembolsavel));
-  doc.moveDown(0.6);
+  renderTable(doc, columns, data.despesas.map((expense) => [dateBR(expense.dataDespesa), expense.categoria, expense.autor, expense.justificativa, expense.reembolsavel ? 'Sim' : 'Não', expense.alertaExcesso ? 'Revisar' : '—', brl(expense.valor)]), ['', 'TOTAL', '', '', '', '', brl(data.totalDespesas)]);
 }
 
 function renderOcrSummary(doc: Doc, data: ReportData): void {
-  sectionTitle(doc, 'Comprovantes e OCR');
   const ocr = data.ocr;
-  kvPair(doc, 'Total de comprovantes', String(ocr.totalComprovantes));
-  kvPair(doc, 'Processados por OCR', String(ocr.comOcr));
-  kvPair(doc, 'Lançados manualmente', String(ocr.manual));
-  kvPair(doc, 'Pendentes de OCR', String(ocr.pendentes));
-  kvPair(doc, 'Falhas de OCR', String(ocr.falhas));
-  kvPair(doc, 'Valor total extraído', brl(ocr.valorExtraidoTotal));
-  doc.moveDown(0.4);
+  sectionTitle(doc, 'Conferência de comprovantes', 'COBERTURA E RASTREABILIDADE');
+  fieldGrid(doc, [
+    { label: 'Comprovantes anexados', value: String(ocr.totalComprovantes) }, { label: 'Processados por OCR', value: String(ocr.comOcr) },
+    { label: 'Lançados manualmente', value: String(ocr.manual) }, { label: 'Pendentes de OCR', value: String(ocr.pendentes) },
+    { label: 'Falhas de OCR', value: String(ocr.falhas) }, { label: 'Valor extraído pela IA', value: brl(ocr.valorExtraidoTotal) },
+  ]);
+  if (ocr.chavesAcesso.length > 0) fieldGrid(doc, [{ label: 'Chaves de acesso SEFAZ', value: ocr.chavesAcesso.join('\n') }], 1);
+}
+
+function ocrDate(value: string | null): string { if (!value) return '-'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : dateBR(date); }
+function ocrFields(fields: ReportOcrFieldSet): Array<{ label: string; value: string }> {
+  return [
+    { label: 'Estabelecimento', value: fields.nomeEstabelecimento ?? '-' }, { label: 'CNPJ', value: fields.cnpj ?? '-' },
+    { label: 'Data', value: ocrDate(fields.data) }, { label: 'Hora', value: fields.hora ?? '-' },
+    { label: 'Valor total', value: fields.valorTotal ? brl(fields.valorTotal) : '-' }, { label: 'Documento', value: fields.numeroDocumento ?? '-' },
+    { label: 'Valor dos produtos', value: fields.valorProdutos ? brl(fields.valorProdutos) : '-' }, { label: 'Desconto', value: fields.desconto ? brl(fields.desconto) : '-' },
+    { label: 'Tributos', value: fields.tributos ? brl(fields.tributos) : '-' }, { label: 'Série', value: fields.serie ?? '-' },
+    { label: 'Inscrição estadual', value: fields.inscricaoEstadual ?? '-' }, { label: 'Emitente', value: fields.emitente ?? '-' },
+    { label: 'Destinatário', value: fields.destinatario ?? '-' }, { label: 'Forma de pagamento', value: fields.formaPagamento ?? '-' },
+    { label: 'Protocolo de autorização', value: fields.protocoloAutorizacao ?? '-' }, { label: 'Chave SEFAZ', value: fields.chaveAcesso ?? '-' },
+  ];
+}
+
+function renderOcrDetails(doc: Doc, data: ReportData): void {
+  if (data.ocrDetalhes.length === 0) return;
+  sectionTitle(doc, 'Detalhamento OCR', 'IA ORIGINAL E CONFIRMAÇÃO HUMANA');
+  for (const item of data.ocrDetalhes) {
+    ensureSpace(doc, item.original ? 420 : 220);
+    const y = doc.y;
+    doc.rect(MARGIN, y, CONTENT_WIDTH, 23).fill(COLORS.blueSoft);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.ink).text(item.fileName, MARGIN + 8, y + 7, { width: 340 });
+    doc.font('Helvetica').fontSize(8).fillColor(COLORS.muted).text(item.categoria, PAGE_WIDTH - MARGIN - 135, y + 7, { width: 127, align: 'right' });
+    doc.y = y + 31;
+    if (item.original) {
+      doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.warning).text('EXTRAÇÃO ORIGINAL DA IA', MARGIN, doc.y);
+      doc.y += 5;
+      fieldGrid(doc, ocrFields(item.original), 2);
+      if (item.original.textoOriginal) {
+        fieldGrid(doc, [{ label: 'Texto bruto capturado', value: item.original.textoOriginal.slice(0, 5000) }], 1);
+      }
+    }
+    doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.teal).text('DADOS FINAIS CONFIRMADOS', MARGIN, doc.y); doc.y += 5;
+    fieldGrid(doc, ocrFields(item.final), 2);
+    doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).lineWidth(1).strokeColor(COLORS.line).stroke(); doc.y += 10;
+  }
 }
 
 function renderFinanceiro(doc: Doc, data: ReportData): void {
   const financeiro = data.financeiro;
-  const hasFinance =
-    financeiro.adiantamentos.length + financeiro.reembolsos.length + financeiro.devolucoes.length >
-    0;
-  if (!hasFinance) {
-    sectionTitle(doc, 'Reembolso');
-    doc
-      .font('Helvetica')
-      .fontSize(9)
-      .fillColor(COLORS.secondary)
-      .text('Nenhuma movimentação financeira registrada.');
-    return;
-  }
-  const columns: Column[] = [
-    { title: 'Tipo', width: 105 },
-    { title: 'Data', width: 70 },
-    { title: 'Responsável', width: 110 },
-    { title: 'Comprovante', width: 130 },
-    { title: 'Valor', width: 84, align: 'right' },
+  const rows = [
+    ...financeiro.adiantamentos.map((record) => ['Adiantamento', dateBR(record.data), record.responsavel, '-', brl(record.valor)]),
+    ...financeiro.reembolsos.map((record) => ['Reembolso', dateBR(record.data), record.responsavel, record.comprovanteNome ?? '-', brl(record.valor)]),
+    ...financeiro.devolucoes.map((record) => ['Devolução', dateBR(record.data), record.responsavel, record.comprovanteNome ?? '-', brl(record.valor)]),
   ];
-  sectionTitle(doc, 'Movimentações financeiras');
-  let y = tableStart(doc, columns);
-  const rows: Array<{
-    tipo: string;
-    data: Date;
-    responsavel: string;
-    comprovante: string | null;
-    valor: string;
-  }> = [
-    ...financeiro.adiantamentos.map((r) => ({
-      tipo: 'Adiantamento',
-      data: r.data,
-      responsavel: r.responsavel,
-      comprovante: null,
-      valor: r.valor,
-    })),
-    ...financeiro.reembolsos.map((r) => ({
-      tipo: 'Reembolso',
-      data: r.data,
-      responsavel: r.responsavel,
-      comprovante: r.comprovanteNome,
-      valor: r.valor,
-    })),
-    ...financeiro.devolucoes.map((r) => ({
-      tipo: 'Devolução',
-      data: r.data,
-      responsavel: r.responsavel,
-      comprovante: r.comprovanteNome,
-      valor: r.valor,
-    })),
-  ];
-  for (const row of rows) {
-    if (y > 700) {
-      doc.addPage();
-      y = MARGIN;
-    }
-    y = tableRow(
-      doc,
-      columns,
-      [row.tipo, dateBR(row.data), row.responsavel, row.comprovante ?? '-', brl(row.valor)],
-      y,
-    );
-    y += 2;
-  }
-  y = tableRow(doc, columns, ['TOTAL PAGAMENTOS', '', '', '', brl(financeiro.totalReembolsos)], y, {
-    emphasized: true,
-  });
-  y = tableRow(
-    doc,
-    columns,
-    ['TOTAL ADIANTAMENTOS', '', '', '', brl(financeiro.totalAdiantamentos)],
-    y,
-  );
-  y = tableRow(doc, columns, ['TOTAL DEVOLUÇÕES', '', '', '', brl(financeiro.totalDevolucoes)], y);
-  doc.y = y + 8;
-}
-
-function renderFooter(doc: Doc, data: ReportData): void {
-  doc.moveDown(1);
-  doc
-    .font('Helvetica')
-    .fontSize(8)
-    .fillColor('#888888')
-    .text(
-      `Emitido em ${dateBR(data.emitidoEm)} às ${data.emitidoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} por ${data.emitidoPor} - Versão v${data.versao} - Documento gerado eletronicamente.`,
-    );
+  sectionTitle(doc, 'Movimentações financeiras', 'ADIANTAMENTOS, PAGAMENTOS E DEVOLUÇÕES');
+  if (rows.length === 0) { fieldGrid(doc, [{ label: 'Situação financeira', value: 'Nenhuma movimentação financeira registrada.' }], 1); return; }
+  const columns: Column[] = [{ title: 'Tipo', width: 103 }, { title: 'Data', width: 62 }, { title: 'Responsável', width: 112 }, { title: 'Comprovante', width: 140 }, { title: 'Valor', width: CONTENT_WIDTH - 417, align: 'right' }];
+  renderTable(doc, columns, rows, ['PAGAMENTOS', '', '', '', brl(financeiro.totalReembolsos)]);
+  fieldGrid(doc, [{ label: 'Total de adiantamentos', value: brl(financeiro.totalAdiantamentos) }, { label: 'Total de devoluções', value: brl(financeiro.totalDevolucoes) }]);
 }
 
 function attachComprovantes(doc: Doc, attachments: PdfAttachment[]): void {
-  for (const attachment of attachments.slice(0, 10)) {
-    doc.addPage();
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.primary).text(attachment.fileName);
-    doc.moveDown(0.5);
-    try {
-      doc.image(Buffer.from(attachment.data), {
-        fit: [500, 680],
-        align: 'center',
-        valign: 'center',
-      });
-    } catch {
-      doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor(COLORS.secondary)
-        .text('Comprovante em formato não suportado para exibição.');
-    }
+  for (const [index, attachment] of attachments.slice(0, 10).entries()) {
+    newPage(doc);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(COLORS.ink).text('Comprovante anexado');
+    doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.muted).text(`Anexo ${index + 1} de ${Math.min(attachments.length, 10)} · ${attachment.fileName}`);
+    doc.moveTo(MARGIN, doc.y + 7).lineTo(PAGE_WIDTH - MARGIN, doc.y + 7).lineWidth(1).strokeColor(COLORS.teal).stroke(); doc.y += 18;
+    try { doc.image(Buffer.from(attachment.data), MARGIN, doc.y, { fit: [CONTENT_WIDTH, 620], align: 'center', valign: 'center' }); }
+    catch { doc.rect(MARGIN, doc.y, CONTENT_WIDTH, 90).fill(COLORS.faint); doc.font('Helvetica').fontSize(9).fillColor(COLORS.muted).text('Comprovante em formato não suportado para exibição.', MARGIN + 12, doc.y + 39, { width: CONTENT_WIDTH - 24, align: 'center' }); }
   }
 }
 
-export async function renderOfficialPdf(
-  data: ReportData,
-  options: { attachments: PdfAttachment[] },
-): Promise<Buffer> {
-  return render((doc) => {
-    renderHeader(doc, 'Relatório de Viagem', `Relatório oficial - Viagem ${data.trip.id}`);
-    sectionTitle(doc, 'Informações da viagem');
-    tripInfo(doc, data);
-    renderParticipantes(doc, data);
-    renderDespesas(doc, data);
-    renderOcrSummary(doc, data);
-    renderFinanceiro(doc, data);
-    renderFooter(doc, data);
-    if (options.attachments.length > 0) {
-      sectionTitle(doc, 'Comprovantes anexados');
-      doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor(COLORS.secondary)
-        .text(`${options.attachments.length} comprovante(s) anexado(s) nas páginas seguintes.`);
-    }
-    doc.addPage();
-    doc.font('Helvetica-Bold').fontSize(11).fillColor(COLORS.primary).text('ANEXO - COMPROVANTES');
-    doc.moveDown(0.6);
-    attachComprovantes(doc, options.attachments);
-  });
+function reportContext(data: ReportData, title: string, subtitle: string): PageContext { return { title, subtitle, emittedAt: data.emitidoEm, emittedBy: data.emitidoPor, version: data.versao }; }
+
+export async function renderOfficialPdf(data: ReportData, options: { attachments: PdfAttachment[] }): Promise<Buffer> {
+  return render((doc) => { doc.y = CONTENT_TOP; tripInfo(doc, data); renderParticipantes(doc, data); renderDespesas(doc, data); renderOcrSummary(doc, data); renderOcrDetails(doc, data); renderFinanceiro(doc, data); if (options.attachments.length > 0) attachComprovantes(doc, options.attachments); }, reportContext(data, 'RELATÓRIO OFICIAL DE VIAGEM', 'Prestação de contas e conferência documental'));
 }
 
-export async function renderManagerPdf(
-  data: ReportData,
-  options: { attachments: PdfAttachment[] },
-): Promise<Buffer> {
-  return render((doc) => {
-    renderHeader(doc, 'Resumo Gerencial de Viagem', `Visão gerencial - Viagem ${data.trip.id}`);
-    tripInfo(doc, data);
-    sectionTitle(doc, 'Participantes');
-    doc
-      .font('Helvetica')
-      .fontSize(9)
-      .fillColor(COLORS.secondary)
-      .text(data.participantes.map((p) => p.nome).join(', '));
-    renderDespesas(doc, data);
-    if (options.attachments.length > 0) {
-      doc.addPage();
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(11)
-        .fillColor(COLORS.primary)
-        .text('ANEXO - COMPROVANTES');
-      doc.moveDown(0.6);
-      attachComprovantes(doc, options.attachments);
-    }
-  });
+export async function renderManagerPdf(data: ReportData, options: { attachments: PdfAttachment[] }): Promise<Buffer> {
+  return render((doc) => { doc.y = CONTENT_TOP; tripInfo(doc, data); renderParticipantes(doc, data); renderDespesas(doc, data); renderOcrDetails(doc, data); if (options.attachments.length > 0) attachComprovantes(doc, options.attachments); }, reportContext(data, 'RESUMO GERENCIAL DE VIAGEM', 'Custos, participantes e documentos vinculados'));
 }

@@ -46,11 +46,44 @@ export interface ReportOcrSummary {
   pendentes: number;
   falhas: number;
   valorExtraidoTotal: string;
+  chavesAcesso: string[];
+}
+
+export interface ReportOcrFieldSet {
+  textoOriginal: string | null;
+  cnpj: string | null;
+  nomeEstabelecimento: string | null;
+  data: string | null;
+  hora: string | null;
+  valorTotal: string | null;
+  valorProdutos: string | null;
+  desconto: string | null;
+  tributos: string | null;
+  numeroDocumento: string | null;
+  serie: string | null;
+  inscricaoEstadual: string | null;
+  emitente: string | null;
+  destinatario: string | null;
+  formaPagamento: string | null;
+  protocoloAutorizacao: string | null;
+  chaveAcesso: string | null;
+}
+
+export interface ReportOcrReceipt {
+  fileName: string;
+  categoria: string;
+  original: ReportOcrFieldSet | null;
+  final: ReportOcrFieldSet;
 }
 
 export interface ReportData {
   trip: ReportTripData;
-  participantes: Array<{ id: string; nome: string; cartaoLast4: string | null }>;
+  participantes: Array<{
+    id: string;
+    nome: string;
+    cartaoLast4: string | null;
+    cartaoBandeira: string | null;
+  }>;
   despesas: ReportExpenseRow[];
   totalDespesas: string;
   totalReembolsavel: string;
@@ -63,6 +96,7 @@ export interface ReportData {
     totalDevolucoes: string;
   };
   ocr: ReportOcrSummary;
+  ocrDetalhes: ReportOcrReceipt[];
   versao: number;
   emitidoEm: Date;
   emitidoPor: string;

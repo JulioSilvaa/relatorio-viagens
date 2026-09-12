@@ -46,6 +46,8 @@ export interface TripParticipantView {
   userId: string;
   name: string;
   addedAt: Date;
+  cartaoLast4: string | null;
+  cartaoBandeira: string | null;
 }
 
 export interface TripReceiptOcrView {

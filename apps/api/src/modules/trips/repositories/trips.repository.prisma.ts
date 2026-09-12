@@ -48,7 +48,7 @@ const DETAIL_INCLUDE = {
   participants: {
     include: {
       user: { select: { id: true, name: true } },
-      creditCard: { select: { last4: true } },
+      creditCard: { select: { last4: true, brand: true } },
     },
     orderBy: { createdAt: 'asc' as const },
   },
@@ -135,26 +135,40 @@ function toExpenseDetail(expense: PrismaExpenseRow): ExpenseDetailRecord {
       createdAt: receipt.createdAt,
       ocr: receipt.ReceiptOcr
         ? {
-            status: receipt.ReceiptOcr.status,
-            origem: receipt.ReceiptOcr.origem,
-            cnpj: receipt.ReceiptOcr.cnpj,
-            nomeEstabelecimento: receipt.ReceiptOcr.nomeEstabelecimento,
-            data: receipt.ReceiptOcr.data,
-            hora: receipt.ReceiptOcr.hora,
-            valorTotal: receipt.ReceiptOcr.valorTotal?.toString() ?? null,
-            numeroDocumento: receipt.ReceiptOcr.numeroDocumento,
-            chaveAcesso: receipt.ReceiptOcr.chaveAcesso,
-            itens: (receipt.ReceiptOcr.itens as unknown[]) ?? null,
-            erro: receipt.ReceiptOcr.erro,
-            extraidoEm: receipt.ReceiptOcr.extraidoEm,
-            conferidoPor: receipt.ReceiptOcr.conferidoPor
-              ? {
-                  id: receipt.ReceiptOcr.conferidoPor.id,
-                  name: receipt.ReceiptOcr.conferidoPor.name,
-                }
+          textoOriginal: null,
+          status: receipt.ReceiptOcr.status,
+          origem: receipt.ReceiptOcr.origem,
+          cnpj: receipt.ReceiptOcr.cnpj,
+          nomeEstabelecimento: receipt.ReceiptOcr.nomeEstabelecimento,
+          data: receipt.ReceiptOcr.data,
+          hora: receipt.ReceiptOcr.hora,
+          valorTotal: receipt.ReceiptOcr.valorTotal?.toString() ?? null,
+          valorProdutos: null,
+          desconto: null,
+          tributos: null,
+          numeroDocumento: receipt.ReceiptOcr.numeroDocumento,
+          serie: null,
+          inscricaoEstadual: null,
+          emitente: null,
+          destinatario: null,
+          formaPagamento: null,
+          protocoloAutorizacao: null,
+          chaveAcesso: receipt.ReceiptOcr.chaveAcesso,
+          itens: (receipt.ReceiptOcr.itens as unknown[]) ?? null,
+          erro: receipt.ReceiptOcr.erro,
+          extraidoEm: receipt.ReceiptOcr.extraidoEm,
+          conferidoPor: receipt.ReceiptOcr.conferidoPor
+            ? {
+              id: receipt.ReceiptOcr.conferidoPor.id,
+              name: receipt.ReceiptOcr.conferidoPor.name,
+            }
+            : null,
+          conferidoEm: receipt.ReceiptOcr.conferidoEm,
+          dadosOriginais:
+            receipt.ReceiptOcr.dadosOriginais && typeof receipt.ReceiptOcr.dadosOriginais === 'object'
+              ? (receipt.ReceiptOcr.dadosOriginais as Record<string, unknown>)
               : null,
-            conferidoEm: receipt.ReceiptOcr.conferidoEm,
-          }
+        }
         : null,
     })),
   };
@@ -227,6 +241,7 @@ export class PrismaTripsRepository implements TripsRepository {
       name: p.user.name,
       addedAt: p.createdAt,
       cartaoLast4: p.creditCard?.last4 ?? null,
+      cartaoBandeira: p.creditCard?.brand ?? null,
     }));
 
     const expenses = trip.expenses.map(toExpenseDetail);
@@ -303,7 +318,13 @@ export class PrismaTripsRepository implements TripsRepository {
       }
       throw error;
     }
-    return { userId: user.id, name: user.name, addedAt: created.createdAt, cartaoLast4: null };
+    return {
+      userId: user.id,
+      name: user.name,
+      addedAt: created.createdAt,
+      cartaoLast4: null,
+      cartaoBandeira: null,
+    };
   }
 
   async removeParticipant(tripId: string, userId: string): Promise<boolean> {
@@ -321,7 +342,7 @@ export class PrismaTripsRepository implements TripsRepository {
       where: { tripId },
       include: {
         user: { select: { id: true, name: true } },
-        creditCard: { select: { last4: true } },
+        creditCard: { select: { last4: true, brand: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -330,6 +351,7 @@ export class PrismaTripsRepository implements TripsRepository {
       name: row.user.name,
       addedAt: row.createdAt,
       cartaoLast4: row.creditCard?.last4 ?? null,
+      cartaoBandeira: row.creditCard?.brand ?? null,
     }));
   }
 
