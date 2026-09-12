@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, RefreshCw, X } from "lucide-react";
+import { ImagePlus, RefreshCw, TriangleAlert, X } from "lucide-react";
 import { toast } from "sonner";
 import { useExpenseCategories, useCreateExpense } from "../hooks";
 import { preAnalyzeReceipt } from "../api";
 import { saveReceiptOcr } from "@/modules/ocr/api";
-import { formatDate, parseMoneyInput } from "@/lib/format";
+import { formatDate, formatMoney, parseMoneyInput } from "@/lib/format";
 import type { ReceiptTypeValue } from "@/types/domain";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,12 +57,31 @@ function ReceiptPreview({ file }: { file: File }) {
   );
 }
 
+const FISCAL_LABELS: Record<string, string> = {
+  ncm: "NCM",
+  cfop: "CFOP",
+  cstCsosn: "CST/CSOSN",
+  icms: "ICMS",
+  pis: "PIS",
+  cofins: "COFINS",
+};
+
+function numberValue(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const trimmed = value.trim().replace(",", ".");
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function structuredOcrItems(items: unknown[] | undefined): Array<{
   descricao: string;
   quantidade: string;
-  valorUnitario: string;
-  desconto: string;
-  valorTotal: string;
+  valorUnitario: number | null;
+  desconto: number | null;
+  valorTotal: number | null;
   fiscal: string;
 }> {
   return (items ?? []).flatMap((item) => {
@@ -76,21 +96,39 @@ function structuredOcrItems(items: unknown[] | undefined): Array<{
     const quantidade = typeof record.quantidade === "number" || typeof record.quantidade === "string"
       ? String(record.quantidade)
       : "-";
-    const valorUnitario = typeof record.valorUnitario === "number" || typeof record.valorUnitario === "string"
-      ? String(record.valorUnitario).replace(".", ",")
-      : "-";
-    const desconto = typeof record.desconto === "number" || typeof record.desconto === "string"
-      ? String(record.desconto).replace(".", ",")
-      : "-";
-    const valorTotal = typeof record.valorTotal === "number" || typeof record.valorTotal === "string"
-      ? String(record.valorTotal).replace(".", ",")
-      : "-";
     const fiscal = ["ncm", "cfop", "cstCsosn", "icms", "pis", "cofins"]
-      .flatMap((key) => typeof record[key] === "string" && record[key] ? `${key.toUpperCase()}: ${record[key]}` : [])
+      .flatMap((key) => typeof record[key] === "string" && record[key] ? `${FISCAL_LABELS[key] ?? key}: ${record[key]}` : [])
       .join(" · ");
-    return [{ descricao, quantidade, valorUnitario, desconto, valorTotal, fiscal }];
+    return [{
+      descricao,
+      quantidade,
+      valorUnitario: numberValue(record.valorUnitario),
+      desconto: numberValue(record.desconto),
+      valorTotal: numberValue(record.valorTotal),
+      fiscal,
+    }];
   });
 }
+
+type OcrConfidence = "alta" | "media" | "baixa";
+
+const CONFIDENCE_LABELS: Record<OcrConfidence, string> = {
+  alta: "Alta confiança",
+  media: "Confiança média",
+  baixa: "Baixa confiança",
+};
+
+function confidenceClass(value: OcrConfidence): string {
+  if (value === "baixa") return "text-danger";
+  if (value === "media") return "text-warning";
+  return "text-primary";
+}
+
+const OCR_TO_RECEIPT_TYPE: Record<string, ReceiptTypeValue> = {
+  NFC_E: "CUPOM_FISCAL",
+  CFE_SAT: "CUPOM_FISCAL",
+  NFE: "NOTA_FISCAL",
+};
 
 function ocrTypeLabel(value: string | undefined): string {
   const labels: Record<string, string> = {
@@ -135,10 +173,15 @@ export function ExpenseFormDialog({
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
   const [ocrData, setOcrData] = useState<NonNullable<Awaited<ReturnType<typeof preAnalyzeReceipt>>['data']> | null>(null);
+  const [confirmadoOcr, setConfirmadoOcr] = useState(false);
   const [formStarted, setFormStarted] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
   const isKmRodados = categoryCode === "KM_RODADOS";
+  const allOcrItems = useMemo(
+    () => structuredOcrItems(ocrData?.itens),
+    [ocrData],
+  );
 
   function setField(key: string, value: string) {
     if (key === "categoryCode") {
@@ -210,6 +253,10 @@ export function ExpenseFormDialog({
       setCategoryCode(inferredCategory);
     }
     if (ocr.nomeEstabelecimento) setJustificativa(ocr.nomeEstabelecimento);
+    if (tipoComprovante === "OUTRO" && ocr.tipoDocumento) {
+      const inferredType = OCR_TO_RECEIPT_TYPE[ocr.tipoDocumento];
+      if (inferredType) setTipoComprovante(inferredType);
+    }
   }
 
   async function analyzeFile(firstFile: File) {
@@ -219,6 +266,7 @@ export function ExpenseFormDialog({
       const result = await preAnalyzeReceipt(firstFile);
       const ocr = result.data ?? null;
       setOcrData(ocr);
+      setConfirmadoOcr(false);
       if (ocr) fillFieldsFromOcr(ocr);
       const hasUsefulFields = Boolean(
         ocr && (ocr.valorTotal || ocr.valorProdutos || ocr.nomeEstabelecimento || ocr.numeroDocumento || ocr.chaveAcesso),
@@ -257,6 +305,7 @@ export function ExpenseFormDialog({
     if (input) input.value = "";
     setFiles([]);
     setOcrData(null);
+    setConfirmadoOcr(false);
     setAnalysisMessage(null);
     setAnalyzing(false);
     setFormStarted(false);
@@ -285,6 +334,11 @@ export function ExpenseFormDialog({
     }
     if (files.length === 0) {
       fieldErrors.files = "Adicione ao menos 1 comprovante.";
+    }
+    if (ocrData && !confirmadoOcr) {
+      fieldErrors.confirmacaoOcr = ocrData.alertaReconciliacao
+        ? "Há divergência apontada pela leitura. Verifique e confirme que os dados conferem com o comprovante."
+        : "Confirme que os dados conferem com o comprovante antes de salvar.";
     }
 
     if (Object.keys(fieldErrors).length > 0) {
@@ -336,7 +390,10 @@ export function ExpenseFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false}>
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
+      >
         <DialogHeader>
           <DialogTitle>{formStarted ? "Nova despesa" : "Adicionar comprovante"}</DialogTitle>
           <DialogDescription>
@@ -385,60 +442,86 @@ export function ExpenseFormDialog({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-            {ocrData ? (
-              <div className="flex flex-col gap-1 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
-                <p className="font-medium text-foreground">
-                  Dados reconhecidos por IA — revise antes de salvar
-                </p>
-                <p>Tipo de documento: {ocrTypeLabel(ocrData.tipoDocumento)}</p>
-                {ocrData.nomeEstabelecimento ? <p>Estabelecimento: {ocrData.nomeEstabelecimento}</p> : null}
-                {ocrData.nomeFantasia ? <p>Nome fantasia: {ocrData.nomeFantasia}</p> : null}
-                {ocrData.cnpj ? <p>CNPJ: {ocrData.cnpj}</p> : null}
-                {ocrData.endereco ? <p>Endereço: {ocrData.endereco}</p> : null}
-                {ocrData.cidadeUf ? <p>Cidade/UF: {ocrData.cidadeUf}</p> : null}
-                {ocrData.chaveAcesso ? (
-                  <p className="break-all">Chave SEFAZ: {ocrData.chaveAcesso}</p>
-                ) : null}
-                {ocrData.numeroDocumento ? (
-                  <p>Número do documento: {ocrData.numeroDocumento}</p>
-                ) : null}
-                {ocrData.serie ? <p>Série: {ocrData.serie}</p> : null}
-                {ocrData.inscricaoEstadual ? <p>Inscrição estadual: {ocrData.inscricaoEstadual}</p> : null}
-                {ocrData.emitente ? <p>Emitente: {ocrData.emitente}</p> : null}
-                {ocrData.destinatario ? <p>Destinatário: {ocrData.destinatario}</p> : null}
-                {ocrData.data ? <p>Data: {formatDate(ocrData.data)}</p> : null}
-                {ocrData.valorTotal ? <p>Valor: R$ {ocrData.valorTotal.replace('.', ',')}</p> : null}
-                {ocrData.valorProdutos ? <p>Produtos: R$ {ocrData.valorProdutos.replace('.', ',')}</p> : null}
-                {ocrData.desconto ? <p>Desconto: R$ {ocrData.desconto.replace('.', ',')}</p> : null}
-                {ocrData.tributos ? <p>Tributos: R$ {ocrData.tributos.replace('.', ',')}</p> : null}
-                {ocrData.formaPagamento ? <p>Pagamento: {ocrData.formaPagamento}</p> : null}
-                {ocrData.protocoloAutorizacao ? <p>Protocolo: {ocrData.protocoloAutorizacao}</p> : null}
-                {ocrData.numeroSat ? <p>Número do SAT: {ocrData.numeroSat}</p> : null}
-                {ocrData.qrCode ? <p className="break-all">QR Code: {ocrData.qrCode}</p> : null}
-                {structuredOcrItems(ocrData.itens).length > 0 ? (
-                  <div className="mt-2 border-t border-primary/20 pt-2">
-                    <p className="font-medium">Itens reconhecidos</p>
-                    <ul className="flex flex-col gap-1 text-xs">
-                      {structuredOcrItems(ocrData.itens).map((item, index) => (
-                        <li key={`${item.descricao}-${index}`} className="flex justify-between gap-3">
-                          <span className="min-w-0">
-                            <span className="block truncate">{item.quantidade} × {item.descricao}</span>
-                            <span className="text-muted-foreground">Unit. R$ {item.valorUnitario} · Desc. R$ {item.desconto}</span>
-                            {item.fiscal ? <span className="block text-muted-foreground">{item.fiscal}</span> : null}
-                          </span>
-                          <span className="shrink-0">R$ {item.valorTotal}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {ocrData.informacoesComplementares ? <p>Informações complementares: {ocrData.informacoesComplementares}</p> : null}
-                {ocrData.observacoes ? <p>Observações: {ocrData.observacoes}</p> : null}
-                {ocrData.camposExtras?.map((field, index) => (
-                  <p key={`${field.label}-${index}`}>{field.label}: {field.valor ?? "Não identificado"}</p>
-                ))}
+{ocrData ? (
+          <div className="flex flex-col gap-1 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
+            <p className="flex items-center justify-between gap-2 font-medium text-foreground">
+              <span>Dados reconhecidos por IA — revise antes de salvar</span>
+              {ocrData.confiancaExtracao ? (
+                <Badge variant="outline" className={`border-transparent ${confidenceClass(ocrData.confiancaExtracao)}`}>
+                  {CONFIDENCE_LABELS[ocrData.confiancaExtracao]}
+                </Badge>
+              ) : null}
+            </p>
+            {ocrData.alertaReconciliacao ? (
+              <p role="alert" className="flex items-start gap-1.5 rounded-md bg-warning/10 px-2 py-1.5 text-xs leading-snug text-warning">
+                <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+                Há divergência entre os itens e o valor total reconhecidos. Verifique antes de confirmar.
+              </p>
+            ) : null}
+            <p>Valor: R$ {ocrData.valorTotal ? formatMoney(ocrData.valorTotal) : "—"}</p>
+            <p>Tipo de documento: {ocrTypeLabel(ocrData.tipoDocumento)}
+              {ocrData.tipoDocumentoConfianca ? (
+                <span className={`text-xs ${confidenceClass(ocrData.tipoDocumentoConfianca)}`}>
+                  {" "}({CONFIDENCE_LABELS[ocrData.tipoDocumentoConfianca]})
+                </span>
+              ) : null}
+            </p>
+            {ocrData.nomeEstabelecimento ? <p>Estabelecimento: {ocrData.nomeEstabelecimento}</p> : null}
+            {ocrData.nomeFantasia ? <p>Nome fantasia: {ocrData.nomeFantasia}</p> : null}
+            {ocrData.cnpj ? <p>CNPJ: {ocrData.cnpj}</p> : null}
+            {ocrData.endereco ? <p>Endereço: {ocrData.endereco}</p> : null}
+            {ocrData.cidadeUf ? <p>Cidade/UF: {ocrData.cidadeUf}</p> : null}
+            {ocrData.chaveAcesso ? (
+              <p className="break-all">Chave SEFAZ: {ocrData.chaveAcesso}</p>
+            ) : null}
+            {ocrData.numeroDocumento ? (
+              <p>Número do documento: {ocrData.numeroDocumento}</p>
+            ) : null}
+            {ocrData.serie ? <p>Série: {ocrData.serie}</p> : null}
+            {ocrData.inscricaoEstadual ? <p>Inscrição estadual: {ocrData.inscricaoEstadual}</p> : null}
+            {ocrData.emitente ? <p>Emitente: {ocrData.emitente}</p> : null}
+            {ocrData.destinatario ? <p>Destinatário: {ocrData.destinatario}</p> : null}
+            {ocrData.data ? <p>Data: {formatDate(ocrData.data)}</p> : null}
+            {ocrData.valorProdutos ? <p>Produtos: {formatMoney(ocrData.valorProdutos)}</p> : null}
+            {ocrData.desconto ? <p>Desconto: {formatMoney(ocrData.desconto)}</p> : null}
+            {ocrData.tributos ? <p>Tributos: {formatMoney(ocrData.tributos)}</p> : null}
+            {ocrData.formaPagamento ? <p>Pagamento: {ocrData.formaPagamento}</p> : null}
+            {ocrData.protocoloAutorizacao ? <p>Protocolo: {ocrData.protocoloAutorizacao}</p> : null}
+            {ocrData.numeroSat ? <p>Número do SAT: {ocrData.numeroSat}</p> : null}
+            {ocrData.qrCode ? <p className="break-all">QR Code: {ocrData.qrCode}</p> : null}
+            {allOcrItems.length > 0 ? (
+              <div className="mt-2 border-t border-primary/20 pt-2">
+                <p className="font-medium">Itens reconhecidos</p>
+                <ul className="flex flex-col gap-1 text-xs">
+                  {allOcrItems.map((item, index) => (
+                    <li key={`${item.descricao}-${index}`} className="flex justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block truncate">{item.quantidade} × {item.descricao}</span>
+                        <span className="text-muted-foreground">
+                          Unit. {item.valorUnitario === null ? "-" : formatMoney(item.valorUnitario)}
+                          {" · "}Desc. {item.desconto === null ? "-" : formatMoney(item.desconto)}
+                        </span>
+                        {item.fiscal ? <span className="block text-muted-foreground">{item.fiscal}</span> : null}
+                      </span>
+                      <span className="shrink-0">{item.valorTotal === null ? "-" : formatMoney(item.valorTotal)}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : null}
+            {ocrData.informacoesComplementares ? <p>Informações complementares: {ocrData.informacoesComplementares}</p> : null}
+            {ocrData.observacoes ? <p>Observações: {ocrData.observacoes}</p> : null}
+            {ocrData.camposExtras?.map((field, index) => {
+              const tone =
+                field.confianca !== null && field.confianca !== undefined && field.confianca !== "alta"
+                  ? ` text-xs ${confidenceClass(field.confianca)}`
+                  : "";
+              return (
+                <p key={`${field.label}-${index}`}>{field.label}: {field.valor ?? "Não identificado"}{tone && field.confianca ? <span className={tone}>{` (${CONFIDENCE_LABELS[field.confianca]})`}</span> : null}</p>
+              );
+            })}
+          </div>
+        ) : null}
             {analysisMessage ? (
               <div className="flex items-center justify-between gap-3 rounded-lg bg-muted px-3 py-2">
                 <p className="text-sm text-muted-foreground">{analysisMessage}</p>
@@ -589,7 +672,49 @@ export function ExpenseFormDialog({
               ) : null}
             </div>
 
-            <DialogFooter showCloseButton={false}>
+{ocrData ? (
+            <div
+              className={cn(
+                "flex items-start gap-2.5 rounded-lg border px-3 py-2.5",
+                errors.confirmacaoOcr
+                  ? "border-destructive bg-danger/5"
+                  : "border-border bg-muted/40",
+              )}
+            >
+              <input
+                id="confirmacaoOcr"
+                type="checkbox"
+                checked={confirmadoOcr}
+                onChange={(event) => {
+                  setConfirmadoOcr(event.target.checked);
+                  setErrors((current) => ({
+                    ...current,
+                    confirmacaoOcr: undefined,
+                  }));
+                }}
+                className="mt-0.5 size-4 shrink-0 accent-primary"
+              />
+              <label
+                htmlFor="confirmacaoOcr"
+                className="text-sm leading-snug text-foreground"
+              >
+                Confirmo que os dados conferem com o comprovante visualizado.
+                {ocrData.alertaReconciliacao ? (
+                  <span className="block text-xs text-warning">
+                    Há divergência apontada pela leitura — verifique o valor
+                    antes de confirmar.
+                  </span>
+                ) : null}
+              </label>
+            </div>
+          ) : null}
+          {errors.confirmacaoOcr ? (
+            <p className="text-sm text-danger" role="alert">
+              {errors.confirmacaoOcr}
+            </p>
+          ) : null}
+
+          <DialogFooter showCloseButton={false}>
               <Button
                 type="button"
                 variant="outline"
