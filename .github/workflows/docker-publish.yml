@@ -17,15 +17,18 @@ jobs:
       matrix:
         include:
           - name: api
+            context: .
             file: apps/api/Dockerfile
             image: relatorio-viagens-api
 
           - name: web
+            context: .
             file: apps/web/Dockerfile
             image: relatorio-viagens-web
 
           - name: ocr
-            file: apps/ocr/Dockerfile
+            context: ./apps/ocr
+            file: Dockerfile
             image: relatorio-viagens-ocr
 
     steps:
@@ -48,7 +51,7 @@ jobs:
       - name: Build and Push
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           platforms: linux/arm64
           push: true
