@@ -10,6 +10,7 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  ReceiptText,
   SendHorizontal,
   Trash2,
   Undo2,
@@ -140,6 +141,9 @@ export default function TripDetailPage() {
     (acc, despesa) => acc + despesa.receipts.length,
     0,
   );
+  const despesasComComprovante = trip.despesas.filter((despesa) =>
+    despesa.receipts.some((receipt) => receipt.ativo),
+  ).length;
   const reembolsavel = trip.despesas.some((despesa) => despesa.reembolsavel);
   const canEdit =
     EDITABLE_TRIP_STATUSES.has(trip.status) &&
@@ -300,27 +304,26 @@ export default function TripDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon-sm" asChild aria-label="Voltar">
-          <Link href="/viagens">
-            <ArrowLeft aria-hidden="true" />
-          </Link>
-        </Button>
-        <h1 className="truncate text-xl font-semibold tracking-tight">
-          {trip.cliente}
-        </h1>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Button variant="ghost" size="icon-sm" asChild aria-label="Voltar">
+            <Link href="/viagens">
+              <ArrowLeft aria-hidden="true" />
+            </Link>
+          </Button>
+          <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
+            {trip.cliente}
+          </h1>
+        </div>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          #{trip.id.slice(0, 8)}
+        </span>
       </div>
 
       <Card className="shadow-sm">
-        <CardContent className="flex flex-col gap-3 p-5">
-          <div className="flex items-center justify-between gap-2">
-            <TripStatusBadge status={trip.status} />
-            <span className="text-xs text-muted-foreground">
-              #{trip.id.slice(0, 8)}
-            </span>
-          </div>
-          <div>
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <p className="text-lg font-medium">
               {trip.cidade} - <span className="uppercase">{trip.uf}</span>
             </p>
@@ -328,59 +331,64 @@ export default function TripDetailPage() {
               {formatPeriodo(trip.dataSaida, trip.dataRetorno)}
             </p>
             {trip.motivo ? (
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 truncate text-sm text-muted-foreground">
                 {trip.motivo}
               </p>
             ) : null}
           </div>
+          <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end">
+            <TripStatusBadge status={trip.status} />
+            <span className="text-xs text-muted-foreground">Viagem</span>
+          </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card className="shadow-sm">
-          <CardContent className="flex flex-col items-center gap-1 p-4 text-center">
+          <CardContent className="flex items-center gap-3 p-4">
             <Users
               className="size-4 text-muted-foreground"
               aria-hidden="true"
             />
-            <p className="text-lg font-semibold">{trip.participants.length}</p>
-            <p className="text-xs text-muted-foreground">Participantes</p>
+            <div>
+              <p className="text-lg font-semibold leading-none">{trip.participants.length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Participantes</p>
+            </div>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
-          <CardContent className="flex flex-col items-center gap-1 p-4 text-center">
-            <span className="text-sm text-muted-foreground">🎫</span>
-            <p className="text-lg font-semibold">{trip.despesas.length}</p>
-            <p className="text-xs text-muted-foreground">Despesas</p>
+          <CardContent className="flex items-center gap-3 p-4">
+            <ReceiptText className="size-4 text-muted-foreground" aria-hidden="true" />
+            <div>
+              <p className="text-lg font-semibold leading-none">{trip.despesas.length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Despesas</p>
+            </div>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
-          <CardContent className="flex flex-col items-center gap-1 p-4 text-center">
+          <CardContent className="flex items-center gap-3 p-4">
             <Paperclip
               className="size-4 text-muted-foreground"
               aria-hidden="true"
             />
-            <p className="text-lg font-semibold">{totalComprovantes}</p>
-            <p className="text-xs text-muted-foreground">Comprovantes</p>
+            <div>
+              <p className="text-lg font-semibold leading-none">{totalComprovantes}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Comprovantes</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</p>
+              <p className="mt-1 text-lg font-semibold leading-none">{formatMoney(totalDespesas)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {reembolsavel ? "Reembolsável" : "Não reembolsável"}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card className="shadow-sm">
-        <CardContent className="flex flex-col gap-1 p-5">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Resumo
-          </p>
-          <p className="text-2xl font-semibold tracking-tight">
-            {formatMoney(totalDespesas)}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {reembolsavel
-              ? "Inclui despesas reembolsáveis"
-              : "Sem despesas reembolsáveis"}
-          </p>
-        </CardContent>
-      </Card>
 
       {canGeneratePdf ? (
         <Card className="shadow-sm">
@@ -508,10 +516,13 @@ export default function TripDetailPage() {
       />
 
       <section aria-label="Despesas">
-        <div className="flex items-center justify-between gap-2 px-0 pb-2">
-          <CardHeader className="p-0">
-            <CardTitle className="text-base">Despesas</CardTitle>
-          </CardHeader>
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <CardTitle className="text-lg">Despesas</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {despesasComComprovante} de {trip.despesas.length} com comprovante
+            </p>
+          </div>
           {canEdit ? (
             <Button
               variant="outline"
@@ -539,21 +550,21 @@ export default function TripDetailPage() {
             </CardContent>
           </Card>
         ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-sm">
             {trip.despesas.map((despesa) => (
               <li key={despesa.id}>
                 <details className="group">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 [&::-webkit-details-marker]:hidden">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 [&::-webkit-details-marker]:hidden">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium text-foreground">
+                        <p className="truncate text-sm font-semibold text-foreground">
                           {despesa.category?.name ?? "Sem categoria"}
                         </p>
                         {despesa.alertaExcesso ? (
                           <Badge variant="destructive">Acima do limite</Badge>
                         ) : null}
                       </div>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
                         {formatDate(despesa.dataDespesa)} · {despesa.criadoPor.name}
                       </p>
                     </div>
@@ -563,7 +574,9 @@ export default function TripDetailPage() {
                           {formatMoney(despesa.valor)}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
-                          {despesa.receipts.filter((receipt) => receipt.ativo).length} comprovante(s)
+                          {despesa.receipts.filter((receipt) => receipt.ativo).length === 1
+                            ? "1 comprovante"
+                            : `${despesa.receipts.filter((receipt) => receipt.ativo).length} comprovantes`}
                         </p>
                       </div>
                       <ChevronDown
@@ -572,7 +585,7 @@ export default function TripDetailPage() {
                       />
                     </div>
                   </summary>
-                  <div className="flex flex-col gap-3 border-t border-border bg-muted/20 px-3 py-3">
+                  <div className="flex flex-col gap-3 border-t border-border bg-muted/20 px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       {canApprove ? (
                         <Button

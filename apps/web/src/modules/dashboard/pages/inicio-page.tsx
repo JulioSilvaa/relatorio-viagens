@@ -5,7 +5,9 @@ import {
   Activity,
   ArrowRight,
   Building2,
+  CheckCircle2,
   CircleHelp,
+  FileText,
   MapPin,
   Plane,
   Users,
@@ -19,7 +21,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatMoney } from "@/lib/format";
 import { getErrorMessage } from "@/lib/api";
-import { EmptyState } from "@/components/feedback/empty-state";
 import { TripStatusBadge } from "@/modules/trips/components/trip-status-badge";
 
 function StatGridSkeleton() {
@@ -64,12 +65,25 @@ function EmployeeDashboard() {
   ].filter((item) => item.count > 0);
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold tracking-tight">
-        Olá, {user?.name?.split(" ")[0] ?? ""}
-      </h1>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-end sm:justify-between sm:p-6">
+        <div>
+          <p className="text-sm text-muted-foreground">Olá, {user?.name?.split(" ")[0] ?? ""}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Acompanhe suas viagens</h1>
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+            Consulte o que precisa de atenção e retome seus lançamentos sem perder tempo.
+          </p>
+        </div>
+        <Link
+          href="/viagens"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/80"
+        >
+          <Plane className="size-4" aria-hidden="true" />
+          Ver minhas viagens
+        </Link>
+      </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Viagens em andamento"
           value={data.viagensEmAndamento}
@@ -93,33 +107,65 @@ function EmployeeDashboard() {
         />
       </div>
 
-      {pendencias.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Pendências</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {pendencias.map((item) => (
-              <p key={item.label} className="text-sm text-foreground">
-                {item.count} {item.label.toLowerCase()}
+      <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Próximo passo</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {pendencias.length > 0
+                  ? "Há itens que podem exigir sua atenção."
+                  : "Nenhuma pendência encontrada no momento."}
               </p>
-            ))}
+            </div>
+            {pendencias.length > 0 ? (
+              <CircleHelp className="size-5 text-warning" aria-hidden="true" />
+            ) : (
+              <CheckCircle2 className="size-5 text-success" aria-hidden="true" />
+            )}
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {pendencias.length > 0 ? (
+              pendencias.map((item) => (
+                <Link
+                  key={item.label}
+                  href="/viagens"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 text-sm transition-colors hover:bg-muted"
+                >
+                  <span>
+                    <strong className="font-semibold">{item.count}</strong>{" "}
+                    {item.label.toLowerCase()}
+                  </span>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                </Link>
+              ))
+            ) : (
+              <div className="flex items-center gap-3 rounded-lg bg-muted/60 px-3 py-3 text-sm text-muted-foreground">
+                <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden="true" />
+                <span>Seus relatórios estão sem pendências.</span>
+              </div>
+            )}
           </CardContent>
         </Card>
-      ) : (
-        <EmptyState
-          emoji="🎉"
-          title="Tudo em dia"
-          description="Nenhuma pendência no momento. Aproveite o dia!"
-        />
-      )}
 
-      <Link
-        href="/viagens"
-        className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/80"
-      >
-        Ver minhas viagens
-      </Link>
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Acesso rápido</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            <Link href="/viagens" className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-muted">
+              <Plane className="size-4 text-muted-foreground" aria-hidden="true" />
+              <span className="flex-1">Minhas viagens</span>
+              <ArrowRight className="size-4 text-muted-foreground" aria-hidden="true" />
+            </Link>
+            <Link href="/notificacoes" className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-muted">
+              <FileText className="size-4 text-muted-foreground" aria-hidden="true" />
+              <span className="flex-1">Notificações</span>
+              <ArrowRight className="size-4 text-muted-foreground" aria-hidden="true" />
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

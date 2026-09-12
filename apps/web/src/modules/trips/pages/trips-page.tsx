@@ -59,15 +59,20 @@ function TripRow({ trip }: { trip: TripView }) {
   return (
     <Link
       href={`/viagens/${trip.id}`}
-      className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-xl px-3 py-3 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:grid-cols-[minmax(0,2.4fr)_minmax(0,1.4fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_auto]"
+      className="grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 rounded-xl px-4 py-3.5 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:grid-cols-[minmax(0,2.4fr)_minmax(0,1.35fr)_minmax(0,1.25fr)_minmax(0,1fr)_auto]"
     >
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-foreground">{trip.cliente}</p>
-        <p className="truncate text-xs text-muted-foreground">{trip.criadoPor?.name}</p>
+        <p className="truncate text-sm font-semibold text-foreground">{trip.cliente}</p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">{trip.criadoPor?.name}</p>
       </div>
-      <p className="truncate text-sm text-muted-foreground">
-        {trip.cidade} - <span className="uppercase">{trip.uf}</span>
-      </p>
+      <div className="min-w-0">
+        <p className="truncate text-sm text-foreground">
+          {trip.cidade} - <span className="uppercase">{trip.uf}</span>
+        </p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground md:hidden">
+          {formatPeriodo(trip.dataSaida, trip.dataRetorno)}
+        </p>
+      </div>
       <p className="hidden truncate text-sm text-muted-foreground md:block">
         {formatPeriodo(trip.dataSaida, trip.dataRetorno)}
       </p>
@@ -112,9 +117,14 @@ export default function TripsPage() {
   const hasActiveFilters = search.trim() !== "" || statusFilter !== "ALL";
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Viagens</h1>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Viagens</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Acompanhe seus deslocamentos, despesas e aprovações em um só lugar.
+          </p>
+        </div>
         {canCreate ? (
           <Button asChild>
             <Link href="/viagens/nova">
@@ -126,7 +136,13 @@ export default function TripsPage() {
       </div>
 
       {!isLoading && !isError ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-foreground">Encontrar uma viagem</p>
+            <p className="text-xs text-muted-foreground">
+              {filtered.length} {filtered.length === 1 ? "resultado" : "resultados"}
+            </p>
+          </div>
           <div className="relative">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -145,7 +161,7 @@ export default function TripsPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1" aria-label="Filtrar por status">
             <button
               type="button"
               onClick={() => {
@@ -207,15 +223,29 @@ export default function TripsPage() {
 
       {!isLoading && !isError && filtered.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {hasActiveFilters ? (
               <span>
                 {filtered.length} resultado{filtered.length === 1 ? "" : "s"}
               </span>
             ) : (
-              <span>Total de {filtered.length}</span>
+              <span>{filtered.length} viagens cadastradas</span>
             )}
-            <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                className="cursor-pointer normal-case tracking-normal text-foreground underline-offset-4 hover:underline"
+                onClick={() => {
+                  setSearch("");
+                  setStatusFilter("ALL");
+                  setPage(0);
+                }}
+              >
+                Limpar filtros
+              </button>
+            ) : (
+              <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+            )}
           </div>
 
           <div className="flex flex-col divide-y divide-border rounded-2xl border border-border bg-card shadow-sm">
@@ -274,8 +304,8 @@ export default function TripsPage() {
             hasActiveFilters
               ? undefined
               : () => {
-                  void router.push("/viagens/nova");
-                }
+                void router.push("/viagens/nova");
+              }
           }
         />
       ) : null}
