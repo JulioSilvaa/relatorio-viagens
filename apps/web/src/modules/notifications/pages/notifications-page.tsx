@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { ArrowRight, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { formatDateTime } from "@/lib/format";
 import { getErrorMessage } from "@/lib/api";
 import {
@@ -38,18 +39,30 @@ function groupByDay(items: AppNotification[]) {
   }
 
   if (todayItems.length > 0) groups.push({ label: "Hoje", items: todayItems });
-  if (yesterdayItems.length > 0)
+  if (yesterdayItems.length > 0) {
     groups.push({ label: "Ontem", items: yesterdayItems });
-  if (olderItems.length > 0)
+  }
+  if (olderItems.length > 0) {
     groups.push({ label: "Anteriores", items: olderItems });
+  }
   return groups;
 }
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const { data, isLoading, isError, error, refetch } = useNotifications();
   const markRead = useMarkNotificationRead();
   const remove = useDeleteNotification();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  function openNotification(notification: AppNotification) {
+    if (notification.readAt === null) {
+      markRead.mutate(notification.id);
+    }
+    if (notification.tripId) {
+      router.push(`/viagens/${notification.tripId}`);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -93,14 +106,22 @@ export default function NotificationsPage() {
             {group.items.map((notification) => (
               <li key={notification.id}>
                 <div
-                  className={`rounded-xl border bg-card p-4 shadow-sm transition-colors ${
-                    notification.readAt
+                  className={`rounded-xl border bg-card p-4 shadow-sm transition-colors ${notification.readAt
                       ? "border-border"
                       : "border-info/30 bg-info/5"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <button
+                      type="button"
+                      className={`min-w-0 flex-1 text-left ${notification.tripId
+                          ? "cursor-pointer rounded-lg outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50"
+                          : "cursor-default"
+                        }`}
+                      onClick={() => openNotification(notification)}
+                      disabled={!notification.tripId}
+                      title={notification.tripId ? "Abrir viagem" : undefined}
+                    >
                       <p className="text-sm text-foreground">
                         {notification.message}
                       </p>
@@ -112,10 +133,16 @@ export default function NotificationsPage() {
                           {notification.detail}
                         </p>
                       ) : null}
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {formatDateTime(notification.createdAt)}
-                      </p>
-                    </div>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{formatDateTime(notification.createdAt)}</span>
+                        {notification.tripId ? (
+                          <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                            Abrir viagem
+                            <ArrowRight className="size-3" aria-hidden="true" />
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
                     <div className="flex shrink-0 items-center gap-1">
                       {!notification.readAt ? (
                         <Button
@@ -123,9 +150,7 @@ export default function NotificationsPage() {
                           size="sm"
                           className="cursor-pointer"
                           disabled={markRead.isPending}
-                          onClick={() => {
-                            markRead.mutate(notification.id);
-                          }}
+                          onClick={() => markRead.mutate(notification.id)}
                         >
                           Marcar como lida
                         </Button>

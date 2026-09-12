@@ -28,6 +28,7 @@ import {
 export interface ReceiptOcrDialogProps {
   receipt: TripReceiptView | null;
   open: boolean;
+  readOnly?: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: (record: ReceiptOcrRecord) => void;
 }
@@ -74,6 +75,7 @@ function initialOcr(receipt: TripReceiptView): TripReceiptOcrView {
 export function ReceiptOcrDialog({
   receipt,
   open,
+  readOnly = false,
   onOpenChange,
   onSaved,
 }: ReceiptOcrDialogProps) {
@@ -143,6 +145,7 @@ export function ReceiptOcrDialog({
       applyRecord(ocr);
       toast.success("Dados do comprovante salvos.");
       onSaved(ocr);
+      onOpenChange(false);
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -157,7 +160,9 @@ export function ReceiptOcrDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-xl overflow-x-hidden overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Dados do comprovante</DialogTitle>
+          <DialogTitle>
+            Dados do comprovante{readOnly ? " · somente leitura" : ""}
+          </DialogTitle>
           <DialogDescription>
             <span className="inline-flex items-center gap-2">
               <a
@@ -186,6 +191,7 @@ export function ReceiptOcrDialog({
               value={nomeEstabelecimento}
               onChange={(event) => setNomeEstabelecimento(event.target.value)}
               placeholder="Nome do estabelecimento"
+              disabled={readOnly}
             />
           </div>
           <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
@@ -196,6 +202,7 @@ export function ReceiptOcrDialog({
                 value={cnpj}
                 onChange={(event) => setCnpj(event.target.value)}
                 placeholder="00.000.000/0000-00"
+                disabled={readOnly}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -207,6 +214,7 @@ export function ReceiptOcrDialog({
                 value={valorTotal}
                 onChange={(event) => setValorTotal(event.target.value)}
                 placeholder="0,00"
+                disabled={readOnly}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -216,6 +224,7 @@ export function ReceiptOcrDialog({
                 type="date"
                 value={data}
                 onChange={(event) => setData(event.target.value)}
+                disabled={readOnly}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -225,6 +234,7 @@ export function ReceiptOcrDialog({
                 type="time"
                 value={hora}
                 onChange={(event) => setHora(event.target.value)}
+                disabled={readOnly}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -234,6 +244,7 @@ export function ReceiptOcrDialog({
                 value={numeroDocumento}
                 onChange={(event) => setNumeroDocumento(event.target.value)}
                 placeholder="Ex.: 004928"
+                disabled={readOnly}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -243,6 +254,7 @@ export function ReceiptOcrDialog({
                 value={chaveAcesso}
                 onChange={(event) => setChaveAcesso(event.target.value)}
                 placeholder="44 dígitos"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -263,7 +275,7 @@ export function ReceiptOcrDialog({
             type="button"
             variant="outline"
             onClick={() => void handleExtract()}
-            disabled={processing || savingOcr}
+            disabled={readOnly || processing || savingOcr}
           >
             <RefreshCw aria-hidden="true" />
             {processing ? "Processando..." : "Processar OCR"}
@@ -271,7 +283,7 @@ export function ReceiptOcrDialog({
           <Button
             type="button"
             onClick={() => void handleSave()}
-            disabled={savingOcr || processing}
+            disabled={readOnly || savingOcr || processing}
           >
             <Save aria-hidden="true" />
             {savingOcr ? "Salvando..." : "Salvar dados"}

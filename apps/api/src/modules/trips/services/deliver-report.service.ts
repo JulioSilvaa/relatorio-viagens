@@ -16,9 +16,9 @@ export class DeliverReportService {
     private readonly users: UsersRepository,
     private readonly audit: AuditService,
     private readonly notifier: NotificationPublisher,
-  ) {}
+  ) { }
 
-  async execute(tripId: string, actorId: string): Promise<void> {
+  async execute(tripId: string, actorId: string, mensagem?: string): Promise<void> {
     const trip = await this.trips.findDetailById(tripId);
     if (!trip || trip.deletadoEm) {
       throw new TripNotFoundError();
@@ -63,6 +63,7 @@ export class DeliverReportService {
       await this.notifier.notifyMany({
         event: wasCorrection ? 'RELATORIO_REENVIADO' : 'RELATORIO_ENTREGUE',
         message: `Relatório ${wasCorrection ? 'reenviado' : 'entregue'}: ${trip.cliente} (${trip.cidade}-${trip.uf}).`,
+        detail: mensagem || undefined,
         tripId,
         userIds: managers.map((manager: UserIdRef) => manager.id),
       });

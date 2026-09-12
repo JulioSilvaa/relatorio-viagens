@@ -64,10 +64,15 @@ export const addParticipantSchema = z.object({
   userId: z.string().uuid('Colaborador inválido'),
 });
 
+export const deliverTripSchema = z.object({
+  mensagem: z.string().trim().max(500, 'A mensagem deve ter no máximo 500 caracteres.').optional(),
+});
+
 export type CreateTripDto = z.infer<typeof createTripSchema>;
 export type UpdateTripDto = z.infer<typeof updateTripSchema>;
 export type CancelTripDto = z.infer<typeof cancelTripSchema>;
 export type AddParticipantDto = z.infer<typeof addParticipantSchema>;
+export type DeliverTripDto = z.infer<typeof deliverTripSchema>;
 export type VehicleTypeValue = z.infer<typeof vehicleTypeSchema>;
 export type UfValue = z.infer<typeof ufSchema>;
 export type DepartmentValue = z.infer<typeof departmentSchema>;

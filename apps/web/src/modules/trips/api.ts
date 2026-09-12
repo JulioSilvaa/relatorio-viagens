@@ -50,9 +50,10 @@ export async function createTrip(input: CreateTripInput): Promise<TripView> {
   return data.trip;
 }
 
-export async function deliverTrip(tripId: string): Promise<void> {
+export async function deliverTrip(tripId: string, mensagem?: string): Promise<void> {
   await apiFetch<void>(`/api/trips/${tripId}/entregar`, {
     method: "POST",
+    body: JSON.stringify({ mensagem: mensagem?.trim() || undefined }),
   });
 }
 

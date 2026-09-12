@@ -16,6 +16,7 @@ import type { RemoveParticipantService } from '../services/remove-participant.se
 import type { SearchTripsService } from '../services/search-trips.service.js';
 import {
   addParticipantSchema,
+  deliverTripSchema,
   cancelTripSchema,
   createTripSchema,
   updateTripSchema,
@@ -171,7 +172,8 @@ export function createTripsRouter({
     requirePermission('VIAGEM.ENTREGAR'),
     verifyCsrf,
     asyncHandler(async (req, res) => {
-      await deliverReportService.execute(req.params.tripId!, req.auth!.userId);
+      const dto = deliverTripSchema.parse(req.body ?? {});
+      await deliverReportService.execute(req.params.tripId!, req.auth!.userId, dto.mensagem);
       res.status(204).send();
     }),
   );

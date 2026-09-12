@@ -44,7 +44,7 @@ export function useCreateTrip() {
 export function useDeliverTrip(tripId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => deliverTrip(tripId),
+    mutationFn: (mensagem?: string) => deliverTrip(tripId, mensagem),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: tripsKeys.detail(tripId) });
     },

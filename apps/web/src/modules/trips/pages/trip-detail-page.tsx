@@ -77,6 +77,7 @@ export default function TripDetailPage() {
   const { user } = useSession();
   const [isExpenseFormOpen, setIsExpenseFormOpen] = useState(false);
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
+  const [deliverMessage, setDeliverMessage] = useState("");
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [approveTaxa, setApproveTaxa] = useState("");
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
@@ -168,9 +169,10 @@ export default function TripDetailPage() {
 
   async function handleDeliver() {
     try {
-      await deliverTrip.mutateAsync();
+      await deliverTrip.mutateAsync(deliverMessage);
       toast.success("Relatório entregue para aprovação.");
       setIsDeliverDialogOpen(false);
+      setDeliverMessage("");
     } catch (deliverError) {
       toast.error(
         deliverError instanceof Error
@@ -783,13 +785,20 @@ export default function TripDetailPage() {
         key={ocrReceipt?.id ?? "none"}
         receipt={ocrReceipt}
         open={ocrReceipt !== null}
+        readOnly={!canEdit && !canApprove}
         onOpenChange={(open) => {
           if (!open) setOcrReceipt(null);
         }}
         onSaved={() => void refetch()}
       />
 
-      <Dialog open={isDeliverDialogOpen} onOpenChange={setIsDeliverDialogOpen}>
+      <Dialog
+        open={isDeliverDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeliverDialogOpen(open);
+          if (!open) setDeliverMessage("");
+        }}
+      >
         <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>Entregar relatório?</DialogTitle>
@@ -798,6 +807,21 @@ export default function TripDetailPage() {
               poderão ser alteradas.
             </DialogDescription>
           </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="mensagem-entrega">
+              Mensagem para a aprovação <span className="font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <textarea
+              id="mensagem-entrega"
+              value={deliverMessage}
+              onChange={(event) => setDeliverMessage(event.target.value.slice(0, 500))}
+              rows={4}
+              maxLength={500}
+              placeholder="Ex.: Despesa de estacionamento paga em dinheiro; comprovante conferido."
+              className="w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+            <p className="text-right text-xs text-muted-foreground">{deliverMessage.length}/500</p>
+          </div>
           <DialogFooter showCloseButton={false}>
             <Button
               type="button"
