@@ -150,6 +150,12 @@ function renderTable(doc: Doc, columns: Column[], rows: string[][], total?: stri
 
 function tripInfo(doc: Doc, data: ReportData): void {
   const trip = data.trip;
+  const kmPercorridos = trip.kmInicial !== null && trip.kmFinal !== null
+    ? Number(trip.kmFinal) - Number(trip.kmInicial)
+    : null;
+  const valorReembolsoKm = kmPercorridos !== null && Number.isFinite(kmPercorridos) && trip.taxaKm
+    ? (kmPercorridos * Number(trip.taxaKm)).toFixed(2)
+    : null;
   sectionTitle(doc, 'Visão geral da viagem', 'CONTEXTO E RESPONSABILIDADE');
   summaryBand(doc, data);
   fieldGrid(doc, [
@@ -157,8 +163,9 @@ function tripInfo(doc: Doc, data: ReportData): void {
     { label: 'Destino', value: `${trip.cidade}/${trip.uf}` }, { label: 'Período', value: `${dateBR(trip.dataSaida)} a ${dateBR(trip.dataRetorno)}` },
     { label: 'Departamento', value: trip.departamento }, { label: 'Centro de custo', value: trip.centroDeCusto ?? '-' },
     { label: 'Motivo', value: trip.motivo }, { label: 'Veículo', value: trip.tipoVeiculo ? `${trip.tipoVeiculo}${trip.veiculo ? ` · ${trip.veiculo}` : ''}` : (trip.veiculo ?? '-') },
-    { label: 'Placa', value: trip.placa ?? '-' }, { label: 'Quilometragem', value: trip.kmInicial && trip.kmFinal ? `${trip.kmInicial} km a ${trip.kmFinal} km` : '-' },
-    { label: 'Taxa por km', value: trip.taxaKm ? brl(trip.taxaKm) : '-' },
+    { label: 'Placa', value: trip.placa ?? '-' }, { label: 'Quilometragem', value: trip.kmInicial !== null && trip.kmFinal !== null ? `${trip.kmInicial} km a ${trip.kmFinal} km (${kmPercorridos} km rodados)` : '-' },
+    { label: 'Taxa de reembolso por km', value: trip.taxaKm ? brl(trip.taxaKm) : '-' },
+    { label: 'Valor do reembolso por km', value: valorReembolsoKm ? brl(valorReembolsoKm) : '-' },
   ]);
   if (trip.observacoes) fieldGrid(doc, [{ label: 'Observações', value: trip.observacoes }], 1);
 }

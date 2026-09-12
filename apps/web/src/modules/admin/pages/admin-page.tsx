@@ -3,12 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, Pencil, Power, Settings2, UserPlus, Users } from "lucide-react";
+import { Copy, CreditCard, Pencil, Power, Settings2, UserPlus, Users } from "lucide-react";
 import { useSession } from "@/modules/auth/session-context";
 import { useUsers } from "@/modules/trips/hooks";
-import { parseMoneyInput } from "@/lib/format";
+import { formatMoney, parseMoneyInput } from "@/lib/format";
 import {
   useRegisterUser,
+  useCreditCards,
   useSaveSettings,
   useSettings,
   useUpdateUser,
@@ -71,6 +72,7 @@ export default function AdminPage() {
   const { user } = useSession();
   const isAdmin = user?.roleCode === "MANAGER_ADMIN";
   const usersQuery = useUsers(isAdmin, true);
+  const cardsQuery = useCreditCards(isAdmin);
   const settingsQuery = useSettings();
   const saveSettings = useSaveSettings();
   const registerUser = useRegisterUser();
@@ -238,131 +240,177 @@ export default function AdminPage() {
     typeof window === "undefined" || !inviteToken
       ? ""
       : new URL(
-          `/aceitar-convite?token=${encodeURIComponent(inviteToken)}`,
-          window.location.origin,
-        ).toString();
+        `/aceitar-convite?token=${encodeURIComponent(inviteToken)}`,
+        window.location.origin,
+      ).toString();
+
+  const activeUsers = usersQuery.data?.filter((member) => member.status === "ATIVO").length;
+  const activeCards = cardsQuery.data?.filter((card) => card.active).length;
+  const currentRate = settingsQuery.data?.kmReimbursementRate;
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold tracking-tight">Administração</h1>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-7 pb-8">
+      <header className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl">
+          <h1 className="text-3xl font-semibold tracking-tight">Administração</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Pessoas, cartões corporativos e regras de reembolso em um só lugar.
+          </p>
+        </div>
+        <Button type="button" onClick={openRegisterDialog} className="self-start sm:self-auto">
+          <UserPlus aria-hidden="true" />
+          Novo funcionário
+        </Button>
+      </header>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="size-4 text-muted-foreground" aria-hidden="true" />
-            Funcionários
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {usersQuery.isLoading ? (
-            <Skeleton className="h-16 w-full rounded-xl" />
-          ) : null}
-          {usersQuery.isError ? (
-            <ErrorState
-              message={getErrorMessage(usersQuery.error)}
-              onRetry={() => void usersQuery.refetch()}
-            />
-          ) : null}
-          {usersQuery.isSuccess ? (
-            <div className="flex flex-col divide-y divide-border divide-y-reverse">
-              {(usersQuery.data ?? []).map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between gap-2 py-2"
-                >
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium">
-                        {member.name}
-                      </p>
-                      {member.status === "INATIVO" ? (
-                        <Badge variant="destructive">Inativo</Badge>
-                      ) : null}
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {member.email}
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
-                    {ROLE_LABELS[member.roleCode as keyof typeof ROLE_LABELS] ??
-                      member.roleCode}
-                  </span>
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      title="Editar funcionário"
-                      onClick={() => openEditDialog(member)}
-                    >
-                      <Pencil aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      title={member.status === "ATIVO" ? "Desativar funcionário" : "Reativar funcionário"}
-                      onClick={() => void handleToggleStatus(member)}
-                      disabled={updateUserStatus.isPending}
-                    >
-                      <Power aria-hidden="true" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={openRegisterDialog}
-            className="mt-1 self-start"
-          >
-            <UserPlus aria-hidden="true" />
-            Cadastrar funcionário
-          </Button>
-        </CardContent>
-      </Card>
-
-      <CreditCardSection />
-
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings2
-              className="size-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            Parâmetros
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="taxaReembolsoKm">
-              Taxa de reembolso por km (R$)
-            </Label>
-            <MoneyInput
-              id="taxaReembolsoKm"
-              value={taxaDraft ?? settingsQuery.data?.kmReimbursementRate ?? ""}
-              onValueChange={setTaxaDraft}
-            />
-            <p className="text-xs text-muted-foreground">
-              Padrão aplicado às novas viagens com veículo próprio. Alterações
-              não afetam viagens já criadas, que mantêm a taxa congelada.
-            </p>
+      <div className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <div className="flex items-center justify-between gap-4 px-5 py-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Acessos ativos</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{activeUsers ?? "—"}</p>
           </div>
-          <Button
-            type="button"
-            onClick={() => void handleSaveSettings()}
-            disabled={settingsSaving || saveSettings.isPending}
-            className="self-start"
-          >
-            {settingsSaving || saveSettings.isPending
-              ? "Salvando..."
-              : "Salvar"}
-          </Button>
-        </CardContent>
-      </Card>
+          <Users className="size-5 text-info" aria-hidden="true" />
+        </div>
+        <div className="flex items-center justify-between gap-4 px-5 py-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Cartões ativos</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{activeCards ?? "—"}</p>
+          </div>
+          <CreditCard className="size-5 text-success" aria-hidden="true" />
+        </div>
+        <div className="flex items-center justify-between gap-4 px-5 py-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Taxa por km</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{currentRate ? formatMoney(currentRate) : "—"}</p>
+          </div>
+          <Settings2 className="size-5 text-warning" aria-hidden="true" />
+        </div>
+      </div>
+
+      <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <section aria-labelledby="funcionarios-heading" className="min-w-0">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <h2 id="funcionarios-heading" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                <Users className="size-4 text-info" aria-hidden="true" />
+                Funcionários
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Gerencie perfis, acesso e convites da equipe.
+              </p>
+            </div>
+            {usersQuery.data ? <Badge variant="outline">{usersQuery.data.length} cadastrados</Badge> : null}
+          </div>
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            {usersQuery.isLoading ? (
+              <div className="p-5"><Skeleton className="h-16 w-full rounded-xl" /></div>
+            ) : null}
+            {usersQuery.isError ? (
+              <div className="p-5"><ErrorState
+                message={getErrorMessage(usersQuery.error)}
+                onRetry={() => void usersQuery.refetch()}
+              /></div>
+            ) : null}
+            {usersQuery.isSuccess ? (
+              <div className="flex flex-col divide-y divide-border">
+                {(usersQuery.data ?? []).map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
+                        {member.name.slice(0, 1).toUpperCase()}
+                      </span>
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-medium">
+                            {member.name}
+                          </p>
+                          {member.status === "INATIVO" ? (
+                            <Badge variant="destructive">Inativo</Badge>
+                          ) : null}
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {member.email}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      <span className="shrink-0 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
+                        {ROLE_LABELS[member.roleCode as keyof typeof ROLE_LABELS] ?? member.roleCode}
+                      </span>
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          title="Editar funcionário"
+                          onClick={() => openEditDialog(member)}
+                        >
+                          <Pencil aria-hidden="true" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          title={member.status === "ATIVO" ? "Desativar funcionário" : "Reativar funcionário"}
+                          onClick={() => void handleToggleStatus(member)}
+                          disabled={updateUserStatus.isPending}
+                        >
+                          <Power aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        <aside className="flex flex-col gap-7">
+          <CreditCardSection />
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings2
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                Parâmetros
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="taxaReembolsoKm">
+                  Taxa de reembolso por km (R$)
+                </Label>
+                <MoneyInput
+                  id="taxaReembolsoKm"
+                  value={taxaDraft ?? settingsQuery.data?.kmReimbursementRate ?? ""}
+                  onValueChange={setTaxaDraft}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Padrão aplicado às novas viagens com veículo próprio. Alterações
+                  não afetam viagens já criadas, que mantêm a taxa congelada.
+                </p>
+              </div>
+              <Button
+                type="button"
+                onClick={() => void handleSaveSettings()}
+                disabled={settingsSaving || saveSettings.isPending}
+                className="self-start"
+              >
+                {settingsSaving || saveSettings.isPending
+                  ? "Salvando..."
+                  : "Salvar"}
+              </Button>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
 
       <Dialog open={isRegisterOpen} onOpenChange={setIsRegisterOpen}>
         <DialogContent showCloseButton={false}>
