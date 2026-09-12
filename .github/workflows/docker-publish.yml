@@ -1,0 +1,57 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - name: api
+            file: apps/api/Dockerfile
+            image: relatorio-viagens-api
+
+          - name: web
+            file: apps/web/Dockerfile
+            image: relatorio-viagens-web
+
+          - name: ocr
+            file: apps/ocr/Dockerfile
+            image: relatorio-viagens-ocr
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: linux/arm64
+          push: true
+          tags: ghcr.io/juliosilvaa/${{ matrix.image }}:latest
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
