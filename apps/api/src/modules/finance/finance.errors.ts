@@ -36,6 +36,12 @@ export class AdvanceAlreadyRequestedError extends AppError {
   }
 }
 
+export class AdvanceCorrectionForbiddenError extends AppError {
+  constructor() {
+    super(403, 'ADVANCE_CORRECTION_FORBIDDEN', 'Somente o solicitante pode pedir a correção deste adiantamento.');
+  }
+}
+
 export class AdvanceInvalidStatusError extends AppError {
   constructor() {
     super(409, 'ADVANCE_INVALID_STATUS', 'Situação do adiantamento não permite esta operação.');

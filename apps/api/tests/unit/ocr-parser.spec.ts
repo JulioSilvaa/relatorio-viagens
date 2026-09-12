@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasRecognizedContent, parseOcrText } from '../../src/modules/ocr/ocr-parser.js';
+import { hasRecognizedContent, hasSufficientOcrText, parseOcrText } from '../../src/modules/ocr/ocr-parser.js';
 
 const CUPOM_FISCAL = `BOM APETITE LANCHES LTDA
 CNPJ: 12.345.678/0001-90
@@ -74,24 +74,24 @@ describe('ocr-parser', () => {
     expect(fields.nomeEstabelecimento).toBe('BOM APETITE LANCHES LTDA');
   });
 
-  it('extrai chave de acesso de NFC-e de 44 dígitos', () => {
-    const fields = parseOcrText(NOTA_NFC_E);
+  it('só extrai chave de acesso com 44 dígitos consecutivos', () => {
+    const fields = parseOcrText(`${NOTA_NFC_E}\n53201133041260112043550000001992811121613240`);
     expect(fields.chaveAcesso).toHaveLength(44);
     expect(fields.valorTotal).toBe('123.45');
   });
 
-  it('compacta chave SEFAZ separada por espaços e pontos', () => {
+  it('rejeita chave SEFAZ separada por espaços e pontos', () => {
     const fields = parseOcrText(
       'CHAVE 1234 5678 9012 3456 7890 1234 5678 9012 3456 7890 1234',
     );
-    expect(fields.chaveAcesso).toHaveLength(44);
+    expect(fields.chaveAcesso).toBeUndefined();
   });
 
-  it('captura chave SEFAZ quebrada em linhas após o rótulo', () => {
+  it('rejeita chave SEFAZ quebrada em linhas após o rótulo', () => {
     const fields = parseOcrText(`CHAVE DE ACESSO
 5320 1133 0412 6011
 2043 5500 0000 1992 8111 2161 3240`);
-    expect(fields.chaveAcesso).toBe('53201133041260112043550000001992811121613240');
+    expect(fields.chaveAcesso).toBeUndefined();
   });
 
   it('extrai total sem o prefixo R$ em cupom fotografado', () => {
@@ -166,5 +166,25 @@ describe('ocr-parser', () => {
 
   it('não considera uma data isolada como OCR útil', () => {
     expect(hasRecognizedContent(parseOcrText('04/11/2021'))).toBe(false);
+  });
+
+  it('extrai itens e sinaliza divergência acima de 5%', () => {
+    const fields = parseOcrText(`MERCADO TESTE
+01 ARROZ 10,00
+02 FEIJAO 5,00
+TOTAL 30,00`);
+    expect(fields.itens).toHaveLength(2);
+    expect(fields.itens?.[0]?.valorTotal).toBe(10);
+    expect(fields.alertaReconciliacao).toBe(true);
+    expect(fields.confiancaExtracao).toBe('baixa');
+  });
+
+  it('marca horário impossível como ausente', () => {
+    expect(parseOcrText('CUPOM FISCAL\n11/09/2026 31:48\nTOTAL 10,00').hora).toBeUndefined();
+  });
+
+  it('identifica OCR insuficiente por quantidade de caracteres úteis', () => {
+    expect(hasSufficientOcrText('--- 123 ---')).toBe(false);
+    expect(hasSufficientOcrText('CUPOM FISCAL MERCADO TOTAL 10,00')).toBe(true);
   });
 });

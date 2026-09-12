@@ -126,7 +126,7 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
         status: 'FALHA',
         origem: 'MANUAL',
       });
-      expect(extract.body.data.erro).toContain('Falha na leitura do comprovante');
+      expect(extract.body.data.erro).toBe('ocr_insuficiente');
 
       const save = await ana.agent
         .put(`/api/ocr/receipts/${receiptId}/dados`)
@@ -243,7 +243,7 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
   describe('CA-FIN - fluxo financeiro de reembolso', () => {
     it('recebe, registra adiantamento, paga valor aprovado e registra devolução', async () => {
       await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
-      await createUser({
+      const gestorUser = await createUser({
         email: 'gestor@empresa.com',
         password: 'gest-pw-123',
         role: 'MANAGER_ADMIN',
@@ -277,14 +277,45 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
         status: 'SOLICITADO',
         valorSolicitado: '100.00',
       });
+      const advanceRequestAlert = await prisma.notification.findFirst({
+        where: {
+          userId: gestorUser.id,
+          tripId: trip.id,
+          event: 'ADIANTAMENTO_SOLICITADO',
+        },
+      });
+      expect(advanceRequestAlert).toBeTruthy();
       const advanceId = solicitado.body.data.advance.id as string;
 
-      const duplicated = await ana.agent
+      const corrigido = await ana.agent
         .post(`/api/finance/trips/${trip.id}/adiantamento`)
         .set('x-csrf-token', ana.csrf)
-        .send({ valorSolicitado: 200, justificativaSolicitacao: 'Tentativa de novo adiantamento' });
-      expect(duplicated.status).toBe(409);
-      expect(duplicated.body.error.code).toBe('ADVANCE_ALREADY_REQUESTED');
+        .send({
+          valorSolicitado: 125,
+          justificativaSolicitacao: 'Correção do valor solicitado',
+        });
+      expect(corrigido.status).toBe(201);
+      expect(corrigido.body.data.advance).toMatchObject({
+        id: advanceId,
+        status: 'SOLICITADO',
+        valorSolicitado: '125.00',
+      });
+      const correctionAlert = await prisma.notification.findFirst({
+        where: {
+          userId: gestorUser.id,
+          tripId: trip.id,
+          event: 'ADIANTAMENTO_SOLICITADO',
+          detail: { contains: 'Correção do valor solicitado' },
+        },
+      });
+      expect(correctionAlert).toBeTruthy();
+
+      const unauthorizedCorrection = await gestor.agent
+        .post(`/api/finance/trips/${trip.id}/adiantamento`)
+        .set('x-csrf-token', gestor.csrf)
+        .send({ valorSolicitado: 200, justificativaSolicitacao: 'Tentativa de correção indevida' });
+      expect(unauthorizedCorrection.status).toBe(403);
+      expect(unauthorizedCorrection.body.error.code).toBe('ADVANCE_CORRECTION_FORBIDDEN');
 
       const prematurePay = await financeiro.agent
         .post(`/api/finance/adiantamentos/${advanceId}/pagamento`)

@@ -15,7 +15,8 @@ export class GenerateManagerPdfService {
     if (!canViewAny) {
       throw new ReportForbiddenError();
     }
-    const content = await renderManagerPdf(data, { attachments: [] });
+    const attachments = await this.repository.listImageReceipts(tripId);
+    const content = await renderManagerPdf(data, { attachments });
     return {
       data,
       fileName: 'resumo-gerencial-viagem.pdf',

@@ -3,6 +3,8 @@ import type { KmRateService } from '../../settings/services/km-rate.service.js';
 import type { NotificationPublisher } from '../../notifications/notification-publisher.js';
 import type { UsersRepository } from '../../users/repositories/users.repository.js';
 import type { CostCentersRepository } from '../../cost-centers/repositories/cost-centers.repository.js';
+import type { CreditCardsRepository } from '../../credit-cards/repositories/credit-cards.repository.js';
+import { CreditCardInactiveError, CreditCardNotFoundError } from '../../credit-cards/credit-card.errors.js';
 import { CostCenterNotFoundError } from '../trip.errors.js';
 import { tripToView } from '../presenters/trip.presenter.js';
 import type { TripsRepository } from '../repositories/trips.repository.js';
@@ -23,7 +25,8 @@ export class CreateTripService {
     private readonly users: UsersRepository,
     private readonly notifier: NotificationPublisher,
     private readonly kmRate: KmRateService,
-  ) {}
+    private readonly creditCards: CreditCardsRepository,
+  ) { }
 
   async execute(dto: CreateTripDto, actor: CreateTripActor): Promise<TripView> {
     assertValidTripDates(dto.dataSaida, dto.dataRetorno);
@@ -36,6 +39,12 @@ export class CreateTripService {
       }
     }
 
+    if (dto.creditCardId) {
+      const card = await this.creditCards.findById(dto.creditCardId);
+      if (!card) throw new CreditCardNotFoundError();
+      if (!card.active || card.deletedAt) throw new CreditCardInactiveError();
+    }
+
     const rate = await this.kmRate.get();
     const taxaKm = computeTaxaKm(dto.tipoVeiculo, dto.kmInicial, dto.kmFinal, rate);
 
@@ -46,6 +55,7 @@ export class CreateTripService {
       criadoPorId: actor.id,
       criadoPorNome: actor.name,
       taxaKm,
+      creditCardId: dto.creditCardId ?? null,
     });
 
     await this.audit.record({

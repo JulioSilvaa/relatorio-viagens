@@ -28,7 +28,18 @@ const saveOcrSchema = z.object({
   valorTotal: z.coerce.number().nonnegative().optional(),
   numeroDocumento: z.string().trim().max(80).optional(),
   chaveAcesso: z.string().trim().max(80).optional(),
-  itens: z.array(z.record(z.any())).optional(),
+  itens: z.array(z.union([
+    z.object({
+      codigo: z.string().trim().nullable().optional(),
+      descricao: z.string().trim().min(1),
+      quantidade: z.coerce.number().positive(),
+      unidade: z.string().trim().nullable().optional(),
+      valorUnitario: z.coerce.number().nonnegative(),
+      valorTotal: z.coerce.number().nonnegative(),
+    }),
+    z.object({ produto: z.string().trim().min(1) }).passthrough(),
+  ])).optional(),
+  dadosOriginais: z.record(z.any()).optional(),
 });
 
 function canManageFiscal(req: { auth?: { user: { permissions: string[] } } }): boolean {
@@ -45,6 +56,7 @@ function normalize(dfields: z.infer<typeof saveOcrSchema>) {
     numeroDocumento: dfields.numeroDocumento,
     chaveAcesso: dfields.chaveAcesso,
     itens: dfields.itens,
+    dadosOriginais: dfields.dadosOriginais,
   };
 }
 

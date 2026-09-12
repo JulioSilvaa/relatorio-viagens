@@ -7,6 +7,7 @@ import type {
   RegisterPaymentInput,
   RegisterRefundInput,
   RequestAdvanceInput,
+  UpdateAdvanceRequestInput,
   TripAdvanceRecord,
   TripFinanceData,
   TripPaymentRecord,
@@ -94,6 +95,18 @@ export class PrismaFinanceRepository implements FinanceRepository {
         justificativaSolicitacao: input.justificativaSolicitacao,
         solicitadoPorId: input.solicitadoPorId,
         status: 'SOLICITADO',
+      },
+      include: ADVANCE_INCLUDE,
+    });
+    return toAdvanceRecord(row);
+  }
+
+  async updateAdvanceRequest(input: UpdateAdvanceRequestInput): Promise<TripAdvanceRecord> {
+    const row = await prisma.tripAdvance.update({
+      where: { id: input.advanceId },
+      data: {
+        valorSolicitado: input.valorSolicitado,
+        justificativaSolicitacao: input.justificativaSolicitacao,
       },
       include: ADVANCE_INCLUDE,
     });

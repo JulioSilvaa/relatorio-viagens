@@ -15,7 +15,7 @@ const envSchema = z.object({
   PASSWORD_RESET_EXPIRES_HOURS: z.coerce.number().int().positive().default(1),
   EMAIL_PROVIDER: z.enum(['dev']).default('dev'),
   CARD_ENCRYPTION_KEY: z.string().min(16).optional(),
-  OCR_PROVIDER: z.enum(['paddleocr', 'neutro']).default('paddleocr'),
+  OCR_PROVIDER: z.enum(['paddleocr', 'gemini', 'neutro']).default('paddleocr'),
   OCR_AUTO_ON_UPLOAD: z
     .enum(['true', 'false'])
     .default('true')
@@ -24,6 +24,9 @@ const envSchema = z.object({
     .string()
     .default('http://ocr:8000'),
   OCR_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
+  GEMINI_API_KEY: z.string().min(1).optional(),
+  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
+  GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
 });
 
 const parsed = envSchema.safeParse(process.env);

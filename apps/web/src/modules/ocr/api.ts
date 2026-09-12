@@ -28,6 +28,8 @@ export interface SaveReceiptOcrInput {
   valorTotal?: number;
   numeroDocumento?: string;
   chaveAcesso?: string;
+  itens?: unknown[];
+  dadosOriginais?: Record<string, unknown>;
 }
 
 export function fetchReceiptOcr(receiptId: string): Promise<ReceiptOcrRecord> {

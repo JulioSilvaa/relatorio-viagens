@@ -9,6 +9,7 @@ import {
   getTrip,
   listTrips,
   listUsers,
+  listAvailableCreditCards,
   removeParticipant,
   returnTrip,
   type CreateTripInput,
@@ -30,7 +31,6 @@ export function useTrip(tripId: string) {
     enabled: Boolean(tripId),
   });
 }
-
 export function useCreateTrip() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -107,5 +107,13 @@ export function useRemoveParticipant(tripId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: tripsKeys.detail(tripId) });
     },
+  });
+}
+
+export function useAvailableCreditCards(enabled: boolean) {
+  return useQuery({
+    queryKey: ['available-credit-cards'],
+    queryFn: listAvailableCreditCards,
+    enabled,
   });
 }

@@ -69,6 +69,7 @@ export interface TripParticipantRecord {
   userId: string;
   name: string;
   addedAt: Date;
+  cartaoId: string | null;
   cartaoLast4: string | null;
   cartaoBandeira: string | null;
 }
@@ -103,6 +104,7 @@ export interface ReceiptOcrDetail {
 
 export interface ReceiptDetailRecord {
   id: string;
+  fileHash: string;
   tipo: string;
   fileName: string;
   fileType: string;
@@ -135,6 +137,7 @@ export interface CreateTripInput extends CreateTripData {
   criadoPorId: string;
   criadoPorNome: string;
   taxaKm: string | null;
+  creditCardId: string | null;
 }
 
 export interface TripsRepository {

@@ -14,6 +14,7 @@ import type { GetTripService } from '../services/get-trip.service.js';
 import type { ListTripsService } from '../services/list-trips.service.js';
 import type { RemoveParticipantService } from '../services/remove-participant.service.js';
 import type { SearchTripsService } from '../services/search-trips.service.js';
+
 import {
   addParticipantSchema,
   deliverTripSchema,

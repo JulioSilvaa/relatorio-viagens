@@ -43,6 +43,7 @@ export function participantToView(participant: TripParticipantRecord): TripParti
     userId: participant.userId,
     name: participant.name,
     addedAt: participant.addedAt,
+    cartaoId: participant.cartaoId,
     cartaoLast4: participant.cartaoLast4,
     cartaoBandeira: participant.cartaoBandeira,
   };

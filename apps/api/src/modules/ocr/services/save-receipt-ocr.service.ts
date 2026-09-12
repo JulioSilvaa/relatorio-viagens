@@ -2,6 +2,7 @@ import type { AuditService } from '../../../modules/audit/audit.service.js';
 import type { ReceiptsRepository } from '../../receipts/receipt.types.js';
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
 import { authorizeReceiptAccess } from '../ocr-authz.js';
+import { normalizeAccessKey } from '../ocr-parser.js';
 import type {
   OcrExtractionFields,
   ReceiptOcrRecord,
@@ -15,7 +16,7 @@ export class SaveReceiptOcrService {
     private readonly trips: TripsRepository,
     private readonly ocr: ReceiptOcrRepository,
     private readonly audit: AuditService,
-  ) {}
+  ) { }
 
   async execute(
     receiptId: string,
@@ -33,8 +34,9 @@ export class SaveReceiptOcrService {
       hora: input.hora ?? null,
       valorTotal: input.valorTotal ?? null,
       numeroDocumento: input.numeroDocumento ?? null,
-      chaveAcesso: input.chaveAcesso ?? null,
+      chaveAcesso: normalizeAccessKey(input.chaveAcesso) ?? null,
       itens: input.itens ?? null,
+      dadosOriginais: input.dadosOriginais,
     };
 
     const normalized = (value: string | null | undefined): string | undefined =>

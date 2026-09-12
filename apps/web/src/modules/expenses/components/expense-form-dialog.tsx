@@ -56,6 +56,30 @@ function ReceiptPreview({ file }: { file: File }) {
   );
 }
 
+function structuredOcrItems(items: unknown[] | undefined): Array<{
+  descricao: string;
+  quantidade: string;
+  valorTotal: string;
+}> {
+  return (items ?? []).flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const descricao = typeof record.descricao === "string"
+      ? record.descricao
+      : typeof record.produto === "string"
+        ? record.produto
+        : "";
+    if (!descricao) return [];
+    const quantidade = typeof record.quantidade === "number" || typeof record.quantidade === "string"
+      ? String(record.quantidade)
+      : "-";
+    const valorTotal = typeof record.valorTotal === "number" || typeof record.valorTotal === "string"
+      ? String(record.valorTotal).replace(".", ",")
+      : "-";
+    return [{ descricao, quantidade, valorTotal }];
+  });
+}
+
 interface ExpenseFormDialogProps {
   tripId: string;
   open: boolean;
@@ -87,24 +111,21 @@ export function ExpenseFormDialog({
   const [formStarted, setFormStarted] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
-  const [prevOpen, setPrevOpen] = useState(open);
-  if (open !== prevOpen) {
-    setPrevOpen(open);
-    if (open) {
-      setCategoryCode("");
-      setTipoComprovante("OUTRO");
-      setDataDespesa(new Date().toISOString().slice(0, 10));
-      setValor("");
-      setReembolsavel("true");
-      setJustificativa("");
-      setFiles([]);
-      setAnalyzing(false);
-      setAnalysisMessage(null);
-      setOcrData(null);
-      setFormStarted(false);
-      setErrors({});
-    }
-  }
+  useEffect(() => {
+    if (!open) return;
+    setCategoryCode("");
+    setTipoComprovante("OUTRO");
+    setDataDespesa(new Date().toISOString().slice(0, 10));
+    setValor("");
+    setReembolsavel("true");
+    setJustificativa("");
+    setFiles([]);
+    setAnalyzing(false);
+    setAnalysisMessage(null);
+    setOcrData(null);
+    setFormStarted(false);
+    setErrors({});
+  }, [open]);
 
   const isKmRodados = categoryCode === "KM_RODADOS";
 
@@ -123,6 +144,35 @@ export function ExpenseFormDialog({
     setErrors((current) => ({ ...current, [key]: undefined }));
   }
 
+  function normalizeOcrDate(value: string | undefined): string {
+    if (!value) return "";
+    const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+    const brazilian = value.match(/^(\d{2})[\/.](\d{2})[\/.](\d{4})/);
+    return brazilian ? `${brazilian[3]}-${brazilian[2]}-${brazilian[1]}` : "";
+  }
+
+  function inferCategoryCode(data: NonNullable<typeof ocrData>): string {
+    const source = [data.nomeEstabelecimento, data.textoOriginal]
+      .filter(Boolean)
+      .join(" ")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    const rules: Array<[string, RegExp]> = [
+      ["HOTEL", /hotel|pousada|hospedagem/],
+      ["COMBUSTIVEL", /posto|gasolina|etanol|diesel|combustivel/],
+      ["ESTACIONAMENTO", /estacionamento|parking/],
+      ["UBER_TAXI", /uber|taxi|\b99\s*(?:pop|taxi)\b/],
+      ["PASSAGENS_AEREAS", /companhia\s*aerea|passagem\s*aerea|aeroporto|latam|gol\s*linhas|azul\s*linhas/],
+      ["ALIMENTACAO", /restaurante|lanchonete|padaria|cafeteria|cafe|bar\b|refeicao/],
+      ["PEDAGIO", /pedagio/],
+      ["METRO", /metro|metrô/],
+      ["OUTROS", /farmacia|drogaria/],
+    ];
+    return rules.find(([, pattern]) => pattern.test(source))?.[0] ?? "";
+  }
+
   async function analyzeFile(firstFile: File) {
     setAnalyzing(true);
     setAnalysisMessage(null);
@@ -130,9 +180,12 @@ export function ExpenseFormDialog({
       const result = await preAnalyzeReceipt(firstFile);
       if (result.status === "SUCESSO" && result.data) {
         setOcrData(result.data);
-        setDataDespesa(
-          result.data.data?.slice(0, 10) ?? "",
-        );
+        const normalizedDate = normalizeOcrDate(result.data.data);
+        if (normalizedDate) setDataDespesa(normalizedDate);
+        const inferredCategory = inferCategoryCode(result.data);
+        if (inferredCategory && categories.some((category) => category.code === inferredCategory)) {
+          setCategoryCode(inferredCategory);
+        }
         if (result.data.valorTotal && Number.isFinite(Number(result.data.valorTotal))) {
           setValor((current) => current || result.data!.valorTotal!);
         }
@@ -152,7 +205,7 @@ export function ExpenseFormDialog({
             : "Leitura parcial: apenas alguns dados foram reconhecidos. Confira e preencha o restante.",
         );
       } else {
-        setOcrData(null);
+        setOcrData(result.data ?? null);
         setAnalysisMessage(result.erro ?? "Não foi possível ler a imagem. Preencha os dados manualmente.");
       }
     } catch {
@@ -229,11 +282,14 @@ export function ExpenseFormDialog({
         try {
           await saveReceiptOcr(receipt.id, {
             cnpj: ocrData.cnpj,
-            nomeEstabelecimento: justificativa.trim() || ocrData.nomeEstabelecimento,
+            nomeEstabelecimento: ocrData.nomeEstabelecimento || justificativa.trim(),
             data: dataDespesa || ocrData.data,
+            hora: ocrData.hora,
             valorTotal: parsedValor ?? (ocrData.valorTotal ? Number(ocrData.valorTotal) : undefined),
             numeroDocumento: ocrData.numeroDocumento,
             chaveAcesso: ocrData.chaveAcesso,
+            itens: ocrData.itens,
+            dadosOriginais: ocrData,
           });
         } catch {
           toast.warning("Despesa salva, mas não foi possível confirmar os dados da IA.");
@@ -325,6 +381,19 @@ export function ExpenseFormDialog({
                 {ocrData.tributos ? <p>Tributos: R$ {ocrData.tributos.replace('.', ',')}</p> : null}
                 {ocrData.formaPagamento ? <p>Pagamento: {ocrData.formaPagamento}</p> : null}
                 {ocrData.protocoloAutorizacao ? <p>Protocolo: {ocrData.protocoloAutorizacao}</p> : null}
+                {structuredOcrItems(ocrData.itens).length > 0 ? (
+                  <div className="mt-2 border-t border-primary/20 pt-2">
+                    <p className="font-medium">Itens reconhecidos</p>
+                    <ul className="flex flex-col gap-1 text-xs">
+                      {structuredOcrItems(ocrData.itens).map((item, index) => (
+                        <li key={`${item.descricao}-${index}`} className="flex justify-between gap-3">
+                          <span className="min-w-0 truncate">{item.quantidade} × {item.descricao}</span>
+                          <span className="shrink-0">R$ {item.valorTotal}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {analysisMessage ? (

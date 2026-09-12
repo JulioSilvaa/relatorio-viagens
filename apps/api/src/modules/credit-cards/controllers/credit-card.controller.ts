@@ -50,6 +50,16 @@ export function createCreditCardRouter({
     }),
   );
 
+  router.get(
+    '/disponiveis',
+    requireAuth,
+    requirePermission('VIAGEM.CARTAO.SELECIONAR'),
+    asyncHandler(async (_req, res) => {
+      const cards = await listCreditCardsService.executeActive();
+      res.json(success({ cards }));
+    }),
+  );
+
   router.post(
     '/',
     requireAuth,

@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
+  CreditCard,
   FileText,
   Paperclip,
   Pencil,
@@ -259,6 +260,7 @@ export default function TripDetailPage() {
       );
     }
   }
+
 
   async function handleDownloadReport(kind: ReportKind) {
     setReportDownloading(kind);
@@ -735,18 +737,23 @@ export default function TripDetailPage() {
                 trip.participants.map((participant) => (
                   <div
                     key={participant.userId}
-                    className="flex items-center justify-between border-b border-border py-2 text-sm last:border-0"
+                    className="flex flex-col gap-2 border-b border-border py-3 text-sm last:border-0 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <span className="text-foreground">{participant.name}</span>
-                    <span className="flex items-center gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-foreground">{participant.name}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Desde {formatDate(participant.addedAt)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                       {participant.cartaoLast4 ? (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <CreditCard className="size-3.5" aria-hidden="true" />
                           {participant.cartaoBandeira ?? "Cartão"} · •••• {participant.cartaoLast4}
                         </span>
+                      ) : canManageParticipants ? (
+                        <span className="text-xs text-muted-foreground">Sem cartão</span>
                       ) : null}
-                      <span className="text-xs text-muted-foreground">
-                        Desde {formatDate(participant.addedAt)}
-                      </span>
                       {canManageParticipants ? (
                         <Button
                           variant="ghost"
@@ -758,7 +765,7 @@ export default function TripDetailPage() {
                           <Trash2 aria-hidden="true" />
                         </Button>
                       ) : null}
-                    </span>
+                    </div>
                   </div>
                 ))
               )}
@@ -1086,6 +1093,7 @@ export default function TripDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

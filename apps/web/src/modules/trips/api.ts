@@ -19,6 +19,7 @@ export interface CreateTripInput {
   kmInicial?: number | null;
   kmFinal?: number | null;
   observacoes?: string | null;
+  creditCardId?: string | null;
 }
 
 export interface UserDirectoryEntry {
@@ -30,6 +31,14 @@ export interface UserDirectoryEntry {
   cargo: string;
   status: string;
   roleCode: string;
+}
+
+export interface TripCreditCardView {
+  id: string;
+  cardholderName: string;
+  last4: string;
+  brand: string | null;
+  active: boolean;
 }
 
 export async function listTrips(): Promise<TripView[]> {
@@ -74,6 +83,11 @@ export async function removeParticipant(
   await apiFetch<void>(`/api/trips/${tripId}/participants/${userId}`, {
     method: "DELETE",
   });
+}
+
+export async function listAvailableCreditCards(): Promise<TripCreditCardView[]> {
+  const data = await apiFetch<{ cards: TripCreditCardView[] }>('/api/credit-cards/disponiveis');
+  return data.cards;
 }
 
 export async function listUsers(includeInactive = false): Promise<UserDirectoryEntry[]> {

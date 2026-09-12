@@ -51,6 +51,7 @@ export interface ReportOcrSummary {
 
 export interface ReportOcrFieldSet {
   textoOriginal: string | null;
+  endereco: string | null;
   cnpj: string | null;
   nomeEstabelecimento: string | null;
   data: string | null;
@@ -67,11 +68,26 @@ export interface ReportOcrFieldSet {
   formaPagamento: string | null;
   protocoloAutorizacao: string | null;
   chaveAcesso: string | null;
+  subtotal: string | null;
+  itens: Array<{
+    codigo: string | null;
+    descricao: string;
+    quantidade: number | null;
+    unidade: string | null;
+    valorUnitario: number | null;
+    valorTotal: number | null;
+  }>;
+  confiancaExtracao: 'alta' | 'media' | 'baixa' | null;
+  alertaReconciliacao: boolean;
+  erro: string | null;
 }
 
 export interface ReportOcrReceipt {
+  receiptId: string;
+  fileHash: string;
   fileName: string;
   categoria: string;
+  structured: ReportOcrFieldSet;
   original: ReportOcrFieldSet | null;
   final: ReportOcrFieldSet;
 }
@@ -103,6 +119,8 @@ export interface ReportData {
 }
 
 export type PdfAttachment = {
+  receiptId: string;
+  fileHash: string;
   fileName: string;
   data: Uint8Array;
 };

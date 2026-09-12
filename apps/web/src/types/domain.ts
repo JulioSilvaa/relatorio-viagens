@@ -64,6 +64,7 @@ export interface TripParticipantView {
   userId: string;
   name: string;
   addedAt: string;
+  cartaoId: string | null;
   cartaoLast4: string | null;
   cartaoBandeira: string | null;
 }

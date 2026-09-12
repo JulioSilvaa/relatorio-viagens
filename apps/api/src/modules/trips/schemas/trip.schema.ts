@@ -53,7 +53,9 @@ export const tripBaseSchema = z.object({
   observacoes: z.string().trim().min(1).optional().nullable(),
 });
 
-export const createTripSchema = tripBaseSchema;
+export const createTripSchema = tripBaseSchema.extend({
+  creditCardId: z.string().uuid('Cartão inválido').nullable().optional(),
+});
 export const updateTripSchema = tripBaseSchema.partial();
 
 export const cancelTripSchema = z.object({

@@ -48,7 +48,7 @@ const DETAIL_INCLUDE = {
   participants: {
     include: {
       user: { select: { id: true, name: true } },
-      creditCard: { select: { last4: true, brand: true } },
+      creditCard: { select: { id: true, last4: true, brand: true } },
     },
     orderBy: { createdAt: 'asc' as const },
   },
@@ -127,6 +127,7 @@ function toExpenseDetail(expense: PrismaExpenseRow): ExpenseDetailRecord {
     criadoPor: { id: expense.createdBy.id, name: expense.createdBy.name },
     receipts: expense.receipts.map((receipt) => ({
       id: receipt.id,
+      fileHash: receipt.fileHash,
       tipo: receipt.tipo,
       fileName: receipt.fileName,
       fileType: receipt.fileType,
@@ -214,7 +215,12 @@ export class PrismaTripsRepository implements TripsRepository {
         },
       });
       await tx.tripParticipant.create({
-        data: { tripId: created.id, userId: input.criadoPorId, addedById: input.criadoPorId },
+        data: {
+          tripId: created.id,
+          userId: input.criadoPorId,
+          addedById: input.criadoPorId,
+          creditCardId: input.creditCardId,
+        },
       });
       return created;
     });
@@ -240,6 +246,7 @@ export class PrismaTripsRepository implements TripsRepository {
       userId: p.user.id,
       name: p.user.name,
       addedAt: p.createdAt,
+      cartaoId: p.creditCard?.id ?? null,
       cartaoLast4: p.creditCard?.last4 ?? null,
       cartaoBandeira: p.creditCard?.brand ?? null,
     }));
@@ -322,6 +329,7 @@ export class PrismaTripsRepository implements TripsRepository {
       userId: user.id,
       name: user.name,
       addedAt: created.createdAt,
+      cartaoId: null,
       cartaoLast4: null,
       cartaoBandeira: null,
     };
@@ -342,7 +350,7 @@ export class PrismaTripsRepository implements TripsRepository {
       where: { tripId },
       include: {
         user: { select: { id: true, name: true } },
-        creditCard: { select: { last4: true, brand: true } },
+        creditCard: { select: { id: true, last4: true, brand: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -350,6 +358,7 @@ export class PrismaTripsRepository implements TripsRepository {
       userId: row.user.id,
       name: row.user.name,
       addedAt: row.createdAt,
+      cartaoId: row.creditCard?.id ?? null,
       cartaoLast4: row.creditCard?.last4 ?? null,
       cartaoBandeira: row.creditCard?.brand ?? null,
     }));

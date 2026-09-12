@@ -16,6 +16,8 @@ export function useRequestAdvance(tripId: string) {
     mutationFn: (input: RequestAdvanceInput) => requestAdvance(tripId, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: tripsKeys.detail(tripId) });
+      void queryClient.invalidateQueries({ queryKey: tripsKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 }

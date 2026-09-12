@@ -30,17 +30,24 @@ export class PrismaReportsRepository implements ReportsRepository {
       throw new TripNotFoundError();
     }
     const attachments: PdfAttachment[] = [];
+    const seenHashes = new Set<string>();
     for (const expense of trip.expenses ?? []) {
       if (expense.deletedAt !== null) continue;
       for (const receipt of expense.receipts) {
         if (!receipt.ativo) continue;
-        if (!receipt.fileType.startsWith('image/')) continue;
+        if (!isImageReceipt(receipt.fileType, receipt.fileName)) continue;
+        if (seenHashes.has(receipt.fileHash)) continue;
         const record = await this.receipts.findById(receipt.id);
         if (record) {
-          attachments.push({ fileName: receipt.fileName, data: record.fileData });
+          seenHashes.add(receipt.fileHash);
+          attachments.push({ receiptId: receipt.id, fileHash: receipt.fileHash, fileName: receipt.fileName, data: record.fileData });
         }
       }
     }
     return attachments;
   }
+}
+
+function isImageReceipt(fileType: string, fileName: string): boolean {
+  return fileType.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(fileName);
 }

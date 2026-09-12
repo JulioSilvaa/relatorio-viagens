@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Banknote, Car } from "lucide-react";
+import { ArrowLeft, Banknote, Car, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { useCreateTrip } from "../hooks";
+import { useAvailableCreditCards, useCreateTrip } from "../hooks";
 import { requestAdvance } from "@/modules/advances/api";
 import { useSession } from "@/modules/auth/session-context";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,8 @@ export default function NewTripPage() {
 
   const canSolicitarAdiantamento =
     user?.roleCode === "EMPLOYEE" || user?.roleCode === "MANAGER_ADMIN";
+  const canSelectCreditCard = canSolicitarAdiantamento;
+  const availableCreditCardsQuery = useAvailableCreditCards(canSelectCreditCard);
 
   const [values, setValues] = useState({
     cliente: "",
@@ -110,6 +112,7 @@ export default function NewTripPage() {
     tipoVeiculo: "",
     kmInicial: "",
     kmFinal: "",
+    creditCardId: "",
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [adiantamento, setAdiantamento] = useState({
@@ -199,6 +202,7 @@ export default function NewTripPage() {
         tipoVeiculo: values.tipoVeiculo === "" ? null : values.tipoVeiculo,
         kmInicial,
         kmFinal,
+        creditCardId: values.creditCardId === "" ? null : values.creditCardId,
       });
 
       if (adiantamento.ativo) {
@@ -366,6 +370,55 @@ export default function NewTripPage() {
             </div>
           </CardContent>
         </Card>
+
+        {canSelectCreditCard ? (
+          <Card className="shadow-sm">
+            <CardContent className="flex flex-col gap-3 p-5">
+              <div className="flex items-center gap-2">
+                <CreditCard className="size-4 text-muted-foreground" aria-hidden="true" />
+                <p className="text-sm font-medium">Cartão corporativo</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Defina o cartão que será usado nesta viagem. Essa escolha não poderá ser alterada depois.
+              </p>
+              <Select
+                value={values.creditCardId || "none"}
+                onValueChange={(value) =>
+                  setField("creditCardId", value === "none" ? "" : value)
+                }
+              >
+                <SelectTrigger id="cartao-corporativo" className="w-full">
+                  <SelectValue placeholder="Selecione o cartão" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem cartão</SelectItem>
+                  <SelectGroup>
+                    {availableCreditCardsQuery.data?.map((card) => (
+                      <SelectItem key={card.id} value={card.id}>
+                        {card.brand ?? "Cartão"} · •••• {card.last4} · {card.cardholderName}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {availableCreditCardsQuery.isLoading ? (
+                <p className="text-xs text-muted-foreground">Carregando cartões disponíveis...</p>
+              ) : null}
+              {availableCreditCardsQuery.isError ? (
+                <p className="text-xs text-destructive">
+                  Não foi possível carregar os cartões disponíveis.
+                </p>
+              ) : null}
+              {!availableCreditCardsQuery.isLoading &&
+                !availableCreditCardsQuery.isError &&
+                availableCreditCardsQuery.data?.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum cartão corporativo ativo está disponível. A viagem poderá ser criada sem cartão.
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
 
         {canSolicitarAdiantamento ? (
           <Card className="shadow-sm">

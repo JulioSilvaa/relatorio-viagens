@@ -20,6 +20,9 @@ export class ExtractReceiptOcrService {
   ): Promise<ReceiptOcrRecord> {
     await authorizeReceiptAccess(this.receipts, this.trips, receiptId, actorId, canManageFiscal);
 
+    const previous = await this.ocr.findByReceipt(receiptId);
+    if (previous) return previous;
+
     const receipt = (await this.receipts.findById(receiptId))!;
     const extraction = await this.provider.extract({
       fileData: receipt.fileData,
@@ -70,7 +73,13 @@ export class ExtractReceiptOcrService {
     });
     return this.ocr.saveExtraction(
       receiptId,
-      { status: 'FALHA', erro: extraction.erro, origem: 'MANUAL' },
+      {
+        status: 'FALHA',
+        erro: extraction.erro,
+        origem: 'MANUAL',
+        itens: extraction.data?.itens ?? [],
+        dadosOriginais: extraction.data,
+      },
       extraidoEm,
     );
   }

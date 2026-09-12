@@ -20,11 +20,13 @@ export interface OcrPreviewResult {
   erro?: string;
   data?: {
     textoOriginal?: string;
+    erro?: string;
     cnpj?: string;
     chaveAcesso?: string;
     numeroDocumento?: string;
     nomeEstabelecimento?: string;
     data?: string;
+    hora?: string;
     valorTotal?: string;
     valorProdutos?: string;
     desconto?: string;
@@ -35,6 +37,11 @@ export interface OcrPreviewResult {
     destinatario?: string;
     formaPagamento?: string;
     protocoloAutorizacao?: string;
+    endereco?: string;
+    subtotal?: string;
+    itens?: unknown[];
+    confiancaExtracao?: "alta" | "media" | "baixa";
+    alertaReconciliacao?: boolean;
   };
 }
 

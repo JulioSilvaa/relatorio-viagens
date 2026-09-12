@@ -73,6 +73,7 @@ function toUnchecked(data: SaveReceiptOcrData): Prisma.ReceiptOcrUncheckedUpdate
   if (data.numeroDocumento !== undefined) fields.numeroDocumento = text(data.numeroDocumento);
   if (data.chaveAcesso !== undefined) fields.chaveAcesso = text(data.chaveAcesso);
   if (data.itens !== undefined) fields.itens = jsonValue(data.itens);
+  if (data.dadosOriginais !== undefined) fields.dadosOriginais = jsonValue(data.dadosOriginais);
   if (data.erro !== undefined) fields.erro = text(data.erro);
   return fields;
 }

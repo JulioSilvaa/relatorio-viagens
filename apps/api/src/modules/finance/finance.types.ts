@@ -80,6 +80,12 @@ export interface RequestAdvanceInput {
   solicitadoPorId: string;
 }
 
+export interface UpdateAdvanceRequestInput {
+  advanceId: string;
+  valorSolicitado: string;
+  justificativaSolicitacao: string;
+}
+
 export interface AdvanceAnalysisInput {
   advanceId: string;
   aprovado: boolean;
@@ -105,6 +111,7 @@ export interface TripFinanceData {
 export interface FinanceRepository {
   registerPayment(input: RegisterPaymentInput): Promise<TripPaymentRecord>;
   createAdvanceRequest(input: RequestAdvanceInput): Promise<TripAdvanceRecord>;
+  updateAdvanceRequest(input: UpdateAdvanceRequestInput): Promise<TripAdvanceRecord>;
   findLatestAdvanceByTrip(tripId: string): Promise<TripAdvanceRecord | null>;
   findAdvanceById(id: string): Promise<TripAdvanceRecord | null>;
   analyzeAdvance(input: AdvanceAnalysisInput): Promise<TripAdvanceRecord>;

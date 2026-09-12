@@ -1,4 +1,4 @@
-import { hasRecognizedContent, parseOcrText } from './ocr-parser.js';
+import { hasRecognizedContent, hasSufficientOcrText, parseOcrText } from './ocr-parser.js';
 import type { OcrExtractInput, OcrExtractionResult, OcrProvider } from './ocr.types.js';
 
 export class PaddleOcrProvider implements OcrProvider {
@@ -27,12 +27,19 @@ export class PaddleOcrProvider implements OcrProvider {
       }
       const payload = (await response.json()) as { text?: string; barcodes?: string[] };
       const rawText = payload.text ?? '';
+      if (!hasSufficientOcrText(rawText)) {
+        return {
+          status: 'FALHA',
+          erro: 'ocr_insuficiente',
+          data: { textoOriginal: rawText, itens: [], confiancaExtracao: 'baixa', alertaReconciliacao: false },
+        };
+      }
       const fields = parseOcrText(rawText);
       fields.textoOriginal = rawText;
       fields.chaveAcesso ??= findAccessKey(payload.barcodes ?? []);
       return hasRecognizedContent(fields)
         ? { status: 'SUCESSO', data: fields }
-        : { status: 'FALHA', erro: 'Não foi possível extrair dados do comprovante.' };
+        : { status: 'FALHA', erro: 'ocr_insuficiente', data: { ...fields, confiancaExtracao: 'baixa', alertaReconciliacao: false } };
     } catch {
       return {
         status: 'FALHA',
@@ -46,9 +53,9 @@ export class PaddleOcrProvider implements OcrProvider {
 
 function findAccessKey(values: string[]): string | undefined {
   for (const value of values) {
-    const match = value.replace(/\D/g, '').match(/\d{44}/);
+    const match = value.match(/(?<!\d)\d{44}(?!\d)/);
     if (match) return match[0];
-    const embedded = value.match(/(?:chNFe|chave)[^0-9]*(\d{44})/i);
+    const embedded = value.match(/(?:chNFe|chave)[^0-9]*(\d{44})(?!\d)/i);
     if (embedded?.[1]) return embedded[1];
   }
   return undefined;

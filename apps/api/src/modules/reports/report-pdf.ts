@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-import type { PdfAttachment, ReportData, ReportOcrFieldSet } from './report.types.js';
+import type { PdfAttachment, ReportData } from './report.types.js';
 
 type Doc = InstanceType<typeof PDFDocument>;
 
@@ -10,7 +10,7 @@ const CONTENT_BOTTOM = 770;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const COLORS = {
   ink: '#17212b', muted: '#5f6b76', teal: '#0f5c63', tealSoft: '#e5f1f0',
-  blueSoft: '#eaf1f7', line: '#cbd5dc', faint: '#f4f7f8', warning: '#a44a16', white: '#ffffff',
+  blueSoft: '#eaf1f7', line: '#cbd5dc', faint: '#f4f7f8', paper: '#ffffff', warning: '#a44a16', white: '#ffffff',
 };
 
 interface Column { title: string; width: number; align?: 'left' | 'right'; }
@@ -188,42 +188,121 @@ function renderOcrSummary(doc: Doc, data: ReportData): void {
   if (ocr.chavesAcesso.length > 0) fieldGrid(doc, [{ label: 'Chaves de acesso SEFAZ', value: ocr.chavesAcesso.join('\n') }], 1);
 }
 
-function ocrDate(value: string | null): string { if (!value) return '-'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : dateBR(date); }
-function ocrFields(fields: ReportOcrFieldSet): Array<{ label: string; value: string }> {
-  return [
-    { label: 'Estabelecimento', value: fields.nomeEstabelecimento ?? '-' }, { label: 'CNPJ', value: fields.cnpj ?? '-' },
-    { label: 'Data', value: ocrDate(fields.data) }, { label: 'Hora', value: fields.hora ?? '-' },
-    { label: 'Valor total', value: fields.valorTotal ? brl(fields.valorTotal) : '-' }, { label: 'Documento', value: fields.numeroDocumento ?? '-' },
-    { label: 'Valor dos produtos', value: fields.valorProdutos ? brl(fields.valorProdutos) : '-' }, { label: 'Desconto', value: fields.desconto ? brl(fields.desconto) : '-' },
-    { label: 'Tributos', value: fields.tributos ? brl(fields.tributos) : '-' }, { label: 'Série', value: fields.serie ?? '-' },
-    { label: 'Inscrição estadual', value: fields.inscricaoEstadual ?? '-' }, { label: 'Emitente', value: fields.emitente ?? '-' },
-    { label: 'Destinatário', value: fields.destinatario ?? '-' }, { label: 'Forma de pagamento', value: fields.formaPagamento ?? '-' },
-    { label: 'Protocolo de autorização', value: fields.protocoloAutorizacao ?? '-' }, { label: 'Chave SEFAZ', value: fields.chaveAcesso ?? '-' },
-  ];
+function drawStructuredPanel(doc: Doc, fields: ReportData['ocrDetalhes'][number]['structured'], x: number, y: number, width: number, height: number): void {
+  const padding = 10;
+  doc.rect(x, y, width, height).fill(COLORS.paper).lineWidth(0.7).strokeColor(COLORS.line).stroke();
+  doc.rect(x, y, width, 27).fill(COLORS.ink);
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.white).text('DADOS EXTRAÍDOS', x + padding, y + 9, { width: width - padding * 2, lineBreak: false });
+
+  const hasData = Boolean(
+    fields.nomeEstabelecimento || fields.cnpj || fields.endereco || fields.valorTotal
+    || fields.valorProdutos || fields.subtotal || fields.desconto || fields.tributos
+    || fields.numeroDocumento || fields.formaPagamento || fields.chaveAcesso
+    || fields.itens.length,
+  );
+  if (!hasData) {
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.warning).text('Extração precisa de revisão manual', x + padding, y + 52, { width: width - padding * 2 });
+    doc.font('Helvetica').fontSize(8).fillColor(COLORS.muted).text('Os dados estruturados não estão disponíveis para este comprovante.', x + padding, y + 76, { width: width - padding * 2, lineGap: 2 });
+    return;
+  }
+
+  let cursor = y + 43;
+  const line = (label: string, value: string | null, strong = false) => {
+    if (!value) return;
+    const valueWidth = width - padding * 2;
+    const valueFontSize = strong ? 11 : 8.5;
+    doc.font('Helvetica-Bold').fontSize(7);
+    const labelHeight = doc.heightOfString(label.toUpperCase(), { width: valueWidth, lineGap: 1 });
+    doc.font(strong ? 'Helvetica-Bold' : 'Helvetica').fontSize(valueFontSize);
+    const valueHeight = doc.heightOfString(value, { width: valueWidth, lineGap: 1 });
+    const nextCursor = cursor + labelHeight + valueHeight + 7;
+    if (nextCursor > y + height - 72) return;
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(COLORS.muted).text(label.toUpperCase(), x + padding, cursor, { width: valueWidth, lineGap: 1 });
+    cursor += labelHeight + 1;
+    doc.font(strong ? 'Helvetica-Bold' : 'Helvetica').fontSize(valueFontSize).fillColor(COLORS.ink).text(value, x + padding, cursor, { width: valueWidth, lineGap: 1 });
+    cursor = nextCursor;
+  };
+  line('Estabelecimento', fields.nomeEstabelecimento, true);
+  line('CNPJ', fields.cnpj);
+  line('Endereço', fields.endereco);
+  line('Documento', fields.numeroDocumento);
+  line('Data e hora', [fields.data ? dateBR(new Date(fields.data)) : null, fields.hora].filter(Boolean).join(' '));
+  if (fields.itens.length > 0) {
+    doc.moveTo(x + padding, cursor).lineTo(x + width - padding, cursor).lineWidth(0.6).strokeColor(COLORS.teal).stroke();
+    cursor += 9;
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(COLORS.muted).text('ITENS', x + padding, cursor, { width: width - padding * 2, lineBreak: false });
+    cursor += 13;
+    for (const item of fields.itens.slice(0, 8)) {
+      const description = item.descricao.length > 28 ? `${item.descricao.slice(0, 25)}...` : item.descricao;
+      const quantity = item.quantidade === null ? '—' : String(item.quantidade);
+      const total = item.valorTotal === null ? '—' : brl(item.valorTotal.toFixed(2));
+      doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.ink).text(`${quantity} ${item.unidade ?? ''} ${description}`.trim(), x + padding, cursor, { width: width - 72, lineBreak: false });
+      doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.ink).text(total, x + width - padding - 62, cursor, { width: 62, align: 'right', lineBreak: false });
+      cursor += 13;
+      if (cursor > y + height - 95) break;
+    }
+  }
+  line('Subtotal', fields.subtotal);
+  line('Produtos', fields.valorProdutos);
+  line('Desconto', fields.desconto);
+  line('Tributos', fields.tributos);
+  line('Pagamento', fields.formaPagamento);
+  line('Protocolo', fields.protocoloAutorizacao);
+  const total = fields.valorTotal ? brl(fields.valorTotal) : null;
+  if (total) {
+    doc.moveTo(x + padding, y + height - 58).lineTo(x + width - padding, y + height - 58).lineWidth(0.6).strokeColor(COLORS.line).stroke();
+    doc.font('Helvetica-Bold').fontSize(7).fillColor(COLORS.muted).text('TOTAL DO COMPROVANTE', x + padding, y + height - 45, { width: width - 100, lineBreak: false });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(COLORS.teal).text(total, x + width - padding - 100, y + height - 49, { width: 100, align: 'right', lineBreak: false });
+  }
+  if (fields.chaveAcesso && /^\d{44}$/.test(fields.chaveAcesso)) {
+    doc.font('Helvetica').fontSize(6.5).fillColor(COLORS.muted).text(`Chave SEFAZ: ${fields.chaveAcesso}`, x + padding, y + height - 24, { width: width - padding * 2, lineBreak: false });
+  }
 }
 
-function renderOcrDetails(doc: Doc, data: ReportData): void {
-  if (data.ocrDetalhes.length === 0) return;
-  sectionTitle(doc, 'Detalhamento OCR', 'IA ORIGINAL E CONFIRMAÇÃO HUMANA');
-  for (const item of data.ocrDetalhes) {
-    ensureSpace(doc, item.original ? 420 : 220);
+function drawReceiptImagePanel(doc: Doc, attachment: PdfAttachment | undefined, x: number, y: number, width: number, height: number): void {
+  const padding = 10;
+  const headerHeight = 27;
+  doc.rect(x, y, width, height).fill(COLORS.paper).lineWidth(0.7).strokeColor(COLORS.line).stroke();
+  doc.rect(x, y, width, headerHeight).fill(COLORS.teal);
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.white).text('IMAGEM DO COMPROVANTE', x + padding, y + 9, { width: width - padding * 2, lineBreak: false });
+  if (!attachment) {
+    doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.muted).text('Imagem não disponível.', x + padding, y + height / 2, { width: width - padding * 2, align: 'center' });
+    return;
+  }
+  try {
+    doc.image(Buffer.from(attachment.data), x + padding, y + headerHeight + padding, { fit: [width - padding * 2, height - headerHeight - padding * 2], align: 'center', valign: 'center' });
+  } catch {
+    doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.muted).text('Comprovante em formato não suportado para exibição.', x + padding, y + height / 2 - 10, { width: width - padding * 2, align: 'center' });
+  }
+}
+
+function renderOcrDetails(doc: Doc, data: ReportData, attachments: PdfAttachment[]): Set<string> {
+  const rendered = new Set<string>();
+  if (data.ocrDetalhes.length === 0) return rendered;
+  ensureSpace(doc, 34 + 29 + 535);
+  sectionTitle(doc, 'Dados dos comprovantes', 'DADOS ESTRUTURADOS DA EXTRAÇÃO');
+  for (const [index, item] of data.ocrDetalhes.entries()) {
+    ensureSpace(doc, 535);
     const y = doc.y;
-    doc.rect(MARGIN, y, CONTENT_WIDTH, 23).fill(COLORS.blueSoft);
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.ink).text(item.fileName, MARGIN + 8, y + 7, { width: 340 });
-    doc.font('Helvetica').fontSize(8).fillColor(COLORS.muted).text(item.categoria, PAGE_WIDTH - MARGIN - 135, y + 7, { width: 127, align: 'right' });
-    doc.y = y + 31;
-    if (item.original) {
-      doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.warning).text('EXTRAÇÃO ORIGINAL DA IA', MARGIN, doc.y);
-      doc.y += 5;
-      fieldGrid(doc, ocrFields(item.original), 2);
-      if (item.original.textoOriginal) {
-        fieldGrid(doc, [{ label: 'Texto bruto capturado', value: item.original.textoOriginal.slice(0, 5000) }], 1);
-      }
-    }
-    doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.teal).text('DADOS FINAIS CONFIRMADOS', MARGIN, doc.y); doc.y += 5;
-    fieldGrid(doc, ocrFields(item.final), 2);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(COLORS.ink).text(`Comprovante ${index + 1}`, MARGIN, y, { width: 180, lineBreak: false });
+    doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.muted).text(item.categoria, MARGIN + 188, y + 2, { width: 130, lineBreak: false });
+    doc.font('Helvetica').fontSize(8).fillColor(COLORS.muted).text(item.fileName, PAGE_WIDTH - MARGIN - 180, y + 2, { width: 180, align: 'right', lineBreak: false });
+    doc.moveTo(MARGIN, y + 20).lineTo(PAGE_WIDTH - MARGIN, y + 20).lineWidth(1).strokeColor(COLORS.teal).stroke();
+    doc.y = y + 29;
+    const panelY = doc.y;
+    const panelHeight = 470;
+    const imageWidth = 245;
+    const textWidth = CONTENT_WIDTH - imageWidth - 12;
+    const attachment = attachments.find((candidate) => item.fileHash
+      ? candidate.fileHash === item.fileHash
+      : candidate.receiptId === item.receiptId);
+    drawReceiptImagePanel(doc, attachment, MARGIN, panelY, imageWidth, panelHeight);
+    drawStructuredPanel(doc, item.structured, MARGIN + imageWidth + 12, panelY, textWidth, panelHeight);
+    if (attachment) rendered.add(attachment.fileHash || `receipt:${attachment.receiptId}`);
+    doc.y = panelY + panelHeight + 10;
     doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).lineWidth(1).strokeColor(COLORS.line).stroke(); doc.y += 10;
   }
+  return rendered;
 }
 
 function renderFinanceiro(doc: Doc, data: ReportData): void {
@@ -254,9 +333,9 @@ function attachComprovantes(doc: Doc, attachments: PdfAttachment[]): void {
 function reportContext(data: ReportData, title: string, subtitle: string): PageContext { return { title, subtitle, emittedAt: data.emitidoEm, emittedBy: data.emitidoPor, version: data.versao }; }
 
 export async function renderOfficialPdf(data: ReportData, options: { attachments: PdfAttachment[] }): Promise<Buffer> {
-  return render((doc) => { doc.y = CONTENT_TOP; tripInfo(doc, data); renderParticipantes(doc, data); renderDespesas(doc, data); renderOcrSummary(doc, data); renderOcrDetails(doc, data); renderFinanceiro(doc, data); if (options.attachments.length > 0) attachComprovantes(doc, options.attachments); }, reportContext(data, 'RELATÓRIO OFICIAL DE VIAGEM', 'Prestação de contas e conferência documental'));
+  return render((doc) => { doc.y = CONTENT_TOP; tripInfo(doc, data); renderParticipantes(doc, data); renderDespesas(doc, data); renderOcrSummary(doc, data); const paired = renderOcrDetails(doc, data, options.attachments); renderFinanceiro(doc, data); const remaining = options.attachments.filter((attachment) => !paired.has(attachment.fileHash || `receipt:${attachment.receiptId}`)); if (remaining.length > 0) attachComprovantes(doc, remaining); }, reportContext(data, 'RELATÓRIO OFICIAL DE VIAGEM', 'Prestação de contas e conferência documental'));
 }
 
 export async function renderManagerPdf(data: ReportData, options: { attachments: PdfAttachment[] }): Promise<Buffer> {
-  return render((doc) => { doc.y = CONTENT_TOP; tripInfo(doc, data); renderParticipantes(doc, data); renderDespesas(doc, data); renderOcrDetails(doc, data); if (options.attachments.length > 0) attachComprovantes(doc, options.attachments); }, reportContext(data, 'RESUMO GERENCIAL DE VIAGEM', 'Custos, participantes e documentos vinculados'));
+  return render((doc) => { doc.y = CONTENT_TOP; tripInfo(doc, data); renderParticipantes(doc, data); renderDespesas(doc, data); const paired = renderOcrDetails(doc, data, options.attachments); const remaining = options.attachments.filter((attachment) => !paired.has(attachment.fileHash || `receipt:${attachment.receiptId}`)); if (remaining.length > 0) attachComprovantes(doc, remaining); }, reportContext(data, 'RESUMO GERENCIAL DE VIAGEM', 'Custos, participantes e documentos vinculados'));
 }

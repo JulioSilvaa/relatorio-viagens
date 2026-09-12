@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Banknote } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { MoneyInput } from "@/components/ui/money-input";
 import { getAdvanceStatusMeta } from "@/lib/advance-status";
 import { formatDateTime, formatMoney } from "@/lib/format";
+import { useSession } from "@/modules/auth/session-context";
 import { usePayAdvance, useRequestAdvance, useReviewAdvance } from "../hooks";
 import type {
   AdvanceStatus,
@@ -61,13 +62,21 @@ interface RequestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tripId: string;
+  advance?: TripAdvanceView | null;
 }
 
-function RequestAdvanceDialog({ open, onOpenChange, tripId }: RequestDialogProps) {
+function RequestAdvanceDialog({ open, onOpenChange, tripId, advance }: RequestDialogProps) {
   const request = useRequestAdvance(tripId);
   const [valor, setValor] = useState("");
   const [justificativa, setJustificativa] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setValor(advance?.valorSolicitado ?? "");
+    setJustificativa(advance?.justificativaSolicitacao ?? "");
+    setError(null);
+  }, [advance, open]);
 
   function reset() {
     setValor("");
@@ -89,7 +98,7 @@ function RequestAdvanceDialog({ open, onOpenChange, tripId }: RequestDialogProps
         valorSolicitado: valor,
         justificativaSolicitacao: justificativa.trim(),
       });
-      toast.success("Adiantamento solicitado!");
+      toast.success(advance ? "Solicitação de correção enviada ao Admin." : "Adiantamento solicitado!");
       reset();
       onOpenChange(false);
     } catch (submitError) {
@@ -105,10 +114,11 @@ function RequestAdvanceDialog({ open, onOpenChange, tripId }: RequestDialogProps
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Solicitar adiantamento</DialogTitle>
+          <DialogTitle>{advance ? "Solicitar correção do adiantamento" : "Solicitar adiantamento"}</DialogTitle>
           <DialogDescription>
-            Informe quanto precisa e o motivo. O valor aprovado é definido
-            pelo gestor.
+            {advance
+              ? `Valor atual: ${formatMoney(advance.valorSolicitado)}. Informe o valor correto e o motivo da correção.`
+              : "Informe quanto precisa e o motivo. O valor aprovado é definido pelo gestor."}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
@@ -139,7 +149,7 @@ function RequestAdvanceDialog({ open, onOpenChange, tripId }: RequestDialogProps
             Cancelar
           </Button>
           <Button type="button" onClick={() => void handleSubmit()} disabled={request.isPending}>
-            {request.isPending ? "Solicitando..." : "Solicitar"}
+            {request.isPending ? "Enviando..." : advance ? "Enviar correção" : "Solicitar"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -366,10 +376,17 @@ export interface AdvanceSectionProps {
 
 export function AdvanceSection({ trip, canEdit, userRole }: AdvanceSectionProps) {
   const [dialog, setDialog] = useState<DialogKind>(null);
+  const { user } = useSession();
 
   const advance = trip.adiantamento;
   const meta = advance ? getAdvanceStatusMeta(advance.status) : null;
   const showSolicitar = canSolicitar(advance?.status ?? null, canEdit);
+  const showCorrigir = Boolean(
+    advance
+    && canEdit
+    && advance.status === "SOLICITADO"
+    && advance.solicitadoPor.id === user?.id,
+  );
   const showAnalisar = advance ? canAnalyze(advance.status, userRole) : false;
   const showPagar = advance ? canPay(advance.status, userRole) : false;
 
@@ -404,8 +421,17 @@ export function AdvanceSection({ trip, canEdit, userRole }: AdvanceSectionProps)
                   <span aria-hidden="true">{meta?.emoji ?? ""}</span>
                   {meta?.label ?? advance.status}
                 </Badge>
-                {(showAnalisar || showPagar || showSolicitar) ? (
+                {(showAnalisar || showPagar || showSolicitar || showCorrigir) ? (
                   <div className="flex flex-wrap justify-end gap-2">
+                    {showCorrigir ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDialog("solicitar")}
+                      >
+                        Solicitar correção
+                      </Button>
+                    ) : null}
                     {showSolicitar ? (
                       <Button
                         variant="outline"
@@ -494,6 +520,7 @@ export function AdvanceSection({ trip, canEdit, userRole }: AdvanceSectionProps)
         open={dialog === "solicitar"}
         onOpenChange={(open) => setDialog(open ? "solicitar" : null)}
         tripId={trip.id}
+        advance={showCorrigir ? advance : null}
       />
       {dialog === "analisar" && advance ? (
         <ReviewAdvanceDialog

@@ -1,9 +1,33 @@
 import type { OcrProcessingStatus, OcrSourceType } from '@prisma/client';
 
+export type OcrExtractionConfidence = 'alta' | 'media' | 'baixa';
+
+export interface OcrExtractedItem {
+  codigo?: string | null;
+  descricao: string;
+  quantidade: number;
+  unidade?: string | null;
+  valorUnitario: number;
+  valorTotal: number;
+}
+
+export interface OcrStoredItem {
+  codigo?: string | null;
+  descricao?: string;
+  quantidade?: number;
+  unidade?: string | null;
+  valorUnitario?: number;
+  valorTotal?: number;
+  produto?: string;
+}
+
 export interface OcrExtractionFields {
   textoOriginal?: string;
+  erro?: string;
+  dadosOriginais?: Record<string, unknown>;
   cnpj?: string;
   nomeEstabelecimento?: string;
+  endereco?: string;
   data?: Date;
   hora?: string;
   valorTotal?: string;
@@ -18,12 +42,15 @@ export interface OcrExtractionFields {
   formaPagamento?: string;
   protocoloAutorizacao?: string;
   chaveAcesso?: string;
-  itens?: unknown[];
+  subtotal?: string;
+  itens?: OcrStoredItem[];
+  confiancaExtracao?: OcrExtractionConfidence;
+  alertaReconciliacao?: boolean;
 }
 
 export type OcrExtractionResult =
   | { status: 'SUCESSO'; data: OcrExtractionFields }
-  | { status: 'FALHA'; erro: string };
+  | { status: 'FALHA'; erro: string; data?: OcrExtractionFields };
 
 export interface OcrExtractInput {
   fileData: Uint8Array;
