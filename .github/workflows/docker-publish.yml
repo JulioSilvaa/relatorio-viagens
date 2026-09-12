@@ -27,8 +27,8 @@ jobs:
             image: relatorio-viagens-web
 
           - name: ocr
-            context: ./apps/ocr
-            file: Dockerfile
+            context: .
+            file: apps/ocr/Dockerfile
             image: relatorio-viagens-ocr
 
     steps:
