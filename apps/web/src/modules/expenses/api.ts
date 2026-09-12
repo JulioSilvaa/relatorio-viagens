@@ -4,6 +4,7 @@ import type {
   ReceiptTypeValue,
   TripExpenseView,
 } from "@/types/domain";
+import type { OcrPreviewItem } from "@/modules/ocr/api";
 
 export interface CreateExpenseInput {
   tripId: string;
@@ -21,25 +22,43 @@ export interface OcrPreviewResult {
   data?: {
     textoOriginal?: string;
     erro?: string;
+    tipoDocumento?: string;
+    tipoDocumentoConfianca?: "alta" | "media" | "baixa";
     cnpj?: string;
     chaveAcesso?: string;
     numeroDocumento?: string;
     nomeEstabelecimento?: string;
+    nomeFantasia?: string;
     data?: string;
     hora?: string;
     valorTotal?: string;
     valorProdutos?: string;
     desconto?: string;
     tributos?: string;
+    acrescimos?: string;
+    valorPago?: string;
+    troco?: string;
     serie?: string;
+    numeroSat?: string;
+    qrCode?: string;
     inscricaoEstadual?: string;
     emitente?: string;
     destinatario?: string;
     formaPagamento?: string;
     protocoloAutorizacao?: string;
     endereco?: string;
+    cidadeUf?: string;
     subtotal?: string;
-    itens?: unknown[];
+    ncm?: string;
+    cfop?: string;
+    cstCsosn?: string;
+    icms?: string;
+    pis?: string;
+    cofins?: string;
+    observacoes?: string;
+    informacoesComplementares?: string;
+    camposExtras?: Array<{ secao?: string | null; label: string; valor?: string | null; confianca?: "alta" | "media" | "baixa" | null }>;
+    itens?: OcrPreviewItem[];
     confiancaExtracao?: "alta" | "media" | "baixa";
     alertaReconciliacao?: boolean;
   };

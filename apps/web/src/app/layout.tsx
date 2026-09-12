@@ -11,21 +11,25 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "VDR — Viagens e Despesas",
-    template: "%s · VDR",
+    default: "vaiefecha — Gestão de viagens e despesas",
+    template: "%s · vaiefecha",
   },
-  description: "Gestão de viagens, despesas e reembolsos.",
-  applicationName: "VDR",
+  description: "Gestão inteligente de despesas de viagem.",
+  applicationName: "vaiefecha",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/vaiefecha-icone-dark.svg",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "VDR",
+    title: "vaiefecha",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f7f7f5",
+  themeColor: "#f6f6f6",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

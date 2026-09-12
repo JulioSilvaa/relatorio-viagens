@@ -60,6 +60,29 @@ function text(value: string | null | undefined): string | null {
   return value ?? null;
 }
 
+type StoredReceiptOcrRow = NonNullable<Awaited<ReturnType<typeof prisma.receiptOcr.findUnique>>>;
+
+function fillOnlyNulls(
+  existing: StoredReceiptOcrRow,
+  data: SaveReceiptOcrData,
+): Prisma.ReceiptOcrUncheckedUpdateInput {
+  const fill: Prisma.ReceiptOcrUncheckedUpdateInput = {};
+  if (existing.cnpj === null && data.cnpj !== undefined) fill.cnpj = text(data.cnpj);
+  if (existing.nomeEstabelecimento === null && data.nomeEstabelecimento !== undefined)
+    fill.nomeEstabelecimento = text(data.nomeEstabelecimento);
+  if (existing.data === null && data.data !== undefined) fill.data = data.data;
+  if (existing.hora === null && data.hora !== undefined) fill.hora = text(data.hora);
+  if (existing.valorTotal === null && data.valorTotal !== undefined)
+    fill.valorTotal = text(data.valorTotal);
+  if (existing.numeroDocumento === null && data.numeroDocumento !== undefined)
+    fill.numeroDocumento = text(data.numeroDocumento);
+  if (existing.chaveAcesso === null && data.chaveAcesso !== undefined)
+    fill.chaveAcesso = text(data.chaveAcesso);
+  if (existing.itens === null && data.itens !== undefined) fill.itens = jsonValue(data.itens);
+  if (existing.erro === null && data.erro !== undefined) fill.erro = text(data.erro);
+  return fill;
+}
+
 function toUnchecked(data: SaveReceiptOcrData): Prisma.ReceiptOcrUncheckedUpdateInput {
   const fields: Prisma.ReceiptOcrUncheckedUpdateInput = {};
   if (data.status !== undefined) fields.status = data.status;
@@ -91,10 +114,14 @@ export class PrismaReceiptOcrRepository implements ReceiptOcrRepository {
   ): Promise<ReceiptOcrRecord> {
     const existing = await prisma.receiptOcr.findUnique({ where: { receiptId } });
     if (existing) {
+      const upgradeToSuccess = existing.status !== 'SUCESSO' && data.status === 'SUCESSO';
       const row = await prisma.receiptOcr.update({
         where: { receiptId },
         data: {
-          ...toUnchecked(data),
+          ...(upgradeToSuccess
+            ? { status: 'SUCESSO' as const, origem: data.origem ?? 'OCR' }
+            : {}),
+          ...fillOnlyNulls(existing, data),
           extraidoEm,
           ...(existing.dadosOriginais === null && data.dadosOriginais
             ? { dadosOriginais: jsonValue(data.dadosOriginais) }

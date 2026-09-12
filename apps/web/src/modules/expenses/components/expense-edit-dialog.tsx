@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pencil, Save } from "lucide-react";
 import { toast } from "sonner";
 import type { TripExpenseView } from "@/types/domain";
@@ -19,15 +19,8 @@ interface ExpenseEditDialogProps {
 
 export function ExpenseEditDialog({ tripId, expense, open, onOpenChange }: ExpenseEditDialogProps) {
   const updateExpense = useUpdateExpense(tripId);
-  const [justificativa, setJustificativa] = useState("");
+  const [justificativa, setJustificativa] = useState(expense?.justificativa ?? "");
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (expense) {
-      setJustificativa(expense.justificativa);
-      setError("");
-    }
-  }, [expense]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

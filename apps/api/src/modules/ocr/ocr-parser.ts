@@ -105,6 +105,7 @@ export function parseOcrText(text: string): OcrExtractionFields {
   const normalized = text.slice(0, MAX_OCR_TEXT_LENGTH).replace(/\r/g, '');
 
   const cnpj = extractCnpj(normalized);
+  const tipoDocumento = detectDocumentType(normalized);
 
   const chaveAcesso = extractAccessKey(normalized);
 
@@ -206,6 +207,8 @@ export function parseOcrText(text: string): OcrExtractionFields {
   }
 
   return {
+    tipoDocumento: tipoDocumento.value,
+    tipoDocumentoConfianca: tipoDocumento.confidence,
     cnpj,
     nomeEstabelecimento,
     endereco,
@@ -228,6 +231,19 @@ export function parseOcrText(text: string): OcrExtractionFields {
     confiancaExtracao,
     alertaReconciliacao,
   };
+}
+
+function detectDocumentType(text: string): {
+  value: 'NFC_E' | 'CFE_SAT' | 'NFE' | 'RECIBO' | 'COMPROVANTE_PAGAMENTO' | 'OUTRO' | 'NAO_IDENTIFICADO';
+  confidence: 'alta' | 'media' | 'baixa';
+} {
+  if (/NFC\s*[- ]?E|NFC-E|NFCe/i.test(text)) return { value: 'NFC_E', confidence: 'alta' };
+  if (/CF\s*[- ]?E\s*SAT|SAT\s*CF|CUPOM\s+FISCAL\s+ELETR[ÔO]NICO/i.test(text)) return { value: 'CFE_SAT', confidence: 'media' };
+  if (/NF\s*[- ]?E|DANFE|NOTA\s+FISCAL\s+ELETR[ÔO]NICA/i.test(text)) return { value: 'NFE', confidence: 'alta' };
+  if (/COMPROVANTE.*PAGAMENTO|PAGAMENTO.*CART[ÃA]O|TRANSA[CÇ][ÃA]O\s+APROVADA/i.test(text)) return { value: 'COMPROVANTE_PAGAMENTO', confidence: 'media' };
+  if (/\bRECIBO\b/i.test(text)) return { value: 'RECIBO', confidence: 'alta' };
+  if (/CUPOM\s+FISCAL|NOTA\s+FISCAL/i.test(text)) return { value: 'OUTRO', confidence: 'baixa' };
+  return { value: 'NAO_IDENTIFICADO', confidence: 'baixa' };
 }
 
 function isValidTime(value: string): boolean {
@@ -278,7 +294,7 @@ function parseItems(text: string): OcrExtractedItem[] {
 function hasReconciliationAlert(items: OcrExtractedItem[], total: string | undefined): boolean {
   const declaredTotal = Number(total);
   if (items.length === 0 || !Number.isFinite(declaredTotal) || declaredTotal <= 0) return false;
-  const itemTotal = items.reduce((sum, item) => sum + item.valorTotal, 0);
+  const itemTotal = items.reduce((sum, item) => sum + (item.valorTotal ?? 0), 0);
   return Math.abs(itemTotal - declaredTotal) / declaredTotal > 0.05;
 }
 

@@ -41,8 +41,17 @@ function NotificationBadge({ count }: { count: number }) {
 function MobileHeader() {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:hidden">
-      <Link href="/inicio" className="text-lg font-semibold tracking-tight">
-        VDR
+      <Link href="/inicio" aria-label="vaiefecha" className="shrink-0">
+        <img
+          src="/vaiefecha-logo-horizontal-light.svg"
+          alt=""
+          className="h-6 w-auto dark:hidden"
+        />
+        <img
+          src="/vaiefecha-logo-horizontal-dark.svg"
+          alt=""
+          className="hidden h-6 w-auto dark:block"
+        />
       </Link>
       <UserMenu />
     </header>
@@ -133,8 +142,17 @@ function Sidebar() {
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-secondary/50 md:flex">
       <div className="flex h-16 items-center border-b border-border px-5">
-        <Link href="/inicio" className="text-lg font-semibold tracking-tight">
-          VDR
+        <Link href="/inicio" aria-label="vaiefecha" className="shrink-0">
+          <img
+            src="/vaiefecha-logo-horizontal-light.svg"
+            alt=""
+            className="h-7 w-auto dark:hidden"
+          />
+          <img
+            src="/vaiefecha-logo-horizontal-dark.svg"
+            alt=""
+            className="hidden h-7 w-auto dark:block"
+          />
         </Link>
       </div>
       <nav

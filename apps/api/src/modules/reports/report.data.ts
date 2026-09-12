@@ -2,6 +2,8 @@ import type {
   TripDetailRecord,
   TripParticipantRecord,
   ReceiptOcrDetail,
+  ExpenseDetailRecord,
+  ReceiptDetailRecord,
 } from '../trips/repositories/trips.repository.js';
 import type { TripFinanceData } from '../finance/finance.types.js';
 import type {
@@ -13,6 +15,7 @@ import type {
   ReportOcrReceipt,
   ReportTripData,
 } from './report.types.js';
+import { parseOcrText } from '../ocr/ocr-parser.js';
 
 function toCents(value: { valor: string }): number {
   return Math.round(Number(value.valor) * 100);
@@ -79,6 +82,25 @@ function toFinanceRecords(finance: TripFinanceData | undefined): {
   };
 }
 
+interface ReceiptWithExpense {
+  expense: ExpenseDetailRecord;
+  receipt: ReceiptDetailRecord;
+}
+
+function activeReceiptsByHash(trip: TripDetailRecord): ReceiptWithExpense[] {
+  const best = new Map<string, ReceiptWithExpense>();
+  for (const expense of trip.expenses ?? []) {
+    for (const receipt of expense.receipts) {
+      if (!receipt.ativo) continue;
+      const existing = best.get(receipt.fileHash);
+      if (!existing || (!existing.receipt.ocr && receipt.ocr)) {
+        best.set(receipt.fileHash, { expense, receipt });
+      }
+    }
+  }
+  return [...best.values()];
+}
+
 export function buildReportData(
   trip: TripDetailRecord,
   finance: TripFinanceData | undefined,
@@ -104,24 +126,31 @@ export function buildReportData(
     despesas.filter((e) => e.reembolsavel).reduce((sum, e) => sum + toCents(e), 0),
   );
 
-  const ocrDetalhesByHash = new Map<string, ReportOcrReceipt>();
-  for (const expense of trip.expenses ?? []) {
-    for (const receipt of expense.receipts.filter((item) => item.ativo && item.ocr)) {
-      if (ocrDetalhesByHash.has(receipt.fileHash)) continue;
-      const final = toReportOcrFields(receipt.ocr!) ?? emptyOcrFields();
-      const original = toReportOcrFields(receipt.ocr?.dadosOriginais ?? null);
-      ocrDetalhesByHash.set(receipt.fileHash, {
-        receiptId: receipt.id,
-        fileHash: receipt.fileHash,
-        fileName: receipt.fileName,
-        categoria: expense.category.name,
-        structured: mergeOcrFields(original, final),
-        original,
-        final,
-      });
-    }
+  const ocrDetalhes: ReportOcrReceipt[] = [];
+  for (const { expense, receipt } of activeReceiptsByHash(trip)) {
+    const ocr = receipt.ocr;
+    if (!ocr) continue;
+    const final = toReportOcrFields(ocr) ?? emptyOcrFields();
+    const original = toReportOcrFields(ocr.dadosOriginais ?? null);
+    const rawText = original?.textoOriginal ?? final.textoOriginal;
+    const parsedFromRaw = rawText
+      ? toReportOcrFields(parseOcrText(rawText) as unknown as Record<string, unknown>)
+      : null;
+    const originalWithRawFallback = mergeOcrFields(original, parsedFromRaw ?? emptyOcrFields());
+    ocrDetalhes.push({
+      receiptId: receipt.id,
+      fileHash: receipt.fileHash,
+      fileName: receipt.fileName,
+      categoria: expense.category.name,
+      status: ocr.status,
+      origem: ocr.origem,
+      extraidoEm: ocr.extraidoEm,
+      conferidoEm: ocr.conferidoEm,
+      structured: mergeOcrFields(final, originalWithRawFallback),
+      original: originalWithRawFallback,
+      final,
+    });
   }
-  const ocrDetalhes = [...ocrDetalhesByHash.values()];
 
   const financeiro = toFinanceRecords(finance);
   const totalAdiantamentos = fmt(financeiro.adiantamentos.reduce((sum, r) => sum + toCents(r), 0));
@@ -153,7 +182,17 @@ function toReportOcrFields(
 ): ReportOcrFieldSet | null {
   if (!value) return null;
   const record = value as Record<string, unknown>;
-  const nestedRecords = ['estabelecimento', 'totais']
+  const nestedRecords = [
+    'estabelecimento',
+    'documentoFiscal',
+    'documento_fiscal',
+    'totais',
+    'valores',
+    'informacoesFiscais',
+    'informacoes_fiscais',
+    'outrasInformacoes',
+    'outras_informacoes',
+  ]
     .map((key) => record[key])
     .filter((candidate): candidate is Record<string, unknown> => Boolean(candidate) && typeof candidate === 'object');
   const read = (...keys: string[]): unknown => {
@@ -173,6 +212,7 @@ function toReportOcrFields(
     const descricao = typeof descricaoValue === 'string' ? descricaoValue.trim() : '';
     const quantidade = toFiniteNumber(readFrom(candidate, 'quantidade', 'quantity'));
     const valorUnitario = toFiniteNumber(readFrom(candidate, 'valorUnitario', 'valor_unitario', 'unitPrice'));
+    const desconto = toFiniteNumber(readFrom(candidate, 'desconto', 'discount'));
     const valorTotal = toFiniteNumber(readFrom(candidate, 'valorTotal', 'valor_total', 'total'));
     if (!descricao) return [];
     return [{
@@ -181,32 +221,73 @@ function toReportOcrFields(
       quantidade,
       unidade: typeof readFrom(candidate, 'unidade', 'unit') === 'string' ? readFrom(candidate, 'unidade', 'unit') as string : null,
       valorUnitario,
+      desconto,
       valorTotal,
+      ncm: toText(readFrom(candidate, 'ncm')),
+      cfop: toText(readFrom(candidate, 'cfop')),
+      cstCsosn: toText(readFrom(candidate, 'cstCsosn', 'cst_csosn')),
+      icms: toText(readFrom(candidate, 'icms')),
+      pis: toText(readFrom(candidate, 'pis')),
+      cofins: toText(readFrom(candidate, 'cofins')),
     }];
   });
+  const rawExtraFields = read('camposExtras', 'campos_extras');
+  const camposExtras = Array.isArray(rawExtraFields)
+    ? rawExtraFields.flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const candidate = item as Record<string, unknown>;
+      const label = toText(readFrom(candidate, 'label', 'campo', 'nome'));
+      if (!label) return [];
+      const confianca = readFrom(candidate, 'confianca', 'confidence');
+      return [{
+        secao: toText(readFrom(candidate, 'secao', 'section')),
+        label,
+        valor: toText(readFrom(candidate, 'valor', 'value')),
+        confianca: toConfidence(confianca),
+      }];
+    })
+    : [];
   return {
     textoOriginal: typeof read('textoOriginal', 'texto_original') === 'string' ? read('textoOriginal', 'texto_original') as string : null,
-    endereco: typeof read('endereco') === 'string' ? read('endereco') as string : null,
-    cnpj: typeof read('cnpj') === 'string' ? read('cnpj') as string : null,
+    tipoDocumento: toText(read('tipoDocumento', 'tipo_documento')),
+    tipoDocumentoConfianca: toConfidence(read('tipoDocumentoConfianca', 'tipo_documento_confianca')),
+    endereco: toText(read('endereco')),
+    cnpj: toText(read('cnpj')),
     nomeEstabelecimento:
-      typeof read('nomeEstabelecimento', 'razao_social') === 'string' ? read('nomeEstabelecimento', 'razao_social') as string : null,
+      toText(read('nomeEstabelecimento', 'razao_social')),
+    nomeFantasia: toText(read('nomeFantasia', 'nome_fantasia')),
+    cidadeUf: toText(read('cidadeUf', 'cidade_uf')),
     data: toDateValue(data),
-    hora: typeof read('hora') === 'string' ? read('hora') as string : null,
+    hora: toText(read('hora')),
     valorTotal: toMoneyString(read('valorTotal', 'valor_total')),
     valorProdutos: toMoneyString(read('valorProdutos', 'valor_produtos')),
     desconto: toMoneyString(read('desconto', 'descontos')),
     tributos: toMoneyString(read('tributos')),
-    numeroDocumento: typeof read('numeroDocumento', 'numero_cupom') === 'string' ? read('numeroDocumento', 'numero_cupom') as string : null,
-    serie: typeof read('serie') === 'string' ? read('serie') as string : null,
-    inscricaoEstadual: typeof read('inscricaoEstadual') === 'string' ? read('inscricaoEstadual') as string : null,
-    emitente: typeof read('emitente') === 'string' ? read('emitente') as string : null,
-    destinatario: typeof read('destinatario') === 'string' ? read('destinatario') as string : null,
-    formaPagamento: typeof read('formaPagamento', 'forma_pagamento') === 'string' ? read('formaPagamento', 'forma_pagamento') as string : null,
-    protocoloAutorizacao: typeof read('protocoloAutorizacao') === 'string' ? read('protocoloAutorizacao') as string : null,
-    chaveAcesso: typeof read('chaveAcesso', 'chave_acesso') === 'string' && /^\d{44}$/.test(read('chaveAcesso', 'chave_acesso') as string) ? read('chaveAcesso', 'chave_acesso') as string : null,
+    acrescimos: toMoneyString(read('acrescimos', 'acrescimos_valor')),
+    valorPago: toMoneyString(read('valorPago', 'valor_pago')),
+    troco: toMoneyString(read('troco')),
+    numeroDocumento: toText(read('numeroDocumento', 'numero_cupom', 'numero')),
+    serie: toText(read('serie')),
+    numeroSat: toText(read('numeroSat', 'numero_sat')),
+    qrCode: toText(read('qrCode', 'qr_code')),
+    inscricaoEstadual: toText(read('inscricaoEstadual', 'inscricao_estadual')),
+    emitente: toText(read('emitente')),
+    destinatario: toText(read('destinatario')),
+    formaPagamento: toText(read('formaPagamento', 'forma_pagamento')),
+    protocoloAutorizacao: toText(read('protocoloAutorizacao', 'protocolo_autorizacao', 'protocolo')),
+    chaveAcesso: /^\d{44}$/.test(toText(read('chaveAcesso', 'chave_acesso')) ?? '') ? toText(read('chaveAcesso', 'chave_acesso')) : null,
     subtotal: toMoneyString(read('subtotal')),
+    ncm: toText(read('ncm')),
+    cfop: toText(read('cfop')),
+    cstCsosn: toText(read('cstCsosn', 'cst_csosn')),
+    icms: toText(read('icms')),
+    pis: toText(read('pis')),
+    cofins: toText(read('cofins')),
+    observacoes: toText(read('observacoes', 'observations')),
+    informacoesComplementares: toText(read('informacoesComplementares', 'informacoes_complementares')),
+    camposExtras,
     itens,
-    confiancaExtracao: read('confiancaExtracao', 'confianca_extracao') === 'alta' || read('confiancaExtracao', 'confianca_extracao') === 'media' || read('confiancaExtracao', 'confianca_extracao') === 'baixa' ? read('confiancaExtracao', 'confianca_extracao') as 'alta' | 'media' | 'baixa' : null,
+    confiancaExtracao: toConfidence(read('confiancaExtracao', 'confianca_extracao')),
     alertaReconciliacao: read('alertaReconciliacao', 'alerta_reconciliacao') === true,
     erro: typeof read('erro') === 'string' ? read('erro') as string : null,
   };
@@ -226,6 +307,16 @@ function toFiniteNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+function toText(value: unknown): string | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const text = String(value).trim();
+  return text ? text : null;
+}
+
+function toConfidence(value: unknown): 'alta' | 'media' | 'baixa' | null {
+  return value === 'alta' || value === 'media' || value === 'baixa' ? value : null;
 }
 
 function toMoneyString(value: unknown): string | null {
@@ -275,16 +366,20 @@ function mergeOcrFields(primary: ReportOcrFieldSet | null, fallback: ReportOcrFi
 
 function emptyOcrFields(): ReportOcrFieldSet {
   return {
-    textoOriginal: null, endereco: null, cnpj: null, nomeEstabelecimento: null, data: null, hora: null,
-    valorTotal: null, valorProdutos: null, desconto: null, tributos: null, numeroDocumento: null,
-    serie: null, inscricaoEstadual: null, emitente: null, destinatario: null, formaPagamento: null,
-    protocoloAutorizacao: null, chaveAcesso: null, subtotal: null, itens: [], confiancaExtracao: null,
+    textoOriginal: null, tipoDocumento: null, tipoDocumentoConfianca: null, endereco: null, cnpj: null,
+    nomeEstabelecimento: null, nomeFantasia: null, cidadeUf: null, data: null, hora: null,
+    valorTotal: null, valorProdutos: null, desconto: null, tributos: null, acrescimos: null,
+    valorPago: null, troco: null, numeroDocumento: null, serie: null, numeroSat: null, qrCode: null,
+    inscricaoEstadual: null, emitente: null, destinatario: null, formaPagamento: null,
+    protocoloAutorizacao: null, chaveAcesso: null, subtotal: null, ncm: null, cfop: null,
+    cstCsosn: null, icms: null, pis: null, cofins: null, observacoes: null,
+    informacoesComplementares: null, camposExtras: [], itens: [], confiancaExtracao: null,
     alertaReconciliacao: false, erro: null,
   };
 }
 
 function computeOcrSummary(trip: TripDetailRecord): ReportOcrSummary {
-  let totalComprovantes = 0;
+  const receipts = activeReceiptsByHash(trip);
   let comOcr = 0;
   let manual = 0;
   let pendentes = 0;
@@ -292,31 +387,25 @@ function computeOcrSummary(trip: TripDetailRecord): ReportOcrSummary {
   let valorExtraidoCents = 0;
   const chavesAcesso = new Set<string>();
 
-  const seenHashes = new Set<string>();
-  for (const expense of trip.expenses ?? []) {
-    for (const receipt of expense.receipts.filter((r) => r.ativo)) {
-      if (seenHashes.has(receipt.fileHash)) continue;
-      seenHashes.add(receipt.fileHash);
-      totalComprovantes += 1;
-      if (receipt.ocr) {
-        if (receipt.ocr.status === 'SUCESSO' && receipt.ocr.origem === 'MANUAL') manual += 1;
-        else if (receipt.ocr.status === 'SUCESSO') comOcr += 1;
-        else if (receipt.ocr.status === 'FALHA') falhas += 1;
-        else pendentes += 1;
-        if (receipt.ocr.origem === 'OCR' && receipt.ocr.status === 'SUCESSO' && receipt.ocr.valorTotal) {
-          valorExtraidoCents += Math.round(Number(receipt.ocr.valorTotal) * 100);
-        }
-        if (receipt.ocr.chaveAcesso && /^\d{44}$/.test(receipt.ocr.chaveAcesso)) {
-          chavesAcesso.add(receipt.ocr.chaveAcesso);
-        }
-      } else {
-        pendentes += 1;
+  for (const { receipt } of receipts) {
+    if (receipt.ocr) {
+      if (receipt.ocr.status === 'SUCESSO' && receipt.ocr.origem === 'MANUAL') manual += 1;
+      else if (receipt.ocr.status === 'SUCESSO') comOcr += 1;
+      else if (receipt.ocr.status === 'FALHA') falhas += 1;
+      else pendentes += 1;
+      if (receipt.ocr.origem === 'OCR' && receipt.ocr.status === 'SUCESSO' && receipt.ocr.valorTotal) {
+        valorExtraidoCents += Math.round(Number(receipt.ocr.valorTotal) * 100);
       }
+      if (receipt.ocr.chaveAcesso && /^\d{44}$/.test(receipt.ocr.chaveAcesso)) {
+        chavesAcesso.add(receipt.ocr.chaveAcesso);
+      }
+    } else {
+      pendentes += 1;
     }
   }
 
   return {
-    totalComprovantes,
+    totalComprovantes: receipts.length,
     comOcr,
     manual,
     pendentes,

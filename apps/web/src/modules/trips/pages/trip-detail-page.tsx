@@ -774,19 +774,23 @@ export default function TripDetailPage() {
         </section>
       ) : null}
 
-      <ExpenseFormDialog
-        tripId={trip.id}
-        open={isExpenseFormOpen}
-        onOpenChange={setIsExpenseFormOpen}
-      />
-      <ExpenseEditDialog
-        tripId={trip.id}
-        expense={editingExpense}
-        open={editingExpense !== null}
-        onOpenChange={(open) => {
-          if (!open) setEditingExpense(null);
-        }}
-      />
+      {isExpenseFormOpen ? (
+        <ExpenseFormDialog
+          tripId={trip.id}
+          open
+          onOpenChange={setIsExpenseFormOpen}
+        />
+      ) : null}
+      {editingExpense ? (
+        <ExpenseEditDialog
+          tripId={trip.id}
+          expense={editingExpense}
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditingExpense(null);
+          }}
+        />
+      ) : null}
 
       <ReceiptOcrDialog
         key={ocrReceipt?.id ?? "none"}

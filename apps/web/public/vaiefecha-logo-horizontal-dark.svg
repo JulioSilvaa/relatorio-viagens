@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360">
+  <rect width="1200" height="360" fill="#181C24"/>
+  <g transform="translate(50, 40)">
+    <rect width="280" height="280" rx="64" fill="#F0F3F7"/>
+    <path d="M 60 230 Q 110 220 142 168 L 175 210 L 232 105" fill="none" stroke="#C5A059" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(380, 0)">
+    <text x="0" y="200" font-family="sans-serif" font-weight="700" font-size="108" fill="#C5A059" letter-spacing="-1.5">vaiefecha</text>
+    <line x1="0" y1="232" x2="720" y2="232" stroke="#C5A059" stroke-width="3"/>
+    <text x="0" y="278" font-family="sans-serif" font-weight="400" font-size="28" fill="#A0AEC0">gestão inteligente de despesas de viagem</text>
+  </g>
+</svg>

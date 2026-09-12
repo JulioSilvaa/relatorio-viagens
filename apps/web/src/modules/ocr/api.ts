@@ -32,6 +32,22 @@ export interface SaveReceiptOcrInput {
   dadosOriginais?: Record<string, unknown>;
 }
 
+export interface OcrPreviewItem {
+  codigo?: string | null;
+  descricao?: string;
+  quantidade?: number | null;
+  unidade?: string | null;
+  valorUnitario?: number | null;
+  desconto?: number | null;
+  valorTotal?: number | null;
+  ncm?: string | null;
+  cfop?: string | null;
+  cstCsosn?: string | null;
+  icms?: string | null;
+  pis?: string | null;
+  cofins?: string | null;
+}
+
 export function fetchReceiptOcr(receiptId: string): Promise<ReceiptOcrRecord> {
   return apiFetch<ReceiptOcrRecord>(`/api/ocr/receipts/${receiptId}`);
 }

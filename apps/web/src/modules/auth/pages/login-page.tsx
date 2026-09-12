@@ -29,10 +29,17 @@ export default function LoginPage() {
   return (
     <main className="flex flex-1 flex-col justify-center px-4 py-10">
       <div className="mx-auto flex w-full max-w-sm flex-col gap-6">
-        <header className="flex flex-col gap-1 text-center">
-          <span className="text-2xl" aria-hidden="true">
-            VDR
-          </span>
+        <header className="flex flex-col items-center gap-3 text-center">
+          <img
+            src="/vaiefecha-logo-horizontal-light.svg"
+            alt="vaiefecha"
+            className="h-10 w-auto dark:hidden"
+          />
+          <img
+            src="/vaiefecha-logo-horizontal-dark.svg"
+            alt="vaiefecha"
+            className="hidden h-10 w-auto dark:block"
+          />
           <h1 className="text-xl font-semibold tracking-tight">
             Viagens e Despesas
           </h1>

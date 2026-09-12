@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Banknote } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -67,16 +67,9 @@ interface RequestDialogProps {
 
 function RequestAdvanceDialog({ open, onOpenChange, tripId, advance }: RequestDialogProps) {
   const request = useRequestAdvance(tripId);
-  const [valor, setValor] = useState("");
-  const [justificativa, setJustificativa] = useState("");
+  const [valor, setValor] = useState(advance?.valorSolicitado ?? "");
+  const [justificativa, setJustificativa] = useState(advance?.justificativaSolicitacao ?? "");
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setValor(advance?.valorSolicitado ?? "");
-    setJustificativa(advance?.justificativaSolicitacao ?? "");
-    setError(null);
-  }, [advance, open]);
 
   function reset() {
     setValor("");
@@ -516,12 +509,14 @@ export function AdvanceSection({ trip, canEdit, userRole }: AdvanceSectionProps)
         </CardContent>
       </Card>
 
-      <RequestAdvanceDialog
-        open={dialog === "solicitar"}
-        onOpenChange={(open) => setDialog(open ? "solicitar" : null)}
-        tripId={trip.id}
-        advance={showCorrigir ? advance : null}
-      />
+      {dialog === "solicitar" ? (
+        <RequestAdvanceDialog
+          open
+          onOpenChange={(open) => setDialog(open ? "solicitar" : null)}
+          tripId={trip.id}
+          advance={showCorrigir ? advance : null}
+        />
+      ) : null}
       {dialog === "analisar" && advance ? (
         <ReviewAdvanceDialog
           open

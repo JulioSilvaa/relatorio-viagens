@@ -5,6 +5,7 @@ import { authorizeReceiptAccess } from '../ocr-authz.js';
 import { normalizeAccessKey } from '../ocr-parser.js';
 import type {
   OcrExtractionFields,
+  OcrStoredItem,
   ReceiptOcrRecord,
   ReceiptOcrRepository,
   SaveReceiptOcrData,
@@ -28,27 +29,18 @@ export class SaveReceiptOcrService {
 
     const previous = await this.ocr.findByReceipt(receiptId);
     const data: SaveReceiptOcrData = {
-      cnpj: input.cnpj ?? null,
-      nomeEstabelecimento: input.nomeEstabelecimento ?? null,
-      data: input.data ?? null,
-      hora: input.hora ?? null,
-      valorTotal: input.valorTotal ?? null,
-      numeroDocumento: input.numeroDocumento ?? null,
-      chaveAcesso: normalizeAccessKey(input.chaveAcesso) ?? null,
-      itens: input.itens ?? null,
-      dadosOriginais: input.dadosOriginais,
+      cnpj: input.cnpj ?? previous?.cnpj ?? null,
+      nomeEstabelecimento: input.nomeEstabelecimento ?? previous?.nomeEstabelecimento ?? null,
+      data: input.data ?? previous?.data ?? null,
+      hora: input.hora ?? previous?.hora ?? null,
+      valorTotal: input.valorTotal ?? previous?.valorTotal ?? null,
+      numeroDocumento: input.numeroDocumento ?? previous?.numeroDocumento ?? null,
+      chaveAcesso: normalizeAccessKey(input.chaveAcesso) ?? previous?.chaveAcesso ?? null,
+      itens: mergeItens(input.itens, previous?.itens),
+      dadosOriginais: input.dadosOriginais ?? previous?.dadosOriginais ?? null,
     };
 
-    const normalized = (value: string | null | undefined): string | undefined =>
-      value?.replace(/\.0+$/, '');
-    const changed =
-      previous?.cnpj !== data.cnpj ||
-      previous?.nomeEstabelecimento !== data.nomeEstabelecimento ||
-      previous?.hora !== data.hora ||
-      previous?.numeroDocumento !== data.numeroDocumento ||
-      previous?.chaveAcesso !== data.chaveAcesso ||
-      normalized(previous?.valorTotal) !== normalized(data.valorTotal);
-    const editedByUser = previous !== null && changed;
+    const editedByUser = previous !== null && hasUserEdits(previous, data);
     if (!previous) data.origem = 'MANUAL';
     else data.origem = editedByUser ? 'MANUAL' : previous.origem;
 
@@ -67,6 +59,30 @@ export class SaveReceiptOcrService {
 
     return saved;
   }
+}
+
+function mergeItens(
+  input: OcrStoredItem[] | undefined,
+  previous: unknown[] | null | undefined,
+): unknown[] | null {
+  if (input && input.length > 0) return input;
+  return previous ?? null;
+}
+
+function hasUserEdits(previous: ReceiptOcrRecord, data: SaveReceiptOcrData): boolean {
+  const normalized = (value: string | null | undefined): string | undefined =>
+    value?.replace(/\.0+$/, '');
+  const dateEqual = (a?: Date | null, b?: Date | null): boolean =>
+    (a?.getTime() ?? 0) === (b?.getTime() ?? 0);
+  return (
+    previous.cnpj !== data.cnpj ||
+    previous.nomeEstabelecimento !== data.nomeEstabelecimento ||
+    !dateEqual(previous.data, data.data) ||
+    previous.hora !== data.hora ||
+    previous.numeroDocumento !== data.numeroDocumento ||
+    previous.chaveAcesso !== data.chaveAcesso ||
+    normalized(previous.valorTotal) !== normalized(data.valorTotal)
+  );
 }
 
 function toComparable(record: ReceiptOcrRecord) {

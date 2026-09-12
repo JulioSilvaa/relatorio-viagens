@@ -59,7 +59,10 @@ function ReceiptPreview({ file }: { file: File }) {
 function structuredOcrItems(items: unknown[] | undefined): Array<{
   descricao: string;
   quantidade: string;
+  valorUnitario: string;
+  desconto: string;
   valorTotal: string;
+  fiscal: string;
 }> {
   return (items ?? []).flatMap((item) => {
     if (!item || typeof item !== "object") return [];
@@ -73,11 +76,33 @@ function structuredOcrItems(items: unknown[] | undefined): Array<{
     const quantidade = typeof record.quantidade === "number" || typeof record.quantidade === "string"
       ? String(record.quantidade)
       : "-";
+    const valorUnitario = typeof record.valorUnitario === "number" || typeof record.valorUnitario === "string"
+      ? String(record.valorUnitario).replace(".", ",")
+      : "-";
+    const desconto = typeof record.desconto === "number" || typeof record.desconto === "string"
+      ? String(record.desconto).replace(".", ",")
+      : "-";
     const valorTotal = typeof record.valorTotal === "number" || typeof record.valorTotal === "string"
       ? String(record.valorTotal).replace(".", ",")
       : "-";
-    return [{ descricao, quantidade, valorTotal }];
+    const fiscal = ["ncm", "cfop", "cstCsosn", "icms", "pis", "cofins"]
+      .flatMap((key) => typeof record[key] === "string" && record[key] ? `${key.toUpperCase()}: ${record[key]}` : [])
+      .join(" · ");
+    return [{ descricao, quantidade, valorUnitario, desconto, valorTotal, fiscal }];
   });
+}
+
+function ocrTypeLabel(value: string | undefined): string {
+  const labels: Record<string, string> = {
+    NFC_E: "NFC-e",
+    CFE_SAT: "CF-e SAT",
+    NFE: "NF-e",
+    RECIBO: "Recibo",
+    COMPROVANTE_PAGAMENTO: "Comprovante de pagamento",
+    OUTRO: "Outro documento",
+    NAO_IDENTIFICADO: "Não identificado",
+  };
+  return labels[value ?? ""] ?? value ?? "Não identificado";
 }
 
 interface ExpenseFormDialogProps {
@@ -100,7 +125,9 @@ export function ExpenseFormDialog({
   const [tipoComprovante, setTipoComprovante] = useState<ReceiptTypeValue>(
     "OUTRO",
   );
-  const [dataDespesa, setDataDespesa] = useState("");
+  const [dataDespesa, setDataDespesa] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [valor, setValor] = useState("");
   const [reembolsavel, setReembolsavel] = useState("true");
   const [justificativa, setJustificativa] = useState("");
@@ -110,22 +137,6 @@ export function ExpenseFormDialog({
   const [ocrData, setOcrData] = useState<NonNullable<Awaited<ReturnType<typeof preAnalyzeReceipt>>['data']> | null>(null);
   const [formStarted, setFormStarted] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
-
-  useEffect(() => {
-    if (!open) return;
-    setCategoryCode("");
-    setTipoComprovante("OUTRO");
-    setDataDespesa(new Date().toISOString().slice(0, 10));
-    setValor("");
-    setReembolsavel("true");
-    setJustificativa("");
-    setFiles([]);
-    setAnalyzing(false);
-    setAnalysisMessage(null);
-    setOcrData(null);
-    setFormStarted(false);
-    setErrors({});
-  }, [open]);
 
   const isKmRodados = categoryCode === "KM_RODADOS";
 
@@ -173,40 +184,57 @@ export function ExpenseFormDialog({
     return rules.find(([, pattern]) => pattern.test(source))?.[0] ?? "";
   }
 
+  function ocrValueNumber(value: string | number | undefined): number | null {
+    if (value === undefined || value === null) return null;
+    const raw = String(value).replace(/R\$\s*/g, "").replace(/\s/g, "").trim();
+    if (!raw) return null;
+    const normalized = raw.includes(",")
+      ? raw.replace(/\./g, "").replace(",", ".")
+      : raw.replace(/,/g, "");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  function fillFieldsFromOcr(
+    ocr: NonNullable<Awaited<ReturnType<typeof preAnalyzeReceipt>>["data"]>,
+  ) {
+    const value =
+      ocrValueNumber(ocr.valorTotal) ??
+      ocrValueNumber(ocr.valorPago) ??
+      ocrValueNumber(ocr.valorProdutos);
+    if (value !== null) setValor((current) => current || value.toFixed(2));
+    const normalizedDate = normalizeOcrDate(ocr.data);
+    if (normalizedDate) setDataDespesa(normalizedDate);
+    const inferredCategory = inferCategoryCode(ocr);
+    if (inferredCategory && categories.some((category) => category.code === inferredCategory)) {
+      setCategoryCode(inferredCategory);
+    }
+    if (ocr.nomeEstabelecimento) setJustificativa(ocr.nomeEstabelecimento);
+  }
+
   async function analyzeFile(firstFile: File) {
     setAnalyzing(true);
     setAnalysisMessage(null);
     try {
       const result = await preAnalyzeReceipt(firstFile);
-      if (result.status === "SUCESSO" && result.data) {
-        setOcrData(result.data);
-        const normalizedDate = normalizeOcrDate(result.data.data);
-        if (normalizedDate) setDataDespesa(normalizedDate);
-        const inferredCategory = inferCategoryCode(result.data);
-        if (inferredCategory && categories.some((category) => category.code === inferredCategory)) {
-          setCategoryCode(inferredCategory);
-        }
-        if (result.data.valorTotal && Number.isFinite(Number(result.data.valorTotal))) {
-          setValor((current) => current || result.data!.valorTotal!);
-        }
-        if (result.data.nomeEstabelecimento) {
-          setJustificativa(result.data.nomeEstabelecimento);
-        }
-        const hasUsefulFields = Boolean(
-          result.data.valorTotal ||
-          result.data.valorProdutos ||
-          result.data.nomeEstabelecimento ||
-          result.data.numeroDocumento ||
-          result.data.chaveAcesso,
-        );
+      const ocr = result.data ?? null;
+      setOcrData(ocr);
+      if (ocr) fillFieldsFromOcr(ocr);
+      const hasUsefulFields = Boolean(
+        ocr && (ocr.valorTotal || ocr.valorProdutos || ocr.nomeEstabelecimento || ocr.numeroDocumento || ocr.chaveAcesso),
+      );
+      if (result.status === "SUCESSO" && ocr) {
         setAnalysisMessage(
           hasUsefulFields
             ? "Dados preenchidos pelo OCR. Revise antes de salvar."
             : "Leitura parcial: apenas alguns dados foram reconhecidos. Confira e preencha o restante.",
         );
+      } else if (ocr) {
+        setAnalysisMessage(
+          "A leitura estruturada precisa de revisão. Os dados preliminares do comprovante foram preservados; revise antes de salvar.",
+        );
       } else {
-        setOcrData(result.data ?? null);
-        setAnalysisMessage(result.erro ?? "Não foi possível ler a imagem. Preencha os dados manualmente.");
+        setAnalysisMessage(result.erro ?? "Não foi possível ler o comprovante. Preencha os dados manualmente.");
       }
     } catch {
       setAnalysisMessage("Não foi possível analisar a imagem. Preencha os dados manualmente.");
@@ -278,18 +306,18 @@ export function ExpenseFormDialog({
         files,
       });
       const receipt = createdExpense.receipts?.find((item) => item.ativo) ?? createdExpense.receipts?.[0];
-      if (ocrData && receipt) {
+      if (receipt) {
         try {
           await saveReceiptOcr(receipt.id, {
-            cnpj: ocrData.cnpj,
-            nomeEstabelecimento: ocrData.nomeEstabelecimento || justificativa.trim(),
-            data: dataDespesa || ocrData.data,
-            hora: ocrData.hora,
-            valorTotal: parsedValor ?? (ocrData.valorTotal ? Number(ocrData.valorTotal) : undefined),
-            numeroDocumento: ocrData.numeroDocumento,
-            chaveAcesso: ocrData.chaveAcesso,
-            itens: ocrData.itens,
-            dadosOriginais: ocrData,
+            cnpj: ocrData?.cnpj,
+            nomeEstabelecimento: ocrData?.nomeEstabelecimento,
+            data: dataDespesa,
+            hora: ocrData?.hora,
+            valorTotal: parsedValor ?? undefined,
+            numeroDocumento: ocrData?.numeroDocumento,
+            chaveAcesso: ocrData?.chaveAcesso,
+            itens: ocrData?.itens,
+            dadosOriginais: ocrData ?? undefined,
           });
         } catch {
           toast.warning("Despesa salva, mas não foi possível confirmar os dados da IA.");
@@ -362,8 +390,12 @@ export function ExpenseFormDialog({
                 <p className="font-medium text-foreground">
                   Dados reconhecidos por IA — revise antes de salvar
                 </p>
+                <p>Tipo de documento: {ocrTypeLabel(ocrData.tipoDocumento)}</p>
                 {ocrData.nomeEstabelecimento ? <p>Estabelecimento: {ocrData.nomeEstabelecimento}</p> : null}
+                {ocrData.nomeFantasia ? <p>Nome fantasia: {ocrData.nomeFantasia}</p> : null}
                 {ocrData.cnpj ? <p>CNPJ: {ocrData.cnpj}</p> : null}
+                {ocrData.endereco ? <p>Endereço: {ocrData.endereco}</p> : null}
+                {ocrData.cidadeUf ? <p>Cidade/UF: {ocrData.cidadeUf}</p> : null}
                 {ocrData.chaveAcesso ? (
                   <p className="break-all">Chave SEFAZ: {ocrData.chaveAcesso}</p>
                 ) : null}
@@ -381,19 +413,30 @@ export function ExpenseFormDialog({
                 {ocrData.tributos ? <p>Tributos: R$ {ocrData.tributos.replace('.', ',')}</p> : null}
                 {ocrData.formaPagamento ? <p>Pagamento: {ocrData.formaPagamento}</p> : null}
                 {ocrData.protocoloAutorizacao ? <p>Protocolo: {ocrData.protocoloAutorizacao}</p> : null}
+                {ocrData.numeroSat ? <p>Número do SAT: {ocrData.numeroSat}</p> : null}
+                {ocrData.qrCode ? <p className="break-all">QR Code: {ocrData.qrCode}</p> : null}
                 {structuredOcrItems(ocrData.itens).length > 0 ? (
                   <div className="mt-2 border-t border-primary/20 pt-2">
                     <p className="font-medium">Itens reconhecidos</p>
                     <ul className="flex flex-col gap-1 text-xs">
                       {structuredOcrItems(ocrData.itens).map((item, index) => (
                         <li key={`${item.descricao}-${index}`} className="flex justify-between gap-3">
-                          <span className="min-w-0 truncate">{item.quantidade} × {item.descricao}</span>
+                          <span className="min-w-0">
+                            <span className="block truncate">{item.quantidade} × {item.descricao}</span>
+                            <span className="text-muted-foreground">Unit. R$ {item.valorUnitario} · Desc. R$ {item.desconto}</span>
+                            {item.fiscal ? <span className="block text-muted-foreground">{item.fiscal}</span> : null}
+                          </span>
                           <span className="shrink-0">R$ {item.valorTotal}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 ) : null}
+                {ocrData.informacoesComplementares ? <p>Informações complementares: {ocrData.informacoesComplementares}</p> : null}
+                {ocrData.observacoes ? <p>Observações: {ocrData.observacoes}</p> : null}
+                {ocrData.camposExtras?.map((field, index) => (
+                  <p key={`${field.label}-${index}`}>{field.label}: {field.valor ?? "Não identificado"}</p>
+                ))}
               </div>
             ) : null}
             {analysisMessage ? (

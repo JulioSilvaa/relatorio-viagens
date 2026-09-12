@@ -51,17 +51,26 @@ export interface ReportOcrSummary {
 
 export interface ReportOcrFieldSet {
   textoOriginal: string | null;
+  tipoDocumento: string | null;
+  tipoDocumentoConfianca: 'alta' | 'media' | 'baixa' | null;
   endereco: string | null;
   cnpj: string | null;
   nomeEstabelecimento: string | null;
+  nomeFantasia: string | null;
+  cidadeUf: string | null;
   data: string | null;
   hora: string | null;
   valorTotal: string | null;
   valorProdutos: string | null;
   desconto: string | null;
   tributos: string | null;
+  acrescimos: string | null;
+  valorPago: string | null;
+  troco: string | null;
   numeroDocumento: string | null;
   serie: string | null;
+  numeroSat: string | null;
+  qrCode: string | null;
   inscricaoEstadual: string | null;
   emitente: string | null;
   destinatario: string | null;
@@ -69,13 +78,34 @@ export interface ReportOcrFieldSet {
   protocoloAutorizacao: string | null;
   chaveAcesso: string | null;
   subtotal: string | null;
+  ncm: string | null;
+  cfop: string | null;
+  cstCsosn: string | null;
+  icms: string | null;
+  pis: string | null;
+  cofins: string | null;
+  observacoes: string | null;
+  informacoesComplementares: string | null;
+  camposExtras: Array<{
+    secao: string | null;
+    label: string;
+    valor: string | null;
+    confianca: 'alta' | 'media' | 'baixa' | null;
+  }>;
   itens: Array<{
     codigo: string | null;
     descricao: string;
     quantidade: number | null;
     unidade: string | null;
     valorUnitario: number | null;
+    desconto: number | null;
     valorTotal: number | null;
+    ncm: string | null;
+    cfop: string | null;
+    cstCsosn: string | null;
+    icms: string | null;
+    pis: string | null;
+    cofins: string | null;
   }>;
   confiancaExtracao: 'alta' | 'media' | 'baixa' | null;
   alertaReconciliacao: boolean;
@@ -87,6 +117,10 @@ export interface ReportOcrReceipt {
   fileHash: string;
   fileName: string;
   categoria: string;
+  status: string;
+  origem: string;
+  extraidoEm: Date | null;
+  conferidoEm: Date | null;
   structured: ReportOcrFieldSet;
   original: ReportOcrFieldSet | null;
   final: ReportOcrFieldSet;
