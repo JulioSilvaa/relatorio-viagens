@@ -31,6 +31,8 @@ jobs:
     env:
       DATABASE_URL_TEST: postgresql://vdr:vdr@localhost:5432/vdr_test?schema=public
       DATABASE_URL: postgresql://vdr:vdr@localhost:5432/vdr_test?schema=public
+      SESSION_SECRET: ci-only-test-secret-0123456789abcdef
+      CARD_ENCRYPTION_KEY: ci-only-test-card-key-0123456789abcdef
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -71,7 +73,6 @@ jobs:
         run: yarn workspace @vdr/web test
 
   dockerfile:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
