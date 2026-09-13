@@ -1,13 +1,13 @@
 services:
   ocr:
     build:
-      context: ./apps/ocr
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/ocr/Dockerfile
     restart: unless-stopped
     expose:
       - "8000"
     volumes:
-      - ocr_models:/root/.paddleocr
+      - ocr_models:/home/ocr/.paddleocr
     healthcheck:
       test:
         ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=3)"]

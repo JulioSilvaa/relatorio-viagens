@@ -1,0 +1,110 @@
+# Stack de produção: usa imagens do GHCR (build/push/sem bind-mounts).
+# Requer um .env com as variáveis de produção (ver .env.example).
+# IMAGE_TAG controla qual versão das imagens será usada (default: latest).
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vdr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vdr}
+      POSTGRES_DB: ${POSTGRES_DB:-vdr}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vdr} -d ${POSTGRES_DB:-vdr}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+
+  ocr:
+    image: ghcr.io/juliosilvaa/relatorio-viagens-ocr:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/ocr/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ocr_models:/home/ocr/.paddleocr
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "2.0"
+
+  api:
+    image: ghcr.io/juliosilvaa/relatorio-viagens-api:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vdr}:${POSTGRES_PASSWORD:-vdr}@db:5432/${POSTGRES_DB:-vdr}?schema=public
+    ports:
+      - "127.0.0.1:${API_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      ocr:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+
+  web:
+    image: ghcr.io/juliosilvaa/relatorio-viagens-web:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_INTERNAL_URL: http://api:3000
+    ports:
+      - "${WEB_PORT:-3001}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+
+volumes:
+  db_data:
+  ocr_models:

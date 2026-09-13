@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: vdr
+          POSTGRES_PASSWORD: vdr
+          POSTGRES_DB: vdr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vdr -d vdr_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL_TEST: postgresql://vdr:vdr@localhost:5432/vdr_test?schema=public
+      DATABASE_URL: postgresql://vdr:vdr@localhost:5432/vdr_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+      - name: Habilitar corepack (yarn 1)
+        run: corepack enable
+      - name: Instalar dependências
+        run: yarn install --frozen-lockfile
+      - name: Gerar Prisma Client
+        run: yarn workspace @vdr/api prisma:generate
+      - name: Lint
+        run: yarn workspace @vdr/api lint
+      - name: Typecheck
+        run: yarn workspace @vdr/api typecheck
+      - name: Testes
+        run: yarn workspace @vdr/api test
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+      - name: Habilitar corepack (yarn 1)
+        run: corepack enable
+      - name: Instalar dependências
+        run: yarn install --frozen-lockfile
+      - name: Lint
+        run: yarn workspace @vdr/web lint
+      - name: Typecheck
+        run: yarn workspace @vdr/web typecheck
+      - name: Testes
+        run: yarn workspace @vdr/web test
+
+  dockerfile:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build api
+        run: docker build -t vdr/api -f apps/api/Dockerfile .
+      - name: Build web
+        run: docker build -t vdr/web -f apps/web/Dockerfile .
+      - name: Build ocr
+        run: docker build -t vdr/ocr -f apps/ocr/Dockerfile .

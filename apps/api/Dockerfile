@@ -51,6 +51,14 @@ COPY --from=builder /app/prisma ./prisma
 
 ENV NODE_ENV=production
 
+LABEL org.opencontainers.image.source="https://github.com/JulioSilvaa/relatorio-viagens"
+LABEL org.opencontainers.image.title="vaiefecha - API"
+LABEL org.opencontainers.image.licenses="UNLICENSED"
+
+RUN chown -R node:node /app
+
+USER node
+
 EXPOSE 3000
 
 CMD ["node", "apps/api/dist/server.js"]

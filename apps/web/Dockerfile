@@ -38,10 +38,18 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV API_INTERNAL_URL=http://api:3000
 
+LABEL org.opencontainers.image.source="https://github.com/JulioSilvaa/relatorio-viagens"
+LABEL org.opencontainers.image.title="vaiefecha - Web"
+LABEL org.opencontainers.image.licenses="UNLICENSED"
+
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
 
-EXPOSE 3001
+RUN chown -R node:node /app
+
+USER node
+
+EXPOSE 3000
 
 CMD ["node", "apps/web/server.js"]
