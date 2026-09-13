@@ -31,7 +31,7 @@ const envSchema = z.object({
   SESSION_IDLE_TIMEOUT_MINUTES: z.coerce.number().int().positive().default(480),
   INVITE_TOKEN_EXPIRES_HOURS: z.coerce.number().int().positive().default(72),
   PASSWORD_RESET_EXPIRES_HOURS: z.coerce.number().int().positive().default(1),
-  EMAIL_PROVIDER: z.enum(['dev']).default('dev'),
+
   CARD_ENCRYPTION_KEY: z
     .string()
     .min(16)

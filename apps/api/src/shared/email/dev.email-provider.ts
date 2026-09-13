@@ -1,8 +1,8 @@
 import type { EmailProvider, SendInviteParams, SendPasswordResetParams } from './email-provider.js';
 
 /**
- * Provedor de desenvolvimento: apenas loga a mensagem.
- * Habilitado somente quando EMAIL_PROVIDER=dev (nunca em produção).
+ * Modo log: apenas registra a mensagem no console.
+ * Não há provedor real (SMTP) por enquanto; os e-mails não são entregues.
  */
 export class DevEmailProvider implements EmailProvider {
   async sendInvite(params: SendInviteParams): Promise<void> {
