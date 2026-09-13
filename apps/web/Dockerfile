@@ -23,6 +23,8 @@ COPY --from=deps /app/apps/web/package.json ./apps/web/package.json
 
 COPY apps/web ./apps/web
 
+RUN find apps/web -type f \( -name '*.test.ts' -o -name '*.test.tsx' -o -name 'vitest.config.ts' \) -delete
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV API_INTERNAL_URL=http://api:3000

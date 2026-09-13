@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Express } from 'express';
 import type request from 'supertest';
 import { prisma } from '../../src/config/database.js';
@@ -25,7 +25,22 @@ interface Session {
 
 describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e relatórios', () => {
   beforeAll(async () => {
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === 'object' && 'url' in input ? input.url : String(input);
+      if (url.includes('/ocr')) {
+        return new Response(JSON.stringify({ text: '' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return originalFetch(input, init);
+    });
     await seedBaseData();
+  });
+
+  afterAll(async () => {
+    vi.unstubAllGlobals();
   });
 
   beforeEach(async () => {
@@ -78,11 +93,7 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
     for (const [key, value] of Object.entries(fields)) {
       req = req.field(key, value);
     }
-    const res = await req.attach(
-      'comprovante',
-      VALID_PNG,
-      'comprovante.png',
-    );
+    const res = await req.attach('comprovante', VALID_PNG, 'comprovante.png');
     expect(res.status).toBe(201);
     return res.body.data.expense;
   }
