@@ -1,6 +1,10 @@
 import type { PersistedUser, UserView } from '../user.types.js';
 
-export function userToView(user: PersistedUser, roleCode: string): UserView {
+export function userToView(
+  user: PersistedUser,
+  roleCode: string,
+  permissions: string[] = [],
+): UserView {
   return {
     id: user.id,
     name: user.name,
@@ -10,5 +14,6 @@ export function userToView(user: PersistedUser, roleCode: string): UserView {
     cargo: user.cargo,
     roleCode: roleCode as UserView['roleCode'],
     status: user.status,
+    permissions,
   };
 }

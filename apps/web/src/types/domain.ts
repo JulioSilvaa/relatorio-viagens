@@ -17,6 +17,7 @@ export interface UserView {
   cargo: string;
   roleCode: RoleTypeValue;
   status: UserStatus;
+  permissions?: string[];
 }
 
 export const TRIP_STATUSES = [

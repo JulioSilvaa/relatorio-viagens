@@ -1,6 +1,7 @@
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
+import type { AuditService } from '../../audit/audit.service.js';
 import { ReceiptForbiddenError, ReceiptNotFoundError } from '../receipt.errors.js';
-import type { ReceiptContext, ReceiptsRepository } from '../receipt.types.js';
+import type { ReceiptsRepository } from '../receipt.types.js';
 
 export interface ReceiptFileResult {
   fileData: Uint8Array;
@@ -12,6 +13,7 @@ export class GetReceiptFileService {
   constructor(
     private readonly receipts: ReceiptsRepository,
     private readonly trips: TripsRepository,
+    private readonly audit: AuditService,
   ) {}
 
   async execute(
@@ -24,9 +26,23 @@ export class GetReceiptFileService {
       throw new ReceiptNotFoundError();
     }
 
-    const canView = await this.canView(receipt, actorId, canViewAny);
-    if (!canView) {
+    const involvedWithTrip =
+      receipt.expense.createdById === actorId ||
+      (await this.trips.participantExists(receipt.expense.trip.id, actorId));
+
+    if (!involvedWithTrip && !canViewAny) {
       throw new ReceiptForbiddenError();
+    }
+
+    if (!involvedWithTrip && canViewAny) {
+      await this.audit.record({
+        userId: actorId,
+        operation: 'ACESSAR',
+        entityType: 'COMPROVANTE',
+        entityId: receipt.id,
+        field: 'arquivo',
+        newValue: 'download-por-permissao',
+      });
     }
 
     return {
@@ -34,14 +50,5 @@ export class GetReceiptFileService {
       fileType: receipt.fileType,
       fileName: receipt.fileName,
     };
-  }
-
-  private async canView(
-    receipt: ReceiptContext,
-    actorId: string,
-    canViewAny: boolean,
-  ): Promise<boolean> {
-    if (canViewAny) return true;
-    return this.trips.participantExists(receipt.expense.trip.id, actorId);
   }
 }

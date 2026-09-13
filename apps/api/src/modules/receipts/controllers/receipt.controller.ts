@@ -4,6 +4,7 @@ import type { RequestHandler } from 'express';
 import { asyncHandler } from '../../../shared/http/async-handler.js';
 import { success } from '../../../shared/http/http-response.js';
 import { verifyCsrf } from '../../../shared/auth/csrf.js';
+import { safeDispositionFilename } from '../../../shared/http/content-disposition.js';
 import { MAX_UPLOAD_BYTES } from '../../../shared/upload/files.js';
 import { receiptUploadSchema } from '../../expenses/schemas/expense.schema.js';
 import type { UploadReceiptService } from '../services/upload-receipt.service.js';
@@ -86,7 +87,10 @@ export function createReceiptsRouter({
         canViewAny,
       );
       res.set('Content-Type', result.fileType);
-      res.set('Content-Disposition', `inline; filename="${result.fileName}"`);
+      res.set(
+        'Content-Disposition',
+        `inline; filename="${safeDispositionFilename(result.fileName)}"`,
+      );
       res.send(Buffer.from(result.fileData));
     }),
   );

@@ -10,7 +10,7 @@ export class GenerateOfficialPdfService {
   constructor(
     private readonly repository: ReportsRepository,
     private readonly audit: AuditService,
-  ) { }
+  ) {}
 
   async execute(
     tripId: string,
@@ -19,10 +19,10 @@ export class GenerateOfficialPdfService {
     emitidoPor: string,
     anexarComprovantes: boolean,
   ): Promise<GeneratedOfficialReport> {
-    const data = await this.repository.getReportData(tripId, emitidoPor);
     if (!canViewAny) {
       throw new ReportForbiddenError();
     }
+    const data = await this.repository.getReportData(tripId, emitidoPor);
     if (!OFFICIAL_APPROVED_STATUSES.includes(data.trip.status)) {
       throw new ReportNotApprovedError();
     }

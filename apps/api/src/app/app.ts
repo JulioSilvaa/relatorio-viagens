@@ -1,6 +1,7 @@
 import express, { type Express } from 'express';
 import cookieParser from 'cookie-parser';
 import { errorHandler, notFoundHandler } from '../shared/http/error-handler.js';
+import { securityHeaders } from '../shared/http/security-headers.js';
 import { ensureCsrfCookie } from '../shared/auth/csrf.js';
 import type { createHealthRouter } from './container.js';
 
@@ -52,6 +53,7 @@ export function createApp({
   const app = express();
 
   app.disable('x-powered-by');
+  app.use(securityHeaders);
   app.use(cookieParser());
   app.use(express.json());
   app.use(ensureCsrfCookie);

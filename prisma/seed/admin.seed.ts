@@ -10,9 +10,21 @@ const prisma = new PrismaClient();
 async function seedAdmin(): Promise<void> {
   const email = process.env.ADMIN_EMAIL;
   const password = process.env.ADMIN_PASSWORD;
+  const isProduction = process.env.NODE_ENV === "production";
+  const weakPassword = /^(replace-me|change-me|changeme|admin|1234)/i.test(
+    password ?? "",
+  );
+
   if (!email || !password) {
     console.warn(
       "[seed:admin] ADMIN_EMAIL/ADMIN_PASSWORD ausentes — sem admin padrão criado.",
+    );
+    return;
+  }
+
+  if (isProduction && weakPassword) {
+    console.warn(
+      "[seed:admin] ADMIN_PASSWORD usa placeholder/fraca — admin padrão NÃO criado em produção.",
     );
     return;
   }

@@ -34,6 +34,7 @@ export interface UserView {
   cargo: string;
   roleCode: RoleTypeValue;
   status: User['status'];
+  permissions: string[];
 }
 
 export interface CreateUserInput {

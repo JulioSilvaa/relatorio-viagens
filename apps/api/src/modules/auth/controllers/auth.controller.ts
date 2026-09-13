@@ -57,7 +57,7 @@ export function createAuthRouter({
     requireAuth,
     asyncHandler(async (req, res) => {
       const user = await meService.execute(req.auth!.userId);
-      res.json(success({ user }));
+      res.json(success({ user: { ...user, permissions: req.auth!.user.permissions } }));
     }),
   );
 

@@ -28,25 +28,42 @@ const saveOcrSchema = z.object({
   valorTotal: z.coerce.number().nonnegative().optional(),
   numeroDocumento: z.string().trim().max(80).optional(),
   chaveAcesso: z.string().trim().max(80).optional(),
-  itens: z.array(z.union([
-    z.object({
-      codigo: z.string().trim().nullable().optional(),
-      descricao: z.string().trim().min(1),
-      quantidade: z.coerce.number().positive().nullable().optional(),
-      unidade: z.string().trim().nullable().optional(),
-      valorUnitario: z.coerce.number().nonnegative().nullable().optional(),
-      desconto: z.coerce.number().nonnegative().nullable().optional(),
-      valorTotal: z.coerce.number().nonnegative().nullable().optional(),
-      ncm: z.string().trim().nullable().optional(),
-      cfop: z.string().trim().nullable().optional(),
-      cstCsosn: z.string().trim().nullable().optional(),
-      icms: z.string().trim().nullable().optional(),
-      pis: z.string().trim().nullable().optional(),
-      cofins: z.string().trim().nullable().optional(),
+  itens: z
+    .array(
+      z.union([
+        z.object({
+          codigo: z.string().trim().nullable().optional(),
+          descricao: z.string().trim().min(1),
+          quantidade: z.coerce.number().positive().nullable().optional(),
+          unidade: z.string().trim().nullable().optional(),
+          valorUnitario: z.coerce.number().nonnegative().nullable().optional(),
+          desconto: z.coerce.number().nonnegative().nullable().optional(),
+          valorTotal: z.coerce.number().nonnegative().nullable().optional(),
+          ncm: z.string().trim().nullable().optional(),
+          cfop: z.string().trim().nullable().optional(),
+          cstCsosn: z.string().trim().nullable().optional(),
+          icms: z.string().trim().nullable().optional(),
+          pis: z.string().trim().nullable().optional(),
+          cofins: z.string().trim().nullable().optional(),
+        }),
+        z.object({ produto: z.string().trim().min(1) }).passthrough(),
+      ]),
+    )
+    .max(500)
+    .optional(),
+  dadosOriginais: z
+    .record(z.any())
+    .optional()
+    .superRefine((value, ctx) => {
+      if (!value) return;
+      const serialized = JSON.stringify(value);
+      if (serialized && Buffer.byteLength(serialized, 'utf8') > 64_000) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'dadosOriginais excede o limite de 64KB.',
+        });
+      }
     }),
-    z.object({ produto: z.string().trim().min(1) }).passthrough(),
-  ])).optional(),
-  dadosOriginais: z.record(z.any()).optional(),
 });
 
 function canManageFiscal(req: { auth?: { user: { permissions: string[] } } }): boolean {

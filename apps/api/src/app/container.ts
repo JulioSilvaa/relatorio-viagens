@@ -182,13 +182,19 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
 
   const ocrRepo = new PrismaReceiptOcrRepository();
   const paddleProvider = new PaddleOcrProvider(env.OCR_PADDLE_URL, env.OCR_TIMEOUT_MS);
-  const ocrProvider = env.OCR_PROVIDER === 'paddleocr'
-    ? paddleProvider
-    : env.OCR_PROVIDER === 'gemini'
-      ? env.GEMINI_API_KEY
-        ? new GeminiOcrProvider(env.GEMINI_API_KEY, env.GEMINI_MODEL, env.GEMINI_TIMEOUT_MS, paddleProvider)
-        : new NeutralOcrProvider()
-      : new NeutralOcrProvider();
+  const ocrProvider =
+    env.OCR_PROVIDER === 'paddleocr'
+      ? paddleProvider
+      : env.OCR_PROVIDER === 'gemini'
+        ? env.GEMINI_API_KEY
+          ? new GeminiOcrProvider(
+              env.GEMINI_API_KEY,
+              env.GEMINI_MODEL,
+              env.GEMINI_TIMEOUT_MS,
+              paddleProvider,
+            )
+          : new NeutralOcrProvider()
+        : new NeutralOcrProvider();
   const extractReceiptOcrService = new ExtractReceiptOcrService(
     receipts,
     trips,
@@ -221,7 +227,7 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
 
   const uploadReceiptService = new UploadReceiptService(expenses, receipts, audit);
   const substituteReceiptService = new SubstituteReceiptService(expenses, receipts, audit);
-  const getReceiptFileService = new GetReceiptFileService(receipts, trips);
+  const getReceiptFileService = new GetReceiptFileService(receipts, trips, audit);
 
   const approveReportService = new ApproveReportService(trips, users, audit, notifications);
   const returnReportService = new ReturnReportService(trips, audit, notifications);
