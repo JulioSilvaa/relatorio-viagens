@@ -49,7 +49,7 @@ const envSchema = z.object({
   OCR_PADDLE_URL: z.string().default('http://ocr:8000'),
   OCR_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
   GEMINI_API_KEY: z.string().min(1).optional(),
-  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
+  GEMINI_MODEL: z.string().default('gemini-3.6-flash'),
   GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
 });
 
