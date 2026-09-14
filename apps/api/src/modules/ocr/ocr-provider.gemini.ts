@@ -1,3 +1,4 @@
+import { logger } from '../../shared/logger.js';
 import { hasSufficientOcrText } from './ocr-parser.js';
 import type {
   OcrExtractedItem,
@@ -6,6 +7,8 @@ import type {
   OcrExtractionResult,
   OcrProvider,
 } from './ocr.types.js';
+
+const GEMINI_MAX_ATTEMPTS = 2;
 
 type GeminiValue = string | number | boolean | null;
 type GeminiCupom = {
@@ -82,14 +85,30 @@ const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
     origem: {
-      type: 'OBJECT', properties: {
-        arquivo: { type: 'STRING' }, pagina: { type: 'NUMBER' }, imagem_id: { type: 'STRING' },
-      }, required: ['arquivo', 'pagina', 'imagem_id']
+      type: 'OBJECT',
+      properties: {
+        arquivo: { type: 'STRING' },
+        pagina: { type: 'NUMBER' },
+        imagem_id: { type: 'STRING' },
+      },
+      required: ['arquivo', 'pagina', 'imagem_id'],
     },
-    tipo_documento: { type: 'STRING', enum: ['NFC_E', 'CFE_SAT', 'NFE', 'RECIBO', 'COMPROVANTE_PAGAMENTO', 'OUTRO', 'NAO_IDENTIFICADO'] },
+    tipo_documento: {
+      type: 'STRING',
+      enum: [
+        'NFC_E',
+        'CFE_SAT',
+        'NFE',
+        'RECIBO',
+        'COMPROVANTE_PAGAMENTO',
+        'OUTRO',
+        'NAO_IDENTIFICADO',
+      ],
+    },
     tipo_documento_confianca: { type: 'STRING', enum: ['alta', 'media', 'baixa'] },
     estabelecimento: {
-      type: 'OBJECT', nullable: true,
+      type: 'OBJECT',
+      nullable: true,
       properties: {
         razao_social: { type: 'STRING', nullable: true },
         nome_fantasia: { type: 'STRING', nullable: true },
@@ -100,59 +119,100 @@ const RESPONSE_SCHEMA = {
       },
     },
     documento_fiscal: {
-      type: 'OBJECT', nullable: true, properties: {
-        tipo: { type: 'STRING', nullable: true }, numero: { type: 'STRING', nullable: true },
-        serie: { type: 'STRING', nullable: true }, data: { type: 'STRING', nullable: true },
-        hora: { type: 'STRING', nullable: true }, chave_acesso: { type: 'STRING', nullable: true },
-        protocolo: { type: 'STRING', nullable: true }, numero_sat: { type: 'STRING', nullable: true },
+      type: 'OBJECT',
+      nullable: true,
+      properties: {
+        tipo: { type: 'STRING', nullable: true },
+        numero: { type: 'STRING', nullable: true },
+        serie: { type: 'STRING', nullable: true },
+        data: { type: 'STRING', nullable: true },
+        hora: { type: 'STRING', nullable: true },
+        chave_acesso: { type: 'STRING', nullable: true },
+        protocolo: { type: 'STRING', nullable: true },
+        numero_sat: { type: 'STRING', nullable: true },
         qr_code: { type: 'STRING', nullable: true },
       },
     },
     itens: {
-      type: 'ARRAY', items: {
-        type: 'OBJECT', properties: {
-          codigo: { type: 'STRING', nullable: true }, descricao: { type: 'STRING' },
-          quantidade: { type: 'NUMBER', nullable: true }, unidade: { type: 'STRING', nullable: true },
-          valor_unitario: { type: 'NUMBER', nullable: true }, desconto: { type: 'NUMBER', nullable: true },
-          valor_total: { type: 'NUMBER', nullable: true }, ncm: { type: 'STRING', nullable: true },
-          cfop: { type: 'STRING', nullable: true }, cst_csosn: { type: 'STRING', nullable: true },
-          icms: { type: 'STRING', nullable: true }, pis: { type: 'STRING', nullable: true },
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          codigo: { type: 'STRING', nullable: true },
+          descricao: { type: 'STRING' },
+          quantidade: { type: 'NUMBER', nullable: true },
+          unidade: { type: 'STRING', nullable: true },
+          valor_unitario: { type: 'NUMBER', nullable: true },
+          desconto: { type: 'NUMBER', nullable: true },
+          valor_total: { type: 'NUMBER', nullable: true },
+          ncm: { type: 'STRING', nullable: true },
+          cfop: { type: 'STRING', nullable: true },
+          cst_csosn: { type: 'STRING', nullable: true },
+          icms: { type: 'STRING', nullable: true },
+          pis: { type: 'STRING', nullable: true },
           cofins: { type: 'STRING', nullable: true },
-        }, required: ['descricao', 'quantidade', 'valor_unitario', 'valor_total']
-      }
+        },
+        required: ['descricao', 'quantidade', 'valor_unitario', 'valor_total'],
+      },
     },
     valores: {
-      type: 'OBJECT', nullable: true, properties: {
-        subtotal: { type: 'NUMBER', nullable: true }, descontos: { type: 'NUMBER', nullable: true },
-        acrescimos: { type: 'NUMBER', nullable: true }, total: { type: 'NUMBER', nullable: true },
-        forma_pagamento: { type: 'STRING', nullable: true }, valor_pago: { type: 'NUMBER', nullable: true },
+      type: 'OBJECT',
+      nullable: true,
+      properties: {
+        subtotal: { type: 'NUMBER', nullable: true },
+        descontos: { type: 'NUMBER', nullable: true },
+        acrescimos: { type: 'NUMBER', nullable: true },
+        total: { type: 'NUMBER', nullable: true },
+        forma_pagamento: { type: 'STRING', nullable: true },
+        valor_pago: { type: 'NUMBER', nullable: true },
         troco: { type: 'NUMBER', nullable: true },
       },
     },
     informacoes_fiscais: {
-      type: 'OBJECT', nullable: true, properties: {
-        ncm: { type: 'STRING', nullable: true }, cfop: { type: 'STRING', nullable: true },
-        cst_csosn: { type: 'STRING', nullable: true }, icms: { type: 'STRING', nullable: true },
-        pis: { type: 'STRING', nullable: true }, cofins: { type: 'STRING', nullable: true },
+      type: 'OBJECT',
+      nullable: true,
+      properties: {
+        ncm: { type: 'STRING', nullable: true },
+        cfop: { type: 'STRING', nullable: true },
+        cst_csosn: { type: 'STRING', nullable: true },
+        icms: { type: 'STRING', nullable: true },
+        pis: { type: 'STRING', nullable: true },
+        cofins: { type: 'STRING', nullable: true },
       },
     },
     outras_informacoes: {
-      type: 'OBJECT', nullable: true, properties: {
-        observacoes: { type: 'STRING', nullable: true }, informacoes_complementares: { type: 'STRING', nullable: true },
+      type: 'OBJECT',
+      nullable: true,
+      properties: {
+        observacoes: { type: 'STRING', nullable: true },
+        informacoes_complementares: { type: 'STRING', nullable: true },
       },
     },
     campos_extras: {
-      type: 'ARRAY', items: {
-        type: 'OBJECT', properties: {
-          secao: { type: 'STRING', nullable: true }, label: { type: 'STRING' },
-          valor: { type: 'STRING', nullable: true }, confianca: { type: 'STRING', enum: ['alta', 'media', 'baixa'] },
-        }, required: ['label', 'valor'],
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          secao: { type: 'STRING', nullable: true },
+          label: { type: 'STRING' },
+          valor: { type: 'STRING', nullable: true },
+          confianca: { type: 'STRING', enum: ['alta', 'media', 'baixa'] },
+        },
+        required: ['label', 'valor'],
       },
     },
     confianca_extracao: { type: 'STRING', enum: ['alta', 'media', 'baixa'] },
-    alerta_reconciliacao: { type: 'BOOLEAN' }, erro: { type: 'STRING', nullable: true },
+    alerta_reconciliacao: { type: 'BOOLEAN' },
+    erro: { type: 'STRING', nullable: true },
   },
-  required: ['origem', 'tipo_documento', 'tipo_documento_confianca', 'itens', 'confianca_extracao', 'alerta_reconciliacao'],
+  required: [
+    'origem',
+    'tipo_documento',
+    'tipo_documento_confianca',
+    'itens',
+    'confianca_extracao',
+    'alerta_reconciliacao',
+  ],
 } as const;
 
 const PROMPT = `Você faz EXTRAÇÃO DE DADOS para conferência fiscal e documental de comprovantes brasileiros.
@@ -198,29 +258,87 @@ export class GeminiOcrProvider implements OcrProvider {
       return { status: 'FALHA', erro: 'ocr_insuficiente', data: fallbackData('ocr_insuficiente') };
     }
 
+    let lastFailureReason = 'Falha na leitura estruturada pelo Gemini.';
+    for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
+      const attemptResult = await this.attemptExtraction(input.fileName, rawText);
+      if (attemptResult.ok) {
+        const fields = toExtractionFields(attemptResult.cupom, rawText);
+        return fields.erro === 'ocr_insuficiente'
+          ? { status: 'FALHA', erro: 'ocr_insuficiente', data: fields }
+          : { status: 'SUCESSO', data: fields };
+      }
+      lastFailureReason = attemptResult.reason;
+      logger.warn('OCR Gemini: tentativa falhou', {
+        fileName: input.fileName,
+        model: this.model,
+        attempt,
+        maxAttempts: GEMINI_MAX_ATTEMPTS,
+        reason: attemptResult.reason,
+      });
+    }
+    logger.error('OCR Gemini: todas as tentativas falharam', {
+      fileName: input.fileName,
+      model: this.model,
+      attempts: GEMINI_MAX_ATTEMPTS,
+      reason: lastFailureReason,
+    });
+    return {
+      status: 'FALHA',
+      erro: 'Falha na leitura estruturada pelo Gemini.',
+      data: fallbackData('Falha na leitura estruturada pelo Gemini.'),
+    };
+  }
+
+  private async attemptExtraction(
+    fileName: string,
+    rawText: string,
+  ): Promise<{ ok: true; cupom: GeminiCupom } | { ok: false; reason: string }> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
-      const response = await fetch(`${this.endpoint.replace(/\/$/, '')}/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: `${PROMPT}\n\nMetadados:\n- arquivo: ${input.fileName}\n- pagina: 1\n- imagem_id: ${input.fileName}\n\nTexto OCR:\n"""\n${rawText.slice(0, 50000)}\n"""` }] }],
-          generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
-        }),
-      });
-      if (!response.ok) return { status: 'FALHA', erro: 'Falha na leitura estruturada pelo Gemini.', data: fallbackData('Falha na leitura estruturada pelo Gemini.') };
-      const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+      const response = await fetch(
+        `${this.endpoint.replace(/\/$/, '')}/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: `${PROMPT}\n\nMetadados:\n- arquivo: ${fileName}\n- pagina: 1\n- imagem_id: ${fileName}\n\nTexto OCR:\n"""\n${rawText.slice(0, 50000)}\n"""`,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              responseSchema: RESPONSE_SCHEMA,
+            },
+          }),
+        },
+      );
+      if (!response.ok) {
+        return { ok: false, reason: `HTTP ${response.status}` };
+      }
+      const payload = (await response.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
       const jsonText = payload.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!jsonText) return { status: 'FALHA', erro: 'Resposta vazia do Gemini.', data: fallbackData('Resposta vazia do Gemini.') };
-      const cupom = JSON.parse(jsonText) as GeminiCupom;
-      const fields = toExtractionFields(cupom, rawText);
-      return fields.erro === 'ocr_insuficiente'
-        ? { status: 'FALHA', erro: 'ocr_insuficiente', data: fields }
-        : { status: 'SUCESSO', data: fields };
-    } catch {
-      return { status: 'FALHA', erro: 'Falha na leitura estruturada pelo Gemini.', data: fallbackData('Falha na leitura estruturada pelo Gemini.') };
+      if (!jsonText) {
+        return { ok: false, reason: 'resposta_vazia' };
+      }
+      try {
+        return { ok: true, cupom: JSON.parse(jsonText) as GeminiCupom };
+      } catch {
+        return { ok: false, reason: 'json_invalido' };
+      }
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.name === 'AbortError' ? 'timeout' : 'erro_rede';
+      return { ok: false, reason };
     } finally {
       clearTimeout(timeout);
     }
@@ -229,24 +347,34 @@ export class GeminiOcrProvider implements OcrProvider {
 
 function toExtractionFields(cupom: GeminiCupom, rawText: string): OcrExtractionFields {
   const total = finiteNumber(cupom.valores?.total);
-  const itens = (cupom.itens ?? []).filter((item) => typeof item.descricao === 'string' && item.descricao.trim()).map((item): OcrExtractedItem => ({
-    codigo: item.codigo ?? null,
-    descricao: item.descricao!.trim(),
-    quantidade: finiteNumber(item.quantidade) ?? null,
-    unidade: item.unidade ?? null,
-    valorUnitario: finiteNumber(item.valor_unitario) ?? null,
-    valorTotal: finiteNumber(item.valor_total) ?? null,
-    desconto: finiteNumber(item.desconto),
-    ncm: item.ncm ?? null,
-    cfop: item.cfop ?? null,
-    cstCsosn: item.cst_csosn ?? null,
-    icms: item.icms ?? null,
-    pis: item.pis ?? null,
-    cofins: item.cofins ?? null,
-  }));
-  const knownItemTotals = itens.flatMap((item) => item.valorTotal === null ? [] : item.valorTotal);
+  const itens = (cupom.itens ?? [])
+    .filter((item) => typeof item.descricao === 'string' && item.descricao.trim())
+    .map(
+      (item): OcrExtractedItem => ({
+        codigo: item.codigo ?? null,
+        descricao: item.descricao!.trim(),
+        quantidade: finiteNumber(item.quantidade) ?? null,
+        unidade: item.unidade ?? null,
+        valorUnitario: finiteNumber(item.valor_unitario) ?? null,
+        valorTotal: finiteNumber(item.valor_total) ?? null,
+        desconto: finiteNumber(item.desconto),
+        ncm: item.ncm ?? null,
+        cfop: item.cfop ?? null,
+        cstCsosn: item.cst_csosn ?? null,
+        icms: item.icms ?? null,
+        pis: item.pis ?? null,
+        cofins: item.cofins ?? null,
+      }),
+    );
+  const knownItemTotals = itens.flatMap((item) =>
+    item.valorTotal === null ? [] : item.valorTotal,
+  );
   const itemSum = knownItemTotals.reduce((sum, value) => sum + value, 0);
-  const alerta = total !== undefined && total > 0 && knownItemTotals.length > 0 && Math.abs(itemSum - total) / total > 0.05;
+  const alerta =
+    total !== undefined &&
+    total > 0 &&
+    knownItemTotals.length > 0 &&
+    Math.abs(itemSum - total) / total > 0.05;
   const data = parseDate(cupom.documento_fiscal?.data);
   const tipoDocumento = normalizeDocumentType(cupom.tipo_documento);
   const documento = cupom.documento_fiscal;
@@ -254,57 +382,72 @@ function toExtractionFields(cupom: GeminiCupom, rawText: string): OcrExtractionF
   const estabelecimento = cupom.estabelecimento;
   const fiscais = cupom.informacoes_fiscais;
   const outras = cupom.outras_informacoes;
-  const chave = typeof documento?.chave_acesso === 'string' && /^\d{44}$/.test(documento.chave_acesso) ? documento.chave_acesso : undefined;
+  const chave =
+    typeof documento?.chave_acesso === 'string' && /^\d{44}$/.test(documento.chave_acesso)
+      ? documento.chave_acesso
+      : undefined;
   return {
     textoOriginal: rawText,
     tipoDocumento,
     tipoDocumentoConfianca: cupom.tipo_documento_confianca ?? 'media',
-    estabelecimento: estabelecimento ? {
-      razaoSocial: estabelecimento.razao_social ?? null,
-      nomeFantasia: estabelecimento.nome_fantasia ?? null,
-      cnpj: estabelecimento.cnpj ?? null,
-      inscricaoEstadual: estabelecimento.inscricao_estadual ?? null,
-      endereco: estabelecimento.endereco ?? null,
-      cidadeUf: estabelecimento.cidade_uf ?? null,
-    } : null,
-    documentoFiscal: documento ? {
-      tipo: documento.tipo ?? null,
-      numero: documento.numero ?? null,
-      serie: documento.serie ?? null,
-      data: documento.data ?? null,
-      hora: documento.hora ?? null,
-      chaveAcesso: documento.chave_acesso ?? null,
-      protocolo: documento.protocolo ?? null,
-      numeroSat: documento.numero_sat ?? null,
-      qrCode: documento.qr_code ?? null,
-    } : null,
-    valores: valores ? {
-      subtotal: valores.subtotal ?? null,
-      descontos: valores.descontos ?? null,
-      acrescimos: valores.acrescimos ?? null,
-      total: valores.total ?? null,
-      formaPagamento: valores.forma_pagamento ?? null,
-      valorPago: valores.valor_pago ?? null,
-      troco: valores.troco ?? null,
-    } : null,
-    informacoesFiscais: fiscais ? {
-      ncm: fiscais.ncm ?? null,
-      cfop: fiscais.cfop ?? null,
-      cstCsosn: fiscais.cst_csosn ?? null,
-      icms: fiscais.icms ?? null,
-      pis: fiscais.pis ?? null,
-      cofins: fiscais.cofins ?? null,
-    } : null,
-    outrasInformacoes: outras ? {
-      observacoes: outras.observacoes ?? null,
-      informacoesComplementares: outras.informacoes_complementares ?? null,
-    } : null,
-    camposExtras: (cupom.campos_extras ?? []).filter((item) => typeof item.label === 'string' && item.label.trim()).map((item) => ({
-      secao: item.secao ?? null,
-      label: item.label!.trim(),
-      valor: item.valor === null || item.valor === undefined ? null : String(item.valor),
-      confianca: item.confianca ?? null,
-    })),
+    estabelecimento: estabelecimento
+      ? {
+          razaoSocial: estabelecimento.razao_social ?? null,
+          nomeFantasia: estabelecimento.nome_fantasia ?? null,
+          cnpj: estabelecimento.cnpj ?? null,
+          inscricaoEstadual: estabelecimento.inscricao_estadual ?? null,
+          endereco: estabelecimento.endereco ?? null,
+          cidadeUf: estabelecimento.cidade_uf ?? null,
+        }
+      : null,
+    documentoFiscal: documento
+      ? {
+          tipo: documento.tipo ?? null,
+          numero: documento.numero ?? null,
+          serie: documento.serie ?? null,
+          data: documento.data ?? null,
+          hora: documento.hora ?? null,
+          chaveAcesso: documento.chave_acesso ?? null,
+          protocolo: documento.protocolo ?? null,
+          numeroSat: documento.numero_sat ?? null,
+          qrCode: documento.qr_code ?? null,
+        }
+      : null,
+    valores: valores
+      ? {
+          subtotal: valores.subtotal ?? null,
+          descontos: valores.descontos ?? null,
+          acrescimos: valores.acrescimos ?? null,
+          total: valores.total ?? null,
+          formaPagamento: valores.forma_pagamento ?? null,
+          valorPago: valores.valor_pago ?? null,
+          troco: valores.troco ?? null,
+        }
+      : null,
+    informacoesFiscais: fiscais
+      ? {
+          ncm: fiscais.ncm ?? null,
+          cfop: fiscais.cfop ?? null,
+          cstCsosn: fiscais.cst_csosn ?? null,
+          icms: fiscais.icms ?? null,
+          pis: fiscais.pis ?? null,
+          cofins: fiscais.cofins ?? null,
+        }
+      : null,
+    outrasInformacoes: outras
+      ? {
+          observacoes: outras.observacoes ?? null,
+          informacoesComplementares: outras.informacoes_complementares ?? null,
+        }
+      : null,
+    camposExtras: (cupom.campos_extras ?? [])
+      .filter((item) => typeof item.label === 'string' && item.label.trim())
+      .map((item) => ({
+        secao: item.secao ?? null,
+        label: item.label!.trim(),
+        valor: item.valor === null || item.valor === undefined ? null : String(item.valor),
+        confianca: item.confianca ?? null,
+      })),
     cnpj: estabelecimento?.cnpj ?? undefined,
     nomeEstabelecimento: estabelecimento?.razao_social ?? undefined,
     nomeFantasia: estabelecimento?.nome_fantasia ?? undefined,
@@ -343,8 +486,12 @@ function toExtractionFields(cupom: GeminiCupom, rawText: string): OcrExtractionF
 }
 
 function normalizeDocumentType(value: string | null | undefined): OcrDocumentType {
-  return value === 'NFC_E' || value === 'CFE_SAT' || value === 'NFE'
-    || value === 'RECIBO' || value === 'COMPROVANTE_PAGAMENTO' || value === 'OUTRO'
+  return value === 'NFC_E' ||
+    value === 'CFE_SAT' ||
+    value === 'NFE' ||
+    value === 'RECIBO' ||
+    value === 'COMPROVANTE_PAGAMENTO' ||
+    value === 'OUTRO'
     ? value
     : 'NAO_IDENTIFICADO';
 }
