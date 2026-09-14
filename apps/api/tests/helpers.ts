@@ -138,6 +138,7 @@ export async function truncateAll(): Promise<void> {
   await prisma.session.deleteMany();
   await prisma.permissionRole.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.company.deleteMany();
   await prisma.role.deleteMany();
   await prisma.permission.deleteMany();
 }

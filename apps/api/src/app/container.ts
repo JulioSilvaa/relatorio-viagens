@@ -7,6 +7,7 @@ import { PrismaSettingsRepository } from '../modules/settings/repositories/setti
 import { KmRateService } from '../modules/settings/services/km-rate.service.js';
 import { createSettingsRouter } from '../modules/settings/controllers/settings.controller.js';
 import { PrismaUsersRepository } from '../modules/users/repositories/users.repository.prisma.js';
+import { PrismaCompaniesRepository } from '../modules/companies/repositories/companies.repository.prisma.js';
 import { CreateUserService } from '../modules/users/services/create-user.service.js';
 import { ListUsersService } from '../modules/users/services/list-users.service.js';
 import { UpdateUserService } from '../modules/users/services/update-user.service.js';
@@ -29,6 +30,7 @@ import { LogoutService } from '../modules/auth/services/logout.service.js';
 import { AcceptInviteService } from '../modules/auth/services/accept-invite.service.js';
 import { ForgotPasswordService } from '../modules/auth/services/forgot-password.service.js';
 import { ResetPasswordService } from '../modules/auth/services/reset-password.service.js';
+import { RegisterService } from '../modules/auth/services/register.service.js';
 import { createAuthRouter } from '../modules/auth/controllers/auth.controller.js';
 import { PrismaTripsRepository } from '../modules/trips/repositories/trips.repository.prisma.js';
 import { PrismaExpensesRepository } from '../modules/expenses/repositories/expenses.repository.prisma.js';
@@ -135,6 +137,7 @@ export interface Container {
 
 export function buildContainer(realtime?: NotificationRealtime): Container {
   const users = new PrismaUsersRepository();
+  const companies = new PrismaCompaniesRepository();
   const sessions = new PrismaSessionsRepository();
   const invites = new PrismaInvitesRepository();
   const resets = new PrismaPasswordResetRepository();
@@ -156,6 +159,7 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
   const updateUserService = new UpdateUserService(users, audit);
   const updateUserStatusService = new UpdateUserStatusService(users, audit);
   const loginService = new LoginService(users, sessions);
+  const registerService = new RegisterService(users, companies, sessions);
   const meService = new MeService(users);
   const logoutService = new LogoutService(sessions);
   const acceptInviteService = new AcceptInviteService(users, invites, sessions);
@@ -261,6 +265,7 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
     loginService,
     meService,
     logoutService,
+    registerService,
     acceptInviteService,
     forgotPasswordService,
     resetPasswordService,

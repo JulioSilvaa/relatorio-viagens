@@ -45,6 +45,8 @@ export interface CreateUserInput {
   cargo: string;
   roleCode: RoleTypeValue;
   managerId?: string | null;
+  companyId?: string | null;
+  passwordHash?: string | null;
 }
 
 export type UpdateUserInput = CreateUserInput;

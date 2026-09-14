@@ -67,6 +67,8 @@ export class PrismaUsersRepository implements UsersRepository {
         roleId: input.roleId,
         status: input.status,
         managerId: input.managerId ?? null,
+        companyId: input.companyId ?? null,
+        passwordHash: input.passwordHash ?? null,
       },
     });
     return {

@@ -3,12 +3,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/modules/auth/session-context";
-import { LoginForm } from "@/modules/auth/components/login-form";
+import { RegisterForm } from "@/modules/auth/components/register-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import Link from "next/link";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const { status } = useSession();
   const router = useRouter();
 
@@ -41,24 +40,18 @@ export default function LoginPage() {
             alt="vaiefecha"
             className="hidden h-10 w-auto dark:block"
           />
-          <h1 className="text-xl font-semibold tracking-tight">
-            Viagens e Despesas
-          </h1>
-          <p className="text-sm text-muted-foreground">Entre para continuar.</p>
+          <h1 className="text-xl font-semibold tracking-tight">Criar conta</h1>
+          <p className="text-sm text-muted-foreground">Comece o espaço de viagens e despesas da sua empresa.</p>
         </header>
 
         <Card className="border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Acessar</CardTitle>
+            <CardTitle className="text-base">Cadastro</CardTitle>
           </CardHeader>
           <CardContent>
-            <LoginForm />
+            <RegisterForm />
           </CardContent>
         </Card>
-
-        <p className="text-center text-sm text-muted-foreground">
-          Ainda não tem conta? <Link href="/cadastro" className="text-primary underline-offset-4 hover:underline font-medium">Cadastre-se</Link>
-        </p>
       </div>
     </main>
   );

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { fetchMe, login as loginRequest, logout as logoutRequest } from "./api";
+import { fetchMe, login as loginRequest, logout as logoutRequest, register as registerRequest } from "./api";
 import { ApiError, getErrorMessage } from "@/lib/api";
 import type { UserView } from "@/types/domain";
 
@@ -13,6 +13,7 @@ interface SessionContextValue {
   status: SessionStatus;
   user: UserView | null;
   login: (email: string, password: string) => Promise<void>;
+  register: (input: { name: string; email: string; password: string; companyName: string; cnpj: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -53,6 +54,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [setUser],
   );
 
+  const register = useCallback(
+    async (input: { name: string; email: string; password: string; companyName: string; cnpj: string }) => {
+      const logged = await registerRequest(input);
+      setUser(logged);
+    },
+    [setUser],
+  );
+
   const logout = useCallback(async () => {
     try {
       await logoutRequest();
@@ -64,8 +73,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [router, setUser]);
 
   const value = useMemo(
-    () => ({ status, user: meQuery.data ?? null, login, logout }),
-    [status, meQuery.data, login, logout],
+    () => ({ status, user: meQuery.data ?? null, login, register, logout }),
+    [status, meQuery.data, login, register, logout],
   );
 
   return (

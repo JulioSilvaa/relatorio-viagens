@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/inicio", request.url));
   }
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname === "/cadastro") {
     if (sessionCookie) {
       return NextResponse.redirect(new URL("/inicio", request.url));
     }

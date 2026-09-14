@@ -8,6 +8,7 @@ import { env } from '../../../config/env.js';
 import type { LoginService } from '../services/login.service.js';
 import type { MeService } from '../services/me.service.js';
 import type { LogoutService } from '../services/logout.service.js';
+import type { RegisterService } from '../services/register.service.js';
 import type { AcceptInviteService } from '../services/accept-invite.service.js';
 import type { ForgotPasswordService } from '../services/forgot-password.service.js';
 import type { ResetPasswordService } from '../services/reset-password.service.js';
@@ -15,6 +16,7 @@ import {
   acceptInviteSchema,
   forgotPasswordSchema,
   loginSchema,
+  registerSchema,
   resetPasswordSchema,
 } from '../auth.schemas.js';
 
@@ -22,6 +24,7 @@ export interface AuthDeps {
   loginService: LoginService;
   meService: MeService;
   logoutService: LogoutService;
+  registerService: RegisterService;
   acceptInviteService: AcceptInviteService;
   forgotPasswordService: ForgotPasswordService;
   resetPasswordService: ResetPasswordService;
@@ -32,6 +35,7 @@ export function createAuthRouter({
   loginService,
   meService,
   logoutService,
+  registerService,
   acceptInviteService,
   forgotPasswordService,
   resetPasswordService,
@@ -69,6 +73,19 @@ export function createAuthRouter({
       await logoutService.execute(req.auth!.sessionId);
       clearSessionCookie(res);
       res.status(204).send();
+    }),
+  );
+
+  router.post(
+    '/register',
+    asyncHandler(async (req, res) => {
+      const dto = registerSchema.parse(req.body);
+      const result = await registerService.execute(dto, {
+        ipAddress: req.ip,
+        userAgent: req.header('user-agent'),
+      });
+      setSessionCookie(res, result.token, env.SESSION_IDLE_TIMEOUT_MINUTES);
+      res.status(201).json(success({ user: result.user }));
     }),
   );
 
