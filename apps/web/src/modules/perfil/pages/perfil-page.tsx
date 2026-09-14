@@ -3,7 +3,6 @@
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/modules/auth/session-context";
-import { logout } from "@/modules/auth/api";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,18 +18,11 @@ function field(label: string, value: string) {
 }
 
 export default function PerfilPage() {
-  const { user } = useSession();
+  const { user, logout } = useSession();
 
   async function handleLogout() {
-    try {
-      await logout();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Não foi possível sair.",
-      );
-      return;
-    }
     toast.success("Sessão encerrada.");
+    await logout();
   }
 
   if (!user) {

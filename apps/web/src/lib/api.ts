@@ -36,30 +36,73 @@ function getCsrfToken(): string | undefined {
   return cookie.split("=").slice(1).join("=").split(".")[0];
 }
 
-export async function apiFetch<T>(
+async function primeCsrfToken(): Promise<string | undefined> {
+  if (typeof document === "undefined") return undefined;
+  try {
+    await fetch("/api/health", { credentials: "include", cache: "no-store" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  } catch {
+    // segue sem token; o servidor decide
+  }
+  return getCsrfToken();
+}
+
+function clearCsrfCookie(): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `${CSRF_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax`;
+}
+
+async function sendWithCsrf(
   path: string,
-  init: RequestInit = {},
-): Promise<T> {
-  const isMutating =
-    init.method !== undefined && init.method.toUpperCase() !== "GET";
+  init: RequestInit,
+  headers: Headers,
+): Promise<Response> {
+  let token = getCsrfToken();
+  if (token) headers.set("x-csrf-token", token);
 
-  const headers = new Headers(init.headers);
-  if (init.body && typeof init.body === "string") {
-    headers.set("content-type", "application/json");
-  }
-  if (isMutating) {
-    const token = getCsrfToken();
-    if (token) {
-      headers.set("x-csrf-token", token);
-    }
-  }
-
-  const response = await fetch(path, {
+  let response = await fetch(path, {
     ...init,
     headers,
     credentials: "include",
     cache: "no-store",
   });
+
+  const isMutatingRequest =
+    init.method !== undefined && init.method.toUpperCase() !== "GET";
+
+  if (response.status === 403 && isMutatingRequest) {
+    const contentType = response.headers.get("content-type") ?? "";
+    const body = contentType.includes("application/json")
+      ? ((await response.clone().json()) as ApiErrorBody)
+      : undefined;
+    if (body?.error?.code?.startsWith("CSRF_")) {
+      clearCsrfCookie();
+      token = await primeCsrfToken();
+      if (token) {
+        headers.set("x-csrf-token", token);
+        response = await fetch(path, {
+          ...init,
+          headers,
+          credentials: "include",
+          cache: "no-store",
+        });
+      }
+    }
+  }
+
+  return response;
+}
+
+export async function apiFetch<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body && typeof init.body === "string") {
+    headers.set("content-type", "application/json");
+  }
+
+  const response = await sendWithCsrf(path, init, headers);
 
   if (response.status === 204) {
     return undefined as T;
