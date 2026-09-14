@@ -144,6 +144,17 @@ model PermissionRole {
   @@id([roleId, permissionId])
 }
 
+/// Empresa do cadastro aberto. O primeiro usuário a se registrar é o
+/// administrador (MANAGER_ADMIN) da própria empresa (base p/ multi-tenant futuro).
+model Company {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  cnpj      String   @unique
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 /// Usuário do sistema (RF-CAD-001). CPF não faz parte do MVP (RN-CAD-002).
 model User {
   id                 String                 @id @default(uuid()) @db.Uuid
@@ -154,6 +165,8 @@ model User {
   cargo              String
   roleId             String                 @db.Uuid
   role               Role                   @relation(fields: [roleId], references: [id])
+  companyId          String?                @db.Uuid
+  company            Company?               @relation(fields: [companyId], references: [id])
   managerId          String?                @db.Uuid
   manager            User?                  @relation("UserManager", fields: [managerId], references: [id])
   subordinates       User[]                 @relation("UserManager")
@@ -185,6 +198,7 @@ model User {
   updatedAt          DateTime               @updatedAt
 
   @@index([roleId])
+  @@index([companyId])
   @@index([managerId])
 }
 
