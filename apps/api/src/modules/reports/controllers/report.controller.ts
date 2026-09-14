@@ -35,6 +35,7 @@ export function createReportsRouter({
         canViewAny(req),
         req.auth!.user.name,
         anexarComprovantes,
+        req.auth!.user.companyId,
       );
       res.set({
         'Content-Type': 'application/pdf',
@@ -54,6 +55,7 @@ export function createReportsRouter({
         req.auth!.userId,
         canViewAny(req),
         req.auth!.user.name,
+        req.auth!.user.companyId,
       );
       res.set({
         'Content-Type': 'application/pdf',

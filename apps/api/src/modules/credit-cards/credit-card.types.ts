@@ -1,5 +1,6 @@
 export interface CreditCardRecord {
   id: string;
+  companyId: string;
   cardholderName: string;
   last4: string;
   brand: string | null;

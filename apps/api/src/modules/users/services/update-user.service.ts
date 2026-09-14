@@ -5,7 +5,9 @@ import { userToView } from '../presenters/user.presenter.js';
 import {
   ManagerNotFoundError,
   RoleNotFoundError,
+  TenantRequiredError,
   UserAlreadyExistsError,
+  UserNotFoundInCompanyError,
 } from '../errors/user.errors.js';
 import type { UpdateUserDto } from '../schemas/update-user.schema.js';
 
@@ -15,9 +17,13 @@ export class UpdateUserService {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(id: string, input: UpdateUserDto, actorId: string) {
+  async execute(id: string, input: UpdateUserDto, actorId: string, actorCompanyId: string | null) {
+    if (!actorCompanyId) throw new TenantRequiredError();
+
     const current = await this.users.findById(id);
-    if (!current) throw new Error('Funcionário não encontrado.');
+    if (!current || current.companyId !== actorCompanyId) {
+      throw new UserNotFoundInCompanyError();
+    }
 
     const existing = await this.users.findByEmail(input.email);
     if (existing && existing.id !== id) throw new UserAlreadyExistsError();
@@ -26,7 +32,7 @@ export class UpdateUserService {
     if (!role) throw new RoleNotFoundError();
     if (input.managerId) {
       const manager = await this.users.findById(input.managerId);
-      if (!manager) throw new ManagerNotFoundError();
+      if (!manager || manager.companyId !== actorCompanyId) throw new ManagerNotFoundError();
     }
 
     let user;

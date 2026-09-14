@@ -48,6 +48,7 @@ export function createReceiptsRouter({
         file: file!,
         tipo: dto.tipoComprovante,
         actorId: req.auth!.userId,
+        actorCompanyId: req.auth!.user.companyId,
       });
       res.status(201).json(success({ receipt }));
       onReceiptCreated(receipt.id, req.auth!.userId);
@@ -68,6 +69,7 @@ export function createReceiptsRouter({
         file: file!,
         tipo: dto.tipoComprovante,
         actorId: req.auth!.userId,
+        actorCompanyId: req.auth!.user.companyId,
       });
       res.json(success({ receipt }));
       onReceiptCreated(receipt.id, req.auth!.userId);
@@ -85,6 +87,7 @@ export function createReceiptsRouter({
         req.params.receiptId!,
         req.auth!.userId,
         canViewAny,
+        req.auth!.user.companyId,
       );
       res.set('Content-Type', result.fileType);
       res.set(

@@ -3,44 +3,46 @@ import { prisma } from '../../../config/database.js';
 import { CostCenterConfigNotFoundError, CostCenterExistsError } from '../cost-center.errors.js';
 import type { CostCenterRecord, CostCentersRepository } from './cost-centers.repository.js';
 
+function toRecord(center: {
+  id: string;
+  companyId: string;
+  nome: string;
+  ativo: boolean;
+}): CostCenterRecord {
+  return { id: center.id, companyId: center.companyId, nome: center.nome, ativo: center.ativo };
+}
+
 export class PrismaCostCentersRepository implements CostCentersRepository {
-  async findById(id: string): Promise<CostCenterRecord | null> {
-    const center = await prisma.costCenter.findUnique({ where: { id } });
-    return center ? { id: center.id, nome: center.nome, ativo: center.ativo } : null;
+  async findById(id: string, companyId: string): Promise<CostCenterRecord | null> {
+    const center = await prisma.costCenter.findFirst({ where: { id, companyId } });
+    return center ? toRecord(center) : null;
   }
 
-  async findActiveById(id: string): Promise<CostCenterRecord | null> {
-    const center = await prisma.costCenter.findFirst({ where: { id, ativo: true } });
-    return center ? { id: center.id, nome: center.nome, ativo: center.ativo } : null;
+  async findActiveById(id: string, companyId: string): Promise<CostCenterRecord | null> {
+    const center = await prisma.costCenter.findFirst({ where: { id, companyId, ativo: true } });
+    return center ? toRecord(center) : null;
   }
 
-  async listAll(): Promise<CostCenterRecord[]> {
+  async listAll(companyId: string): Promise<CostCenterRecord[]> {
     const centers = await prisma.costCenter.findMany({
+      where: { companyId },
       orderBy: { nome: 'asc' },
     });
-    return centers.map((center) => ({
-      id: center.id,
-      nome: center.nome,
-      ativo: center.ativo,
-    }));
+    return centers.map(toRecord);
   }
 
-  async listActive(): Promise<CostCenterRecord[]> {
+  async listActive(companyId: string): Promise<CostCenterRecord[]> {
     const centers = await prisma.costCenter.findMany({
-      where: { ativo: true },
+      where: { companyId, ativo: true },
       orderBy: { nome: 'asc' },
     });
-    return centers.map((center) => ({
-      id: center.id,
-      nome: center.nome,
-      ativo: center.ativo,
-    }));
+    return centers.map(toRecord);
   }
 
-  async create(nome: string): Promise<CostCenterRecord> {
+  async create(nome: string, companyId: string): Promise<CostCenterRecord> {
     try {
-      const center = await prisma.costCenter.create({ data: { nome } });
-      return { id: center.id, nome: center.nome, ativo: center.ativo };
+      const center = await prisma.costCenter.create({ data: { nome, companyId } });
+      return toRecord(center);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new CostCenterExistsError();
@@ -49,14 +51,20 @@ export class PrismaCostCentersRepository implements CostCentersRepository {
     }
   }
 
-  async update(id: string, data: { nome?: string; ativo?: boolean }): Promise<CostCenterRecord> {
+  async update(
+    id: string,
+    data: { nome?: string; ativo?: boolean },
+    companyId: string,
+  ): Promise<CostCenterRecord> {
+    const current = await prisma.costCenter.findFirst({ where: { id, companyId } });
+    if (!current) throw new CostCenterConfigNotFoundError();
     try {
-      const center = await prisma.costCenter.update({ where: { id }, data });
-      return { id: center.id, nome: center.nome, ativo: center.ativo };
+      const center = await prisma.costCenter.update({
+        where: { id },
+        data,
+      });
+      return toRecord(center);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new CostCenterConfigNotFoundError();
-      }
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new CostCenterExistsError();
       }

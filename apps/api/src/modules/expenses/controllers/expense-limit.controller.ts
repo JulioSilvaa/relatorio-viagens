@@ -26,7 +26,7 @@ export function createExpenseLimitsRouter({
     requireAuth,
     requirePermission('RELATORIO.VISUALIZAR'),
     asyncHandler(async (req, res) => {
-      res.json(success({ limits: await listLimitsService.execute() }));
+      res.json(success({ limits: await listLimitsService.execute(req.auth!.user.companyId) }));
     }),
   );
 
@@ -41,6 +41,7 @@ export function createExpenseLimitsRouter({
         req.params.categoryId!,
         dto.valor,
         req.auth!.userId,
+        req.auth!.user.companyId,
       );
       res.json(success({ limit }));
     }),

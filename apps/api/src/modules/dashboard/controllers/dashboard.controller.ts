@@ -39,6 +39,7 @@ export function createDashboardRouter({
           cidade: parseString(req.query.cidade),
           cliente: parseString(req.query.cliente),
         },
+        req.auth!.user.companyId,
       );
       res.json(success(report));
     }),

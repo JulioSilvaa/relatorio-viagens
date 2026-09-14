@@ -1,10 +1,14 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type { KmRateService } from '../../settings/services/km-rate.service.js';
 import type { NotificationPublisher } from '../../notifications/notification-publisher.js';
 import type { UsersRepository } from '../../users/repositories/users.repository.js';
 import type { CostCentersRepository } from '../../cost-centers/repositories/cost-centers.repository.js';
 import type { CreditCardsRepository } from '../../credit-cards/repositories/credit-cards.repository.js';
-import { CreditCardInactiveError, CreditCardNotFoundError } from '../../credit-cards/credit-card.errors.js';
+import {
+  CreditCardInactiveError,
+  CreditCardNotFoundError,
+} from '../../credit-cards/credit-card.errors.js';
 import { CostCenterNotFoundError } from '../trip.errors.js';
 import { tripToView } from '../presenters/trip.presenter.js';
 import type { TripsRepository } from '../repositories/trips.repository.js';
@@ -26,21 +30,26 @@ export class CreateTripService {
     private readonly notifier: NotificationPublisher,
     private readonly kmRate: KmRateService,
     private readonly creditCards: CreditCardsRepository,
-  ) { }
+  ) {}
 
-  async execute(dto: CreateTripDto, actor: CreateTripActor): Promise<TripView> {
+  async execute(
+    dto: CreateTripDto,
+    actor: CreateTripActor,
+    actorCompanyId: string | null,
+  ): Promise<TripView> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     assertValidTripDates(dto.dataSaida, dto.dataRetorno);
     assertValidTripKms(dto.kmInicial, dto.kmFinal);
 
     if (dto.centroDeCustoId) {
-      const center = await this.costCenters.findActiveById(dto.centroDeCustoId);
+      const center = await this.costCenters.findActiveById(dto.centroDeCustoId, actorCompanyId);
       if (!center) {
         throw new CostCenterNotFoundError();
       }
     }
 
     if (dto.creditCardId) {
-      const card = await this.creditCards.findById(dto.creditCardId);
+      const card = await this.creditCards.findById(dto.creditCardId, actorCompanyId);
       if (!card) throw new CreditCardNotFoundError();
       if (!card.active || card.deletedAt) throw new CreditCardInactiveError();
     }
@@ -50,6 +59,7 @@ export class CreateTripService {
 
     const created = await this.trips.createTrip({
       ...dto,
+      companyId: actorCompanyId,
       kmInicial: dto.kmInicial != null ? String(dto.kmInicial) : null,
       kmFinal: dto.kmFinal != null ? String(dto.kmFinal) : null,
       criadoPorId: actor.id,
@@ -66,7 +76,7 @@ export class CreateTripService {
       newValue: `${created.cliente} (${created.cidade}-${created.uf})`,
     });
 
-    const managers = await this.users.findAllByRoleCode('MANAGER_ADMIN');
+    const managers = await this.users.findAllByRoleCode('MANAGER_ADMIN', actorCompanyId);
     if (managers.length > 0) {
       await this.notifier.notifyMany({
         event: 'VIAGEM_CRIADA',

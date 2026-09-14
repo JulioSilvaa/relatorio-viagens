@@ -10,10 +10,11 @@ export interface CreditCardsRepository {
       encryptedCardNumber: string;
       last4: string;
       createdById: string;
+      companyId: string;
     },
   ): Promise<CreditCardRecord>;
-  findById(id: string): Promise<CreditCardRecord | null>;
-  findAll(): Promise<CreditCardRecord[]>;
+  findById(id: string, companyId: string): Promise<CreditCardRecord | null>;
+  findAll(companyId: string): Promise<CreditCardRecord[]>;
   update(
     id: string,
     input: UpdateCreditCardInput & {

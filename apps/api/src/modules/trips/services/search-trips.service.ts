@@ -13,11 +13,13 @@ export class SearchTripsService {
     filters: TripSearchFilters,
     limit: number,
     offset: number,
+    companyId: string | null,
   ): Promise<TripSearchResult> {
     return this.trips.searchTrips({
       filters,
       global: isGlobal,
       userId: actorId,
+      companyId: companyId ?? '',
       limit,
       offset,
     });

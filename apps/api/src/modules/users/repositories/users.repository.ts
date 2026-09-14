@@ -20,6 +20,7 @@ export interface UserDirectoryEntry {
   cargo: string;
   status: string;
   roleCode: string;
+  companyId: string | null;
 }
 
 export interface UsersRepository {
@@ -30,7 +31,7 @@ export interface UsersRepository {
   update(id: string, input: UpdateUserInput & { roleId: string }): Promise<PersistedUser>;
   updateStatus(id: string, status: UserStatusValue): Promise<PersistedUser>;
   updatePassword(id: string, passwordHash: string): Promise<void>;
-  findAllByRoleCode(code: string): Promise<UserIdRef[]>;
-  findAllActive(): Promise<UserDirectoryEntry[]>;
-  findAll(): Promise<UserDirectoryEntry[]>;
+  findAllByRoleCode(code: string, companyId: string): Promise<UserIdRef[]>;
+  findAllActive(companyId: string | null): Promise<UserDirectoryEntry[]>;
+  findAll(companyId: string | null): Promise<UserDirectoryEntry[]>;
 }

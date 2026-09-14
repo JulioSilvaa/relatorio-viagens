@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import { FinanceTripNotApprovedError } from '../finance.errors.js';
 import { TripNotFoundError } from '../../trips/trip.errors.js';
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
@@ -9,9 +10,10 @@ export class ReceiveFinanceService {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(tripId: string, actorId: string): Promise<void> {
+  async execute(tripId: string, actorId: string, actorCompanyId: string | null): Promise<void> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     const trip = await this.trips.findById(tripId);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
     if (trip.status !== 'APROVADA') {

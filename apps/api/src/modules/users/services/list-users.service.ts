@@ -3,7 +3,7 @@ import type { UserDirectoryEntry, UsersRepository } from '../repositories/users.
 export class ListUsersService {
   constructor(private readonly users: UsersRepository) {}
 
-  async execute(includeInactive = false): Promise<UserDirectoryEntry[]> {
-    return includeInactive ? this.users.findAll() : this.users.findAllActive();
+  async execute(companyId: string | null, includeInactive = false): Promise<UserDirectoryEntry[]> {
+    return includeInactive ? this.users.findAll(companyId) : this.users.findAllActive(companyId);
   }
 }

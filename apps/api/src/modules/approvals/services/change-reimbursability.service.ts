@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type { ExpensesRepository } from '../../expenses/repositories/expenses.repository.js';
 import {
   ChangeReimbursabilityExpenseNotFoundError,
@@ -18,13 +19,18 @@ export class ChangeReimbursabilityService {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(input: ChangeReimbursabilityInput, actorId: string): Promise<boolean> {
+  async execute(
+    input: ChangeReimbursabilityInput,
+    actorId: string,
+    actorCompanyId: string | null,
+  ): Promise<boolean> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     if (!input.justificativa || input.justificativa.trim().length < 3) {
       throw new ReportJustificationRequiredError();
     }
 
     const expense = await this.expenses.findExpenseForMutation(input.expenseId);
-    if (!expense || expense.trip.deletadoEm) {
+    if (!expense || expense.trip.deletadoEm || expense.trip.companyId !== actorCompanyId) {
       throw new ChangeReimbursabilityExpenseNotFoundError();
     }
     if (expense.trip.status !== 'EM_APROVACAO') {

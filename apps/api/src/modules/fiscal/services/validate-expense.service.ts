@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type { NotificationPublisher } from '../../notifications/notification-publisher.js';
 import type { ExpensesRepository } from '../../expenses/repositories/expenses.repository.js';
 import { ExpenseNotFoundError } from '../../expenses/expense.errors.js';
@@ -20,12 +21,21 @@ export class ValidateExpenseService {
     status: 'VALIDO' | 'PROBLEMA',
     motivo: string | null,
     actorId: string,
+    actorCompanyId: string | null,
   ): Promise<FiscalValidationRecord> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     const existing = await this.expenses.findById(expenseId);
     if (!existing) {
       throw new ExpenseNotFoundError();
     }
-    await authorizeExpenseAccess(this.expenses, this.trips, expenseId, actorId, true);
+    await authorizeExpenseAccess(
+      this.expenses,
+      this.trips,
+      expenseId,
+      actorId,
+      true,
+      actorCompanyId,
+    );
 
     const previous = await this.fiscal.findByExpense(expenseId);
     const saved = await this.fiscal.upsert(expenseId, status, motivo, actorId);

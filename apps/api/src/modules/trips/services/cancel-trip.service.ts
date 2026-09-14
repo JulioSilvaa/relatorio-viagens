@@ -20,9 +20,10 @@ export class CancelTripService {
     motivo: string,
     actorId: string,
     actorRoleCode: string,
+    actorCompanyId: string | null,
   ): Promise<TripView> {
     const trip = await this.trips.findById(id);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
 

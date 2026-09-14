@@ -25,6 +25,7 @@ export function createExportsRouter({
       const excel = await generateExpensesExcelService.execute(
         req.auth!.user.roleCode === 'MANAGER_ADMIN',
         req.auth!.userId,
+        req.auth!.user.companyId,
         {
           dataDe: parseString(req.query.dataDe),
           dataAte: parseString(req.query.dataAte),

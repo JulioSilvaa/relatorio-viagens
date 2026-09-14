@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type { NotificationPublisher } from '../../notifications/notification-publisher.js';
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
 import type { UsersRepository } from '../../users/repositories/users.repository.js';
@@ -16,15 +17,17 @@ export class RequestAdvanceService {
     private readonly audit: AuditService,
     private readonly notifier: NotificationPublisher,
     private readonly users: UsersRepository,
-  ) { }
+  ) {}
 
   async execute(
     tripId: string,
     input: { valorSolicitado: string; justificativaSolicitacao: string },
     actorId: string,
+    actorCompanyId: string | null,
   ): Promise<TripAdvanceRecord> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     const trip = await this.trips.findById(tripId);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
 
@@ -53,6 +56,7 @@ export class RequestAdvanceService {
         trip.cidade,
         trip.uf,
         tripId,
+        actorCompanyId,
         `Adiantamento corrigido de R$ ${current.valorSolicitado} para R$ ${corrected.valorSolicitado}.`,
         `Motivo informado: ${input.justificativaSolicitacao}`,
       );
@@ -84,6 +88,7 @@ export class RequestAdvanceService {
       trip.cidade,
       trip.uf,
       tripId,
+      actorCompanyId,
       `Adiantamento de R$ ${advance.valorSolicitado} solicitado para a viagem: ${trip.cliente} (${trip.cidade}-${trip.uf}).`,
     );
 
@@ -95,10 +100,11 @@ export class RequestAdvanceService {
     cidade: string,
     uf: string,
     tripId: string,
+    companyId: string,
     message: string,
     detail?: string,
   ): Promise<void> {
-    const managers = await this.users.findAllByRoleCode('MANAGER_ADMIN');
+    const managers = await this.users.findAllByRoleCode('MANAGER_ADMIN', companyId);
     if (managers.length === 0) return;
     await this.notifier.notifyMany({
       event: 'ADIANTAMENTO_SOLICITADO',

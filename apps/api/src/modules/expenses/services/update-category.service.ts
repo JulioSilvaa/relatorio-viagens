@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import { categoryToView } from '../presenters/expense.presenter.js';
 import type { ExpensesRepository } from '../repositories/expenses.repository.js';
 import type { UpdateCategoryDto } from '../schemas/expense.schema.js';
@@ -10,9 +11,15 @@ export class UpdateCategoryService {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(id: string, dto: UpdateCategoryDto, actorId: string): Promise<ExpenseCategoryView> {
-    const previous = await this.expenses.findCategoryById(id);
-    const category = await this.expenses.updateCategory(id, dto);
+  async execute(
+    id: string,
+    dto: UpdateCategoryDto,
+    actorId: string,
+    actorCompanyId: string | null,
+  ): Promise<ExpenseCategoryView> {
+    if (!actorCompanyId) throw new TenantRequiredError();
+    const previous = await this.expenses.findCategoryById(id, actorCompanyId);
+    const category = await this.expenses.updateCategory(id, dto, actorCompanyId);
 
     for (const field of Object.keys(dto) as (keyof UpdateCategoryDto)[]) {
       const oldValue = field === 'name' ? previous?.name : String(previous?.ativa);

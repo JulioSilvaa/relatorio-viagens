@@ -57,7 +57,7 @@ function periodBounds(dataDe?: string, dataAte?: string): { from: Date; to: Date
 }
 
 function tripScopeWhere(filters: ManagerReportFilters): Prisma.TripWhereInput {
-  const where: Prisma.TripWhereInput = { deletadoEm: null };
+  const where: Prisma.TripWhereInput = { deletadoEm: null, companyId: filters.companyId };
   if (filters.departamento) where.departamento = filters.departamento as DepartmentType;
   if (filters.status) where.status = filters.status as TripStatus;
   if (filters.centroDeCustoId) where.centroDeCustoId = filters.centroDeCustoId;

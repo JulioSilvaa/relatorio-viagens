@@ -56,7 +56,7 @@ export class PrismaReceiptsRepository implements ReceiptsRepository {
         expense: {
           include: {
             trip: {
-              select: { id: true, status: true, deletadoEm: true },
+              select: { id: true, status: true, deletadoEm: true, companyId: true },
             },
           },
         },
@@ -77,6 +77,7 @@ export class PrismaReceiptsRepository implements ReceiptsRepository {
           id: receipt.expense.trip.id,
           status: receipt.expense.trip.status,
           deletadoEm: receipt.expense.trip.deletadoEm,
+          companyId: receipt.expense.trip.companyId,
         },
       },
     };

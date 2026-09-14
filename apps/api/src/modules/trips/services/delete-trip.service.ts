@@ -12,9 +12,9 @@ export class DeleteTripService {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(id: string, actorId: string): Promise<void> {
+  async execute(id: string, actorId: string, actorCompanyId: string | null): Promise<void> {
     const trip = await this.trips.findById(id);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
 

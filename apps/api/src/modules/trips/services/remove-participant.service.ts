@@ -20,9 +20,10 @@ export class RemoveParticipantService {
     userId: string,
     actorId: string,
     actorRoleCode: string,
+    actorCompanyId: string | null,
   ): Promise<void> {
     const trip = await this.trips.findById(tripId);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
 

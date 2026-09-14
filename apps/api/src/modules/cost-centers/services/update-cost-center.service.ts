@@ -1,4 +1,6 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { CostCenterConfigNotFoundError } from '../cost-center.errors.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type {
   CostCenterRecord,
   CostCentersRepository,
@@ -19,12 +21,19 @@ export class UpdateCostCenterService {
     id: string,
     dto: UpdateCostCenterInput,
     actorId: string,
+    actorCompanyId: string | null,
   ): Promise<CostCenterRecord> {
-    const previous = await this.costCenters.findById(id);
-    const center = await this.costCenters.update(id, {
-      nome: dto.nome?.trim(),
-      ativo: dto.ativo,
-    });
+    if (!actorCompanyId) throw new TenantRequiredError();
+    const previous = await this.costCenters.findById(id, actorCompanyId);
+    if (!previous) throw new CostCenterConfigNotFoundError();
+    const center = await this.costCenters.update(
+      id,
+      {
+        nome: dto.nome?.trim(),
+        ativo: dto.ativo,
+      },
+      actorCompanyId,
+    );
 
     for (const field of Object.keys(dto) as (keyof UpdateCostCenterInput)[]) {
       const oldValue = field === 'nome' ? previous?.nome : String(previous?.ativo);

@@ -39,7 +39,11 @@ export function createCostCentersRouter({
     requirePermission('CONFIG.CENTRO_CUSTO.VISUALIZAR'),
     asyncHandler(async (req, res) => {
       const includeInactive = req.auth!.user.roleCode === 'MANAGER_ADMIN';
-      res.json(success({ centers: await listCostCentersService.execute(includeInactive) }));
+      res.json(
+        success({
+          centers: await listCostCentersService.execute(includeInactive, req.auth!.user.companyId),
+        }),
+      );
     }),
   );
 
@@ -50,7 +54,11 @@ export function createCostCentersRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = costCenterSchema.parse(req.body);
-      const center = await createCostCenterService.execute(dto.nome, req.auth!.userId);
+      const center = await createCostCenterService.execute(
+        dto.nome,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.status(201).json(success({ center }));
     }),
   );
@@ -62,7 +70,12 @@ export function createCostCentersRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = updateCostCenterSchema.parse(req.body);
-      const center = await updateCostCenterService.execute(req.params.id!, dto, req.auth!.userId);
+      const center = await updateCostCenterService.execute(
+        req.params.id!,
+        dto,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.json(success({ center }));
     }),
   );

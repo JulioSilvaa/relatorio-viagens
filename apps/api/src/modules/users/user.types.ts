@@ -21,6 +21,7 @@ export type PersistedUser = Pick<
   | 'passwordHash'
   | 'roleId'
   | 'managerId'
+  | 'companyId'
 > & {
   roleCode: RoleTypeValue;
 };
@@ -34,6 +35,7 @@ export interface UserView {
   cargo: string;
   roleCode: RoleTypeValue;
   status: User['status'];
+  companyId: string | null;
   permissions: string[];
 }
 

@@ -41,6 +41,7 @@ export function createFiscalRouter({
         req.params.expenseId!,
         req.auth!.userId,
         canManageFiscal,
+        req.auth!.user.companyId,
       );
       res.json(success(record));
     }),
@@ -58,6 +59,7 @@ export function createFiscalRouter({
         parsed.status,
         parsed.motivo ?? null,
         req.auth!.userId,
+        req.auth!.user.companyId,
       );
       res.json(success(record));
     }),

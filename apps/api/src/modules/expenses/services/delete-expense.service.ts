@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import {
   ExpenseForbiddenDeleteError,
   ExpenseNotFoundError,
@@ -12,9 +13,10 @@ export class DeleteExpenseService {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(id: string, actorId: string): Promise<void> {
+  async execute(id: string, actorId: string, actorCompanyId: string | null): Promise<void> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     const expense = await this.expenses.findExpenseForMutation(id);
-    if (!expense || expense.trip.deletadoEm) {
+    if (!expense || expense.trip.deletadoEm || expense.trip.companyId !== actorCompanyId) {
       throw new ExpenseNotFoundError();
     }
     if (expense.createdById !== actorId) {

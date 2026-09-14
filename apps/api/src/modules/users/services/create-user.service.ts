@@ -10,6 +10,7 @@ import type { UsersRepository } from '../repositories/users.repository.js';
 import {
   ManagerNotFoundError,
   RoleNotFoundError,
+  TenantRequiredError,
   UserAlreadyExistsError,
 } from '../errors/user.errors.js';
 import type { CreateUserDto } from '../schemas/create-user.schema.js';
@@ -27,7 +28,15 @@ export class CreateUserService {
     private readonly email: EmailProvider,
   ) {}
 
-  async execute(input: CreateUserDto, actorId: string): Promise<CreateUserResult> {
+  async execute(
+    input: CreateUserDto,
+    actorId: string,
+    actorCompanyId: string | null,
+  ): Promise<CreateUserResult> {
+    if (!actorCompanyId) {
+      throw new TenantRequiredError();
+    }
+
     const existing = await this.users.findByEmail(input.email);
     if (existing) {
       throw new UserAlreadyExistsError();
@@ -40,14 +49,19 @@ export class CreateUserService {
 
     if (input.managerId) {
       const manager = await this.users.findById(input.managerId);
-      if (!manager) {
+      if (!manager || manager.companyId !== actorCompanyId) {
         throw new ManagerNotFoundError();
       }
     }
 
     let user;
     try {
-      user = await this.users.create({ ...input, roleId: role.id, status: 'ATIVO' });
+      user = await this.users.create({
+        ...input,
+        roleId: role.id,
+        status: 'ATIVO',
+        companyId: actorCompanyId,
+      });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new UserAlreadyExistsError();

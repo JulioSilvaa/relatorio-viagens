@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type { NotificationPublisher } from '../../notifications/notification-publisher.js';
 import type { UsersRepository } from '../../users/repositories/users.repository.js';
 import { TripNotFoundError } from '../../trips/trip.errors.js';
@@ -17,9 +18,15 @@ export class ApproveReportService {
     private readonly notifier: NotificationPublisher,
   ) {}
 
-  async execute(tripId: string, actorId: string, input?: ApproveReportInput): Promise<void> {
+  async execute(
+    tripId: string,
+    actorId: string,
+    input: ApproveReportInput | undefined,
+    actorCompanyId: string | null,
+  ): Promise<void> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     const trip = await this.trips.findById(tripId);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
     if (trip.status !== 'EM_APROVACAO') {
@@ -55,7 +62,7 @@ export class ApproveReportService {
     });
 
     const participants = await this.trips.listParticipantIds(tripId);
-    const finance = await this.users.findAllByRoleCode('FINANCE');
+    const finance = await this.users.findAllByRoleCode('FINANCE', actorCompanyId);
     const userIds = [...participants, ...finance.map((user) => user.id)];
     if (userIds.length > 0) {
       await this.notifier.notifyMany({

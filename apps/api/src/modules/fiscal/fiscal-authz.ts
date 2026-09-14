@@ -15,9 +15,15 @@ export async function authorizeExpenseAccess(
   expenseId: string,
   actorId: string,
   canManageFiscal: boolean,
+  actorCompanyId: string | null,
 ): Promise<ExpenseAccessContext> {
   const expense = await expenses.findById(expenseId);
   if (!expense) {
+    throw new ExpenseNotFoundError();
+  }
+
+  const trip = await trips.findById(expense.tripId);
+  if (!trip || trip.companyId !== actorCompanyId) {
     throw new ExpenseNotFoundError();
   }
 

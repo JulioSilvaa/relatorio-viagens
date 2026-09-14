@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
+import { prisma } from '../../src/config/database.js';
 import { buildApp } from '../helpers.js';
 import { truncateAll, seedBaseData, seedCategories } from '../helpers.js';
 
@@ -38,6 +39,17 @@ describe('POST /api/auth/register', () => {
       ? res.headers['set-cookie']
       : [res.headers['set-cookie']];
     expect(setCookie.some((c: string) => c.startsWith('vdr_session='))).toBe(true);
+
+    const company = await prisma.company.findUnique({
+      where: { cnpj: '11222333000181' },
+    });
+    expect(company).not.toBeNull();
+    const catalogCount = await prisma.expenseCategoryCatalog.count({ where: { ativo: true } });
+    const categoryCount = await prisma.expenseCategory.count({
+      where: { companyId: company!.id },
+    });
+    expect(categoryCount).toBe(catalogCount);
+    expect(catalogCount).toBeGreaterThan(0);
   });
 
   it('rejeita e-mail duplicado (409 USER_EMAIL_ALREADY_EXISTS)', async () => {

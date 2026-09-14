@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type {
   CostCenterRecord,
   CostCentersRepository,
@@ -10,8 +11,13 @@ export class CreateCostCenterService {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(nome: string, actorId: string): Promise<CostCenterRecord> {
-    const center = await this.costCenters.create(nome.trim());
+  async execute(
+    nome: string,
+    actorId: string,
+    actorCompanyId: string | null,
+  ): Promise<CostCenterRecord> {
+    if (!actorCompanyId) throw new TenantRequiredError();
+    const center = await this.costCenters.create(nome.trim(), actorCompanyId);
 
     await this.audit.record({
       userId: actorId,

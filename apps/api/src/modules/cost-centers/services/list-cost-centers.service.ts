@@ -6,7 +6,10 @@ import type {
 export class ListCostCentersService {
   constructor(private readonly costCenters: CostCentersRepository) {}
 
-  async execute(includeInactive: boolean): Promise<CostCenterRecord[]> {
-    return includeInactive ? this.costCenters.listAll() : this.costCenters.listActive();
+  async execute(includeInactive: boolean, companyId: string | null): Promise<CostCenterRecord[]> {
+    if (!companyId) return [];
+    return includeInactive
+      ? this.costCenters.listAll(companyId)
+      : this.costCenters.listActive(companyId);
   }
 }

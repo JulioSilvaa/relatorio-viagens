@@ -144,15 +144,20 @@ model PermissionRole {
   @@id([roleId, permissionId])
 }
 
-/// Empresa do cadastro aberto. O primeiro usuário a se registrar é o
-/// administrador (MANAGER_ADMIN) da própria empresa (base p/ multi-tenant futuro).
+/// Empresa (tenant) do cadastro aberto. O primeiro usuário a se registrar é o
+/// administrador (MANAGER_ADMIN) da própria empresa. Todas as entidades de
+/// negócio são escopadas por empresa (multi-tenant com isolamento total).
 model Company {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  cnpj      String   @unique
-  users     User[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String            @id @default(uuid()) @db.Uuid
+  name             String
+  cnpj             String            @unique
+  users            User[]
+  trips            Trip[]
+  costCenters      CostCenter[]
+  creditCards      CreditCard[]
+  expenseCategories ExpenseCategory[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 }
 
 /// Usuário do sistema (RF-CAD-001). CPF não faz parte do MVP (RN-CAD-002).
@@ -263,8 +268,11 @@ model AuditEvent {
 }
 
 /// Viagem (RF-VIA-001..006). Estado controlado pelo fluxo (RN-STA-001..004).
+/// Escopo multi-tenant: pertence à empresa do criador.
 model Trip {
   id                 String            @id @default(uuid()) @db.Uuid
+  companyId          String            @db.Uuid
+  company            Company           @relation(fields: [companyId], references: [id])
   cliente            String
   cidade             String
   uf                 UfType
@@ -300,6 +308,7 @@ model Trip {
   @@index([status])
   @@index([criadoPorId])
   @@index([centroDeCustoId])
+  @@index([companyId])
 }
 
 /// Vínculo de participante à viagem (RN-VIA-015..022). Um vínculo por usuário por viagem.
@@ -320,8 +329,11 @@ model TripParticipant {
 }
 
 /// Cartão corporativo reutilizável em viagens, sem vínculo exclusivo ao titular impresso.
+/// Escopo multi-tenant: pertence à empresa que o cadastrou.
 model CreditCard {
   id                   String            @id @default(uuid()) @db.Uuid
+  companyId            String            @db.Uuid
+  company              Company           @relation(fields: [companyId], references: [id])
   cardholderName       String
   encryptedCardNumber  String
   last4                String            @db.VarChar(4)
@@ -338,18 +350,39 @@ model CreditCard {
 
   @@index([active])
   @@index([deletedAt])
+  @@index([companyId])
+}
+
+/// Catálogo global de categorias padrão (somente template, sem dono).
+/// Mantido por migrações: nenhum tenant/admin o edita. O cadastro de empresa
+/// copia estas linhas para o catálogo da própria empresa (ExpenseCategory).
+model ExpenseCategoryCatalog {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("expense_category_catalog")
 }
 
 /// Categoria de despesa (RF-DES-002). Categorias nunca são apagadas, apenas desativadas.
+/// Escopo multi-tenant: cada empresa tem seu catálogo; o cadastro clona o padrão.
 model ExpenseCategory {
   id        String                 @id @default(uuid()) @db.Uuid
-  code      String                 @unique
+  code      String
   name      String
+  companyId String                 @db.Uuid
+  company   Company                @relation(fields: [companyId], references: [id])
   ativa     Boolean                @default(true)
   createdAt DateTime               @default(now())
   updatedAt DateTime               @updatedAt
   expenses  Expense[]
   limits    ExpenseCategoryLimit[]
+
+  @@unique([companyId, code])
+  @@index([companyId, ativa])
 }
 
 /// Limite por categoria (RF-LIM-001). Exceder gera alerta, nunca bloqueio (RN-DES-011/012).
@@ -365,13 +398,19 @@ model ExpenseCategoryLimit {
 }
 
 /// Centro de custo (RF-CC-001), administrado por Manager/Admin.
+/// Escopo multi-tenant: nome único dentro da própria empresa.
 model CostCenter {
   id        String   @id @default(uuid()) @db.Uuid
-  nome      String   @unique
+  companyId String   @db.Uuid
+  company   Company  @relation(fields: [companyId], references: [id])
+  nome      String
   ativo     Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   trips     Trip[]
+
+@@unique([companyId, nome])
+  @@index([companyId, ativo])
 }
 
 /// Despesa (RF-DES-001). Sempre vinculada à viagem e ao participante que lançou.

@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type { NotificationPublisher } from '../../notifications/notification-publisher.js';
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
 import { TripNotFoundError } from '../../trips/trip.errors.js';
@@ -17,7 +18,9 @@ export class PayAdvanceService {
     advanceId: string,
     input: { observacoesPagamento: string | null },
     actorId: string,
+    actorCompanyId: string | null,
   ): Promise<TripAdvanceRecord> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     const advance = await this.finance.findAdvanceById(advanceId);
     if (!advance) {
       throw new AdvanceNotFoundError();
@@ -34,7 +37,7 @@ export class PayAdvanceService {
     });
 
     const trip = await this.trips.findById(advance.tripId);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
 

@@ -1,5 +1,6 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
 import { CreditCardNotFoundError } from '../credit-card.errors.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import { encryptCreditCardNumber } from '../credit-card.crypto.js';
 import type { CreditCardsRepository } from '../repositories/credit-cards.repository.js';
 import { creditCardBrand, normalizeCreditCardNumber } from '../credit-card.validation.js';
@@ -15,8 +16,10 @@ export class UpdateCreditCardService {
     id: string,
     input: UpdateCreditCardInput,
     actorId: string,
+    actorCompanyId: string | null,
   ): Promise<CreditCardRecord> {
-    const current = await this.cards.findById(id);
+    if (!actorCompanyId) throw new TenantRequiredError();
+    const current = await this.cards.findById(id, actorCompanyId);
     if (!current) throw new CreditCardNotFoundError();
     const number = input.cardNumber ? normalizeCreditCardNumber(input.cardNumber) : null;
     const card = await this.cards.update(id, {

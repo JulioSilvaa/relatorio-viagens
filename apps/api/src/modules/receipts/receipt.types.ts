@@ -34,7 +34,7 @@ export interface ReceiptContext {
   expense: {
     id: string;
     createdById: string;
-    trip: { id: string; status: TripStatus; deletadoEm: Date | null };
+    trip: { id: string; status: TripStatus; deletadoEm: Date | null; companyId: string };
   };
 }
 

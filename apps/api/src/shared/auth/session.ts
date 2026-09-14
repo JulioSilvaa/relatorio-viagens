@@ -10,6 +10,7 @@ export interface AuthSessionUser {
   email: string;
   status: string;
   roleCode: string;
+  companyId: string | null;
   permissions: string[];
 }
 

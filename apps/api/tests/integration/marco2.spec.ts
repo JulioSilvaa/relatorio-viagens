@@ -5,6 +5,7 @@ import { prisma } from '../../src/config/database.js';
 import {
   buildApp,
   createUser,
+  defaultCompany,
   loginAs,
   seedBaseData,
   seedCategories,
@@ -407,8 +408,8 @@ describe('marco 2: viagens, despesas e aprovações', () => {
       const gestor = await login('gestor@empresa.com', 'gestor-pw-123');
       const ana = await login('ana@empresa.com', 'ana-pw-123');
 
-      const category = await prisma.expenseCategory.findUniqueOrThrow({
-        where: { code: 'ALIMENTACAO' },
+      const category = await prisma.expenseCategory.findFirstOrThrow({
+        where: { code: 'ALIMENTACAO', companyId: (await defaultCompany()).id },
       });
       const limit = await gestor.agent
         .put(`/api/expense-limits/categories/${category.id}`)

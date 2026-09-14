@@ -38,8 +38,8 @@ export function createUsersRouter({
     asyncHandler(async (req, res) => {
       const users =
         req.query.includeInactive === 'true'
-          ? await listUsersService.execute(true)
-          : await listUsersService.execute();
+          ? await listUsersService.execute(req.auth!.user.companyId, true)
+          : await listUsersService.execute(req.auth!.user.companyId);
       res.json(success({ users }));
     }),
   );
@@ -54,7 +54,12 @@ export function createUsersRouter({
       if (!userId)
         throw new AppError(400, 'USER_ID_REQUIRED', 'Identificador do funcionário é obrigatório.');
       const dto = updateUserSchema.parse(req.body);
-      const user = await updateUserService.execute(userId, dto, req.auth!.userId);
+      const user = await updateUserService.execute(
+        userId,
+        dto,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.json(success({ user }));
     }),
   );
@@ -69,7 +74,12 @@ export function createUsersRouter({
       if (!userId)
         throw new AppError(400, 'USER_ID_REQUIRED', 'Identificador do funcionário é obrigatório.');
       const dto = updateUserStatusSchema.parse(req.body);
-      const user = await updateUserStatusService.execute(userId, dto, req.auth!.userId);
+      const user = await updateUserStatusService.execute(
+        userId,
+        dto,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.json(success({ user }));
     }),
   );
@@ -81,7 +91,11 @@ export function createUsersRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = createUserSchema.parse(req.body);
-      const result = await createUserService.execute(dto, req.auth!.userId);
+      const result = await createUserService.execute(
+        dto,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       if (isProduction) {
         res.status(201).json(success({ user: result.user }));
         return;

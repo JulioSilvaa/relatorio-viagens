@@ -57,27 +57,34 @@ export function toExpense(expense: {
 }
 
 export class PrismaExpensesRepository implements ExpensesRepository {
-  async findCategoryById(id: string): Promise<ExpenseCategoryRecord | null> {
-    const category = await prisma.expenseCategory.findUnique({ where: { id } });
+  async findCategoryById(id: string, companyId: string): Promise<ExpenseCategoryRecord | null> {
+    const category = await prisma.expenseCategory.findFirst({ where: { id, companyId } });
     return category ? toCategory(category) : null;
   }
 
-  async findCategoryByCode(code: string): Promise<ExpenseCategoryRecord | null> {
-    const category = await prisma.expenseCategory.findUnique({ where: { code } });
+  async findCategoryByCode(code: string, companyId: string): Promise<ExpenseCategoryRecord | null> {
+    const category = await prisma.expenseCategory.findFirst({ where: { code, companyId } });
     return category ? toCategory(category) : null;
   }
 
-  async listCategories(includeInactive: boolean): Promise<ExpenseCategoryRecord[]> {
+  async listCategories(
+    includeInactive: boolean,
+    companyId: string,
+  ): Promise<ExpenseCategoryRecord[]> {
     const categories = await prisma.expenseCategory.findMany({
-      where: includeInactive ? undefined : { ativa: true },
+      where: { companyId, ...(includeInactive ? {} : { ativa: true }) },
       orderBy: { name: 'asc' },
     });
     return categories.map(toCategory);
   }
 
-  async createCategory(code: string, name: string): Promise<ExpenseCategoryRecord> {
+  async createCategory(
+    code: string,
+    name: string,
+    companyId: string,
+  ): Promise<ExpenseCategoryRecord> {
     try {
-      const category = await prisma.expenseCategory.create({ data: { code, name } });
+      const category = await prisma.expenseCategory.create({ data: { code, name, companyId } });
       return toCategory(category);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -90,21 +97,24 @@ export class PrismaExpensesRepository implements ExpensesRepository {
   async updateCategory(
     id: string,
     data: { name?: string; ativa?: boolean },
+    companyId: string,
   ): Promise<ExpenseCategoryRecord> {
+    const current = await prisma.expenseCategory.findFirst({ where: { id, companyId } });
+    if (!current) throw new ExpenseCategoryNotFoundForConfigError();
     try {
       const category = await prisma.expenseCategory.update({ where: { id }, data });
       return toCategory(category);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new ExpenseCategoryNotFoundForConfigError();
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ExpenseCategoryExistsError();
       }
       throw error;
     }
   }
 
-  async getLimit(categoryId: string): Promise<ExpenseLimitRecord | null> {
-    const limit = await prisma.expenseCategoryLimit.findUnique({
-      where: { categoryId },
+  async getLimit(categoryId: string, companyId: string): Promise<ExpenseLimitRecord | null> {
+    const limit = await prisma.expenseCategoryLimit.findFirst({
+      where: { categoryId, category: { companyId } },
       include: { category: { select: { id: true, code: true, name: true } } },
     });
     if (!limit) return null;
@@ -116,8 +126,9 @@ export class PrismaExpensesRepository implements ExpensesRepository {
     };
   }
 
-  async listLimits(): Promise<ExpenseLimitRecord[]> {
+  async listLimits(companyId: string): Promise<ExpenseLimitRecord[]> {
     const limits = await prisma.expenseCategoryLimit.findMany({
+      where: { category: { companyId } },
       include: { category: { select: { id: true, code: true, name: true } } },
       orderBy: { category: { name: 'asc' } },
     });
@@ -133,7 +144,12 @@ export class PrismaExpensesRepository implements ExpensesRepository {
     categoryId: string,
     valor: string,
     updatedById: string,
+    companyId: string,
   ): Promise<ExpenseLimitRecord> {
+    const category = await prisma.expenseCategory.findFirst({
+      where: { id: categoryId, companyId },
+    });
+    if (!category) throw new ExpenseCategoryNotFoundForConfigError();
     const limit = await prisma.expenseCategoryLimit.upsert({
       where: { categoryId },
       update: { valor, updatedById },
@@ -220,6 +236,7 @@ export class PrismaExpensesRepository implements ExpensesRepository {
             kmFinal: true,
             taxaKm: true,
             deletadoEm: true,
+            companyId: true,
           },
         },
       },
@@ -241,6 +258,7 @@ export class PrismaExpensesRepository implements ExpensesRepository {
         kmFinal: expense.trip.kmFinal ? expense.trip.kmFinal.toString() : null,
         taxaKm: expense.trip.taxaKm ? expense.trip.taxaKm.toString() : null,
         deletadoEm: expense.trip.deletadoEm,
+        companyId: expense.trip.companyId,
       },
     };
   }

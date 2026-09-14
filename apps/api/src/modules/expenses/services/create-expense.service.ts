@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type { ReceiptInsertData } from '../../receipts/receipt.types.js';
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
 import { EDITABLE_TRIP_STATUSES } from '../../trips/trip.types.js';
@@ -32,15 +33,17 @@ export class CreateExpenseService {
     private readonly trips: TripsRepository,
     private readonly expenses: ExpensesRepository,
     private readonly audit: AuditService,
-    private readonly onReceiptCreated: (receiptId: string, actorId: string) => void = () => { },
-  ) { }
+    private readonly onReceiptCreated: (receiptId: string, actorId: string) => void = () => {},
+  ) {}
 
   async execute(
     dto: CreateExpenseDto,
     files: ExpenseUploadFile[],
     actorId: string,
     actorName: string,
+    actorCompanyId: string | null,
   ): Promise<ExpenseView> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     if (!files || files.length === 0) {
       throw new ExpenseReceiptRequiredError();
     }
@@ -51,7 +54,7 @@ export class CreateExpenseService {
       assertValidUpload(file);
     }
     const trip = await this.trips.findById(dto.tripId);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new ExpenseTripNotFoundError();
     }
     if (!EDITABLE_TRIP_STATUSES.includes(trip.status)) {
@@ -62,7 +65,7 @@ export class CreateExpenseService {
       throw new ExpenseForbiddenError();
     }
 
-    const category = await this.expenses.findCategoryByCode(dto.categoryCode);
+    const category = await this.expenses.findCategoryByCode(dto.categoryCode, trip.companyId);
     if (!category) {
       throw new ExpenseCategoryNotFoundError();
     }
@@ -81,7 +84,7 @@ export class CreateExpenseService {
       throw new ExpenseInvalidValueError();
     }
 
-    const alertaExcesso = await this.computeExcesso(category.id, valor);
+    const alertaExcesso = await this.computeExcesso(category.id, valor, trip.companyId);
     const optimizedFiles = await Promise.all(files.map(optimizeReceiptImage));
 
     const receipts: ReceiptInsertData[] = optimizedFiles.map((file) => ({
@@ -134,8 +137,12 @@ export class CreateExpenseService {
     return expenseToView(created);
   }
 
-  private async computeExcesso(categoryId: string, valor: string): Promise<string | null> {
-    const limit = await this.expenses.getLimit(categoryId);
+  private async computeExcesso(
+    categoryId: string,
+    valor: string,
+    companyId: string,
+  ): Promise<string | null> {
+    const limit = await this.expenses.getLimit(categoryId, companyId);
     if (!limit) return null;
     const valorNum = Number(valor);
     const limitNum = Number(limit.valor);

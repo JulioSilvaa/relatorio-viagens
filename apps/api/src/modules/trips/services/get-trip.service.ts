@@ -6,9 +6,14 @@ import type { TripDetailView } from '../trip.types.js';
 export class GetTripService {
   constructor(private readonly trips: TripsRepository) {}
 
-  async execute(id: string, actorId: string, canViewAny: boolean): Promise<TripDetailView> {
+  async execute(
+    id: string,
+    actorId: string,
+    canViewAny: boolean,
+    actorCompanyId: string | null,
+  ): Promise<TripDetailView> {
     const trip = await this.trips.findDetailById(id);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
 

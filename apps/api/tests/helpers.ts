@@ -116,7 +116,26 @@ export async function seedBaseData(): Promise<void> {
   }
 }
 
+let DEFAULT_COMPANY_ID: string | null = null;
+
+export const TEST_COMPANY_CNPJ = '99999999000191';
+
+export async function defaultCompany(): Promise<{ id: string; name: string; cnpj: string }> {
+  if (DEFAULT_COMPANY_ID) {
+    const existing = await prisma.company.findUnique({
+      where: { id: DEFAULT_COMPANY_ID },
+    });
+    if (existing) return existing;
+  }
+  const company = await prisma.company.create({
+    data: { name: 'Empresa de Teste', cnpj: TEST_COMPANY_CNPJ },
+  });
+  DEFAULT_COMPANY_ID = company.id;
+  return company;
+}
+
 export async function truncateAll(): Promise<void> {
+  DEFAULT_COMPANY_ID = null;
   await prisma.notification.deleteMany();
   await prisma.tripPayment.deleteMany();
   await prisma.tripAdvance.deleteMany();
@@ -143,33 +162,24 @@ export async function truncateAll(): Promise<void> {
   await prisma.permission.deleteMany();
 }
 
-const BASE_CATEGORIES = [
-  'ALUGUEL_CARRO',
-  'PEDAGIO',
-  'COMBUSTIVEL',
-  'DIARIA_VIAGEM',
-  'HOTEL',
-  'PASSAGENS_AEREAS',
-  'ESTACIONAMENTO',
-  'UBER_TAXI',
-  'METRO',
-  'ALIMENTACAO',
-  'OUTROS',
-  'KM_RODADOS',
-] as const;
-
-export async function seedCategories(): Promise<void> {
-  for (const code of BASE_CATEGORIES) {
+export async function seedCategories(companyId?: string): Promise<void> {
+  const targetId = companyId ?? (await defaultCompany()).id;
+  const catalog = await prisma.expenseCategoryCatalog.findMany({
+    where: { ativo: true },
+    select: { code: true, name: true },
+  });
+  for (const category of catalog) {
     await prisma.expenseCategory.upsert({
-      where: { code },
+      where: { companyId_code: { companyId: targetId, code: category.code } },
       update: {},
-      create: { code, name: code },
+      create: { code: category.code, name: category.name, companyId: targetId },
     });
   }
 }
 
-export async function createCostCenter(nome: string) {
-  return prisma.costCenter.create({ data: { nome } });
+export async function createCostCenter(nome: string, companyId?: string): Promise<unknown> {
+  const { id } = companyId ? { id: companyId } : await defaultCompany();
+  return prisma.costCenter.create({ data: { nome, companyId: id } });
 }
 
 export interface CreateUserOptions {
@@ -180,11 +190,13 @@ export interface CreateUserOptions {
   name?: string;
   cargo?: string;
   status?: 'ATIVO' | 'INATIVO';
+  companyId?: string;
 }
 
 export async function createUser(options: CreateUserOptions) {
   const role = await prisma.role.findUniqueOrThrow({ where: { code: options.role ?? 'EMPLOYEE' } });
   const passwordHash = options.password ? await bcrypt.hash(options.password, 10) : null;
+  const companyId = options.companyId ?? (await defaultCompany()).id;
   return prisma.user.create({
     data: {
       name: options.name ?? 'Usuário de Teste',
@@ -192,6 +204,7 @@ export async function createUser(options: CreateUserOptions) {
       department: options.department ?? 'COMERCIAL',
       cargo: options.cargo ?? 'Analista',
       roleId: role.id,
+      companyId,
       status: options.status ?? 'ATIVO',
       passwordHash,
     },

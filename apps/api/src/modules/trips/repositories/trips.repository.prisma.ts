@@ -20,6 +20,7 @@ import type {
 
 interface PrismaTripRow {
   id: string;
+  companyId: string;
   cliente: string;
   cidade: string;
   uf: string;
@@ -85,6 +86,7 @@ type PrismaExpenseRow = TripDetailPayload['expenses'][number];
 function toTripRecord(trip: PrismaTripRow, criadoPor: TripCreatorRef): TripRecord {
   return {
     id: trip.id,
+    companyId: trip.companyId,
     cliente: trip.cliente,
     cidade: trip.cidade,
     uf: trip.uf as TripRecord['uf'],
@@ -136,40 +138,41 @@ function toExpenseDetail(expense: PrismaExpenseRow): ExpenseDetailRecord {
       createdAt: receipt.createdAt,
       ocr: receipt.ReceiptOcr
         ? {
-          textoOriginal: null,
-          status: receipt.ReceiptOcr.status,
-          origem: receipt.ReceiptOcr.origem,
-          cnpj: receipt.ReceiptOcr.cnpj,
-          nomeEstabelecimento: receipt.ReceiptOcr.nomeEstabelecimento,
-          data: receipt.ReceiptOcr.data,
-          hora: receipt.ReceiptOcr.hora,
-          valorTotal: receipt.ReceiptOcr.valorTotal?.toString() ?? null,
-          valorProdutos: null,
-          desconto: null,
-          tributos: null,
-          numeroDocumento: receipt.ReceiptOcr.numeroDocumento,
-          serie: null,
-          inscricaoEstadual: null,
-          emitente: null,
-          destinatario: null,
-          formaPagamento: null,
-          protocoloAutorizacao: null,
-          chaveAcesso: receipt.ReceiptOcr.chaveAcesso,
-          itens: (receipt.ReceiptOcr.itens as unknown[]) ?? null,
-          erro: receipt.ReceiptOcr.erro,
-          extraidoEm: receipt.ReceiptOcr.extraidoEm,
-          conferidoPor: receipt.ReceiptOcr.conferidoPor
-            ? {
-              id: receipt.ReceiptOcr.conferidoPor.id,
-              name: receipt.ReceiptOcr.conferidoPor.name,
-            }
-            : null,
-          conferidoEm: receipt.ReceiptOcr.conferidoEm,
-          dadosOriginais:
-            receipt.ReceiptOcr.dadosOriginais && typeof receipt.ReceiptOcr.dadosOriginais === 'object'
-              ? (receipt.ReceiptOcr.dadosOriginais as Record<string, unknown>)
+            textoOriginal: null,
+            status: receipt.ReceiptOcr.status,
+            origem: receipt.ReceiptOcr.origem,
+            cnpj: receipt.ReceiptOcr.cnpj,
+            nomeEstabelecimento: receipt.ReceiptOcr.nomeEstabelecimento,
+            data: receipt.ReceiptOcr.data,
+            hora: receipt.ReceiptOcr.hora,
+            valorTotal: receipt.ReceiptOcr.valorTotal?.toString() ?? null,
+            valorProdutos: null,
+            desconto: null,
+            tributos: null,
+            numeroDocumento: receipt.ReceiptOcr.numeroDocumento,
+            serie: null,
+            inscricaoEstadual: null,
+            emitente: null,
+            destinatario: null,
+            formaPagamento: null,
+            protocoloAutorizacao: null,
+            chaveAcesso: receipt.ReceiptOcr.chaveAcesso,
+            itens: (receipt.ReceiptOcr.itens as unknown[]) ?? null,
+            erro: receipt.ReceiptOcr.erro,
+            extraidoEm: receipt.ReceiptOcr.extraidoEm,
+            conferidoPor: receipt.ReceiptOcr.conferidoPor
+              ? {
+                  id: receipt.ReceiptOcr.conferidoPor.id,
+                  name: receipt.ReceiptOcr.conferidoPor.name,
+                }
               : null,
-        }
+            conferidoEm: receipt.ReceiptOcr.conferidoEm,
+            dadosOriginais:
+              receipt.ReceiptOcr.dadosOriginais &&
+              typeof receipt.ReceiptOcr.dadosOriginais === 'object'
+                ? (receipt.ReceiptOcr.dadosOriginais as Record<string, unknown>)
+                : null,
+          }
         : null,
     })),
   };
@@ -195,6 +198,7 @@ export class PrismaTripsRepository implements TripsRepository {
     const trip = await prisma.$transaction(async (tx) => {
       const created = await tx.trip.create({
         data: {
+          companyId: input.companyId,
           cliente: input.cliente,
           cidade: input.cidade,
           uf: input.uf,
@@ -255,10 +259,11 @@ export class PrismaTripsRepository implements TripsRepository {
     return toDetailRecord(trip, trip.criadoPor, participants, expenses, trip.advances[0] ?? null);
   }
 
-  async findByParticipant(userId: string): Promise<TripRecord[]> {
+  async findByParticipant(userId: string, companyId: string): Promise<TripRecord[]> {
     const trips = await prisma.trip.findMany({
       where: {
         deletadoEm: null,
+        companyId,
         participants: { some: { userId } },
       },
       include: { criadoPor: { select: { id: true, name: true } } },
@@ -267,9 +272,9 @@ export class PrismaTripsRepository implements TripsRepository {
     return trips.map((trip) => toTripRecord(trip, trip.criadoPor));
   }
 
-  async findAll(): Promise<TripRecord[]> {
+  async findAll(companyId: string): Promise<TripRecord[]> {
     const trips = await prisma.trip.findMany({
-      where: { deletadoEm: null },
+      where: { deletadoEm: null, companyId },
       include: { criadoPor: { select: { id: true, name: true } } },
       orderBy: { updatedAt: 'desc' },
     });
@@ -311,8 +316,9 @@ export class PrismaTripsRepository implements TripsRepository {
     tripId: string,
     userId: string,
     addedById: string,
+    companyId: string,
   ): Promise<TripParticipantRecord> {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findFirst({ where: { id: userId, companyId } });
     if (!user) {
       throw new TripParticipantNotFoundError();
     }
@@ -374,7 +380,7 @@ export class PrismaTripsRepository implements TripsRepository {
 
   async searchTrips(input: TripSearchInput): Promise<TripSearchResult> {
     const { filters } = input;
-    const where: Prisma.TripWhereInput = { deletadoEm: null };
+    const where: Prisma.TripWhereInput = { deletadoEm: null, companyId: input.companyId };
 
     const scope: Prisma.TripWhereInput[] = [];
     if (!input.global) {

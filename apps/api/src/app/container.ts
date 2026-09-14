@@ -397,8 +397,8 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
   });
 
   const reportsRepo = new PrismaReportsRepository(trips, financeRepo);
-  const generateOfficialPdfService = new GenerateOfficialPdfService(reportsRepo, audit);
-  const generateManagerPdfService = new GenerateManagerPdfService(reportsRepo);
+  const generateOfficialPdfService = new GenerateOfficialPdfService(reportsRepo, trips, audit);
+  const generateManagerPdfService = new GenerateManagerPdfService(reportsRepo, trips);
   const reportsRouter = createReportsRouter({
     requireAuth,
     generateOfficialPdfService,

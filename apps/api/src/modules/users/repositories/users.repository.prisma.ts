@@ -20,6 +20,7 @@ interface UserWithRoleCode {
   passwordHash: string | null;
   roleId: string;
   managerId: string | null;
+  companyId: string | null;
   roleCode: string;
 }
 
@@ -35,6 +36,7 @@ function toPersistedUser(user: UserWithRoleCode): PersistedUser {
     passwordHash: user.passwordHash,
     roleId: user.roleId,
     managerId: user.managerId,
+    companyId: user.companyId,
     roleCode: user.roleCode as PersistedUser['roleCode'],
   };
 }
@@ -50,6 +52,7 @@ const USER_SELECT = {
   passwordHash: true,
   roleId: true,
   managerId: true,
+  companyId: true,
   role: { select: { code: true } },
 } as const;
 
@@ -82,6 +85,7 @@ export class PrismaUsersRepository implements UsersRepository {
       passwordHash: user.passwordHash,
       roleId: user.roleId,
       managerId: user.managerId,
+      companyId: user.companyId,
       roleCode: input.roleCode,
     };
   }
@@ -137,25 +141,30 @@ export class PrismaUsersRepository implements UsersRepository {
     return toPersistedUser({ ...user, roleCode: user.role.code });
   }
 
-  async findAllByRoleCode(code: string): Promise<UserIdRef[]> {
+  async findAllByRoleCode(code: string, companyId: string): Promise<UserIdRef[]> {
     const users = await prisma.user.findMany({
-      where: { role: { code: code as RoleType } },
+      where: { role: { code: code as RoleType }, companyId, status: 'ATIVO' },
       select: { id: true, name: true },
     });
     return users;
   }
 
-  async findAllActive(): Promise<UserDirectoryEntry[]> {
-    return this.findDirectory({ status: 'ATIVO' });
+  async findAllActive(companyId: string | null): Promise<UserDirectoryEntry[]> {
+    return this.findDirectory({ status: 'ATIVO', companyId });
   }
 
-  async findAll(): Promise<UserDirectoryEntry[]> {
-    return this.findDirectory({});
+  async findAll(companyId: string | null): Promise<UserDirectoryEntry[]> {
+    return this.findDirectory({ companyId });
   }
 
-  private async findDirectory(where: { status?: 'ATIVO' }): Promise<UserDirectoryEntry[]> {
+  private async findDirectory(where: {
+    status?: 'ATIVO';
+    companyId: string | null;
+  }): Promise<UserDirectoryEntry[]> {
+    if (!where.companyId) return [];
+
     const users = await prisma.user.findMany({
-      where,
+      where: { ...(where.status ? { status: where.status } : {}), companyId: where.companyId },
       select: {
         id: true,
         name: true,
@@ -164,6 +173,7 @@ export class PrismaUsersRepository implements UsersRepository {
         department: true,
         cargo: true,
         status: true,
+        companyId: true,
         role: { select: { code: true } },
       },
       orderBy: { name: 'asc' },

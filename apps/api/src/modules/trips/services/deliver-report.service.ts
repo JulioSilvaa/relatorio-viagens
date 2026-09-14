@@ -16,11 +16,16 @@ export class DeliverReportService {
     private readonly users: UsersRepository,
     private readonly audit: AuditService,
     private readonly notifier: NotificationPublisher,
-  ) { }
+  ) {}
 
-  async execute(tripId: string, actorId: string, mensagem?: string): Promise<void> {
+  async execute(
+    tripId: string,
+    actorId: string,
+    mensagem: string | undefined,
+    actorCompanyId: string | null,
+  ): Promise<void> {
     const trip = await this.trips.findDetailById(tripId);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
 
@@ -58,7 +63,7 @@ export class DeliverReportService {
       newValue: 'EM_APROVACAO',
     });
 
-    const managers = await this.users.findAllByRoleCode('MANAGER_ADMIN');
+    const managers = await this.users.findAllByRoleCode('MANAGER_ADMIN', actorCompanyId);
     if (managers.length > 0) {
       await this.notifier.notifyMany({
         event: wasCorrection ? 'RELATORIO_REENVIADO' : 'RELATORIO_ENTREGUE',

@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import {
   ExpenseCategoryInactiveError,
   ExpenseCategoryNotFoundError,
@@ -22,9 +23,15 @@ export class EditExpenseService {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(id: string, dto: EditExpenseDto, actorId: string): Promise<ExpenseView> {
+  async execute(
+    id: string,
+    dto: EditExpenseDto,
+    actorId: string,
+    actorCompanyId: string | null,
+  ): Promise<ExpenseView> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     const expense = await this.expenses.findExpenseForMutation(id);
-    if (!expense || expense.trip.deletadoEm) {
+    if (!expense || expense.trip.deletadoEm || expense.trip.companyId !== actorCompanyId) {
       throw new ExpenseNotFoundError();
     }
     if (expense.createdById !== actorId) {
@@ -33,10 +40,14 @@ export class EditExpenseService {
     if (!EDITABLE_TRIP_STATUSES.includes(expense.trip.status)) {
       throw new ExpenseTripNotEditableError();
     }
+    const trip = await this.trips.findById(expense.tripId);
 
     let categoryId = expense.categoryId;
     if (dto.categoryCode !== undefined && dto.categoryCode !== null) {
-      const category = await this.expenses.findCategoryByCode(dto.categoryCode);
+      const category = await this.expenses.findCategoryByCode(
+        dto.categoryCode,
+        trip?.companyId ?? '',
+      );
       if (!category) {
         throw new ExpenseCategoryNotFoundError();
       }
@@ -51,13 +62,12 @@ export class EditExpenseService {
     if (dto.reembolsavel !== undefined) data.reembolsavel = dto.reembolsavel;
     if (dto.justificativa !== undefined) data.justificativa = dto.justificativa;
 
-    const category = await this.expenses.findCategoryById(categoryId);
+    const category = await this.expenses.findCategoryById(categoryId, trip?.companyId ?? '');
     const isKmCategory = category?.code === 'KM_RODADOS';
 
     let valor = expense.valor;
     if (dto.valor !== undefined) valor = dto.valor;
     if (isKmCategory) {
-      const trip = await this.trips.findById(expense.tripId);
       if (!trip || !trip.kmInicial || !trip.kmFinal || !trip.taxaKm) {
         throw new ExpenseKmDataMissingError();
       }
@@ -72,7 +82,7 @@ export class EditExpenseService {
       data.categoryId = categoryId;
     }
 
-    const limit = await this.expenses.getLimit(categoryId);
+    const limit = await this.expenses.getLimit(categoryId, trip?.companyId ?? '');
     let alertaExcesso: string | null = null;
     if (limit && Number(valor) > Number(limit.valor)) {
       alertaExcesso = (Number(valor) - Number(limit.valor)).toFixed(2);

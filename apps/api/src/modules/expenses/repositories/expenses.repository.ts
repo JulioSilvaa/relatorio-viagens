@@ -45,6 +45,7 @@ export interface ExpenseForMutationRecord {
     kmFinal: string | null;
     taxaKm: string | null;
     deletadoEm: Date | null;
+    companyId: string;
   };
 }
 
@@ -67,17 +68,23 @@ export interface CreatedExpenseWithReceipts {
 }
 
 export interface ExpensesRepository {
-  findCategoryById(id: string): Promise<ExpenseCategoryRecord | null>;
-  findCategoryByCode(code: string): Promise<ExpenseCategoryRecord | null>;
-  listCategories(includeInactive: boolean): Promise<ExpenseCategoryRecord[]>;
-  createCategory(code: string, name: string): Promise<ExpenseCategoryRecord>;
+  findCategoryById(id: string, companyId: string): Promise<ExpenseCategoryRecord | null>;
+  findCategoryByCode(code: string, companyId: string): Promise<ExpenseCategoryRecord | null>;
+  listCategories(includeInactive: boolean, companyId: string): Promise<ExpenseCategoryRecord[]>;
+  createCategory(code: string, name: string, companyId: string): Promise<ExpenseCategoryRecord>;
   updateCategory(
     id: string,
     data: { name?: string; ativa?: boolean },
+    companyId: string,
   ): Promise<ExpenseCategoryRecord>;
-  getLimit(categoryId: string): Promise<ExpenseLimitRecord | null>;
-  listLimits(): Promise<ExpenseLimitRecord[]>;
-  upsertLimit(categoryId: string, valor: string, updatedById: string): Promise<ExpenseLimitRecord>;
+  getLimit(categoryId: string, companyId: string): Promise<ExpenseLimitRecord | null>;
+  listLimits(companyId: string): Promise<ExpenseLimitRecord[]>;
+  upsertLimit(
+    categoryId: string,
+    valor: string,
+    updatedById: string,
+    companyId: string,
+  ): Promise<ExpenseLimitRecord>;
   createExpenseWithReceipts(
     input: CreateExpenseWithReceiptsInput,
   ): Promise<CreatedExpenseWithReceipts>;

@@ -17,6 +17,6 @@ export interface GeneratedExcel {
 export interface ExportsRepository {
   buildExpensesExcel(
     filters: ExcelExpenseFilters,
-    scope: { global: boolean; userId: string },
+    scope: { global: boolean; userId: string; companyId: string },
   ): Promise<GeneratedExcel>;
 }

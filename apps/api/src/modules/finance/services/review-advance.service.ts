@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type { NotificationPublisher } from '../../notifications/notification-publisher.js';
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
 import { TripNotFoundError } from '../../trips/trip.errors.js';
@@ -22,10 +23,16 @@ export class ReviewAdvanceService {
     advanceId: string,
     input: { aprovado: boolean; valorAprovado: string | null; justificativaAnalise: string },
     actorId: string,
+    actorCompanyId: string | null,
   ): Promise<TripAdvanceRecord> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     const advance = await this.finance.findAdvanceById(advanceId);
     if (!advance) {
       throw new AdvanceNotFoundError();
+    }
+    const trip = await this.trips.findById(advance.tripId);
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
+      throw new TripNotFoundError();
     }
     if (advance.status !== 'SOLICITADO' && advance.status !== 'EM_ANALISE') {
       throw new AdvanceInvalidStatusError();
@@ -49,11 +56,6 @@ export class ReviewAdvanceService {
       aprovadoPorId: actorId,
       aprovadoEm: new Date(),
     });
-
-    const trip = await this.trips.findById(advance.tripId);
-    if (!trip || trip.deletadoEm) {
-      throw new TripNotFoundError();
-    }
 
     await this.audit.record({
       userId: actorId,

@@ -25,6 +25,7 @@ export interface TripSearchInput {
   filters: TripSearchFilters;
   global: boolean;
   userId: string;
+  companyId: string;
   limit: number;
   offset: number;
 }
@@ -41,6 +42,7 @@ export interface TripCreatorRef {
 
 export interface TripRecord {
   id: string;
+  companyId: string;
   cliente: string;
   cidade: string;
   uf: UfType;
@@ -134,6 +136,7 @@ export interface TripDetailRecord extends TripRecord {
 }
 
 export interface CreateTripInput extends CreateTripData {
+  companyId: string;
   criadoPorId: string;
   criadoPorNome: string;
   taxaKm: string | null;
@@ -144,13 +147,18 @@ export interface TripsRepository {
   createTrip(input: CreateTripInput): Promise<TripRecord>;
   findById(id: string): Promise<TripRecord | null>;
   findDetailById(id: string): Promise<TripDetailRecord | null>;
-  findByParticipant(userId: string): Promise<TripRecord[]>;
-  findAll(): Promise<TripRecord[]>;
+  findByParticipant(userId: string, companyId: string): Promise<TripRecord[]>;
+  findAll(companyId: string): Promise<TripRecord[]>;
   searchTrips(input: TripSearchInput): Promise<TripSearchResult>;
   update(id: string, data: UpdateTripData): Promise<TripRecord>;
   setStatus(id: string, status: TripStatus, motivoCancelamento?: string): Promise<void>;
   softDelete(id: string, deletedById: string): Promise<void>;
-  addParticipant(tripId: string, userId: string, addedById: string): Promise<TripParticipantRecord>;
+  addParticipant(
+    tripId: string,
+    userId: string,
+    addedById: string,
+    companyId: string,
+  ): Promise<TripParticipantRecord>;
   removeParticipant(tripId: string, userId: string): Promise<boolean>;
   participantExists(tripId: string, userId: string): Promise<boolean>;
   listParticipants(tripId: string): Promise<TripParticipantRecord[]>;

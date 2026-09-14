@@ -1,4 +1,5 @@
 export interface ManagerReportFilters {
+  companyId: string;
   dataDe?: string;
   dataAte?: string;
   departamento?: string;

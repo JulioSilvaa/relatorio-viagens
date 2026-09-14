@@ -1,4 +1,7 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
+import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
+import { TripNotFoundError } from '../../trips/trip.errors.js';
 import { renderOfficialPdf } from '../report-pdf.js';
 import { ReportForbiddenError, ReportNotApprovedError } from '../reports.errors.js';
 import type { GeneratedOfficialReport, ReportsRepository } from '../report.types.js';
@@ -9,6 +12,7 @@ const AUDIT_ENTITY = 'RELATORIO_OFICIAL';
 export class GenerateOfficialPdfService {
   constructor(
     private readonly repository: ReportsRepository,
+    private readonly trips: TripsRepository,
     private readonly audit: AuditService,
   ) {}
 
@@ -18,9 +22,15 @@ export class GenerateOfficialPdfService {
     canViewAny: boolean,
     emitidoPor: string,
     anexarComprovantes: boolean,
+    actorCompanyId: string | null,
   ): Promise<GeneratedOfficialReport> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     if (!canViewAny) {
       throw new ReportForbiddenError();
+    }
+    const trip = await this.trips.findById(tripId);
+    if (!trip || trip.companyId !== actorCompanyId) {
+      throw new TripNotFoundError();
     }
     const data = await this.repository.getReportData(tripId, emitidoPor);
     if (!OFFICIAL_APPROVED_STATUSES.includes(data.trip.status)) {

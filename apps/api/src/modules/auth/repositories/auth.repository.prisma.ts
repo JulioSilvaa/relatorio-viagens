@@ -30,6 +30,7 @@ export class PrismaSessionsRepository implements SessionsRepository {
             name: true,
             email: true,
             status: true,
+            companyId: true,
             role: {
               select: {
                 code: true,
@@ -58,6 +59,7 @@ export class PrismaSessionsRepository implements SessionsRepository {
         email: session.user.email,
         status: session.user.status,
         roleCode: session.user.role.code,
+        companyId: session.user.companyId,
         permissions: session.user.role.permissions.map((p) => p.permission.code),
       },
     };

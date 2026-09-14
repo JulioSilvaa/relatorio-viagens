@@ -10,11 +10,12 @@ export class ManagerDashboardService {
 
   async execute(
     canViewGlobal: boolean,
-    filters: ManagerReportFilters,
+    filters: Omit<ManagerReportFilters, 'companyId'>,
+    actorCompanyId: string | null,
   ): Promise<DashboardManagerReport> {
-    if (!canViewGlobal) {
+    if (!canViewGlobal || !actorCompanyId) {
       throw new DashboardForbiddenError();
     }
-    return this.repository.managerReport(filters);
+    return this.repository.managerReport({ ...filters, companyId: actorCompanyId });
   }
 }

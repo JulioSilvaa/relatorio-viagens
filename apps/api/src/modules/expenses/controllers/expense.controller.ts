@@ -53,6 +53,7 @@ export function createExpensesRouter({
         files,
         req.auth!.userId,
         req.auth!.user.name,
+        req.auth!.user.companyId,
       );
       res.status(201).json(success({ expense }));
     }),
@@ -64,7 +65,11 @@ export function createExpensesRouter({
     requirePermission('DESPESA.CRIAR'),
     asyncHandler(async (req, res) => {
       const tripId = req.query.tripId as string | undefined;
-      const expenses = await listExpensesService.execute(tripId, req.auth!.userId);
+      const expenses = await listExpensesService.execute(
+        tripId,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.json(success({ expenses }));
     }),
   );
@@ -77,7 +82,12 @@ export function createExpensesRouter({
       const canViewAny =
         req.auth!.user.roleCode === 'MANAGER_ADMIN' ||
         req.auth!.user.permissions.includes('RELATORIO.VISUALIZAR');
-      const expense = await getExpenseService.execute(req.params.id!, req.auth!.userId, canViewAny);
+      const expense = await getExpenseService.execute(
+        req.params.id!,
+        req.auth!.userId,
+        canViewAny,
+        req.auth!.user.companyId,
+      );
       res.json(success({ expense }));
     }),
   );
@@ -89,7 +99,12 @@ export function createExpensesRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = editExpenseSchema.parse(req.body);
-      const expense = await editExpenseService.execute(req.params.id!, dto, req.auth!.userId);
+      const expense = await editExpenseService.execute(
+        req.params.id!,
+        dto,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.json(success({ expense }));
     }),
   );
@@ -100,7 +115,11 @@ export function createExpensesRouter({
     requirePermission('DESPESA.EXCLUIR'),
     verifyCsrf,
     asyncHandler(async (req, res) => {
-      await deleteExpenseService.execute(req.params.id!, req.auth!.userId);
+      await deleteExpenseService.execute(
+        req.params.id!,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.status(204).send();
     }),
   );

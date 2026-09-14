@@ -19,9 +19,9 @@ function dateBR(date: Date): string {
 export class PrismaExportsRepository implements ExportsRepository {
   async buildExpensesExcel(
     filters: ExcelExpenseFilters,
-    scope: { global: boolean; userId: string },
+    scope: { global: boolean; userId: string; companyId: string },
   ): Promise<GeneratedExcel> {
-    const tripWhere: Prisma.TripWhereInput = { deletadoEm: null };
+    const tripWhere: Prisma.TripWhereInput = { deletadoEm: null, companyId: scope.companyId };
     const tripScopes: Prisma.TripWhereInput[] = [];
     if (!scope.global) {
       tripScopes.push({

@@ -19,9 +19,14 @@ export class EditTripService {
     private readonly audit: AuditService,
   ) {}
 
-  async execute(id: string, dto: UpdateTripDto, actorId: string): Promise<TripView> {
+  async execute(
+    id: string,
+    dto: UpdateTripDto,
+    actorId: string,
+    actorCompanyId: string | null,
+  ): Promise<TripView> {
     const trip = await this.trips.findById(id);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
 
@@ -39,7 +44,7 @@ export class EditTripService {
     assertValidTripKms(dto.kmInicial, dto.kmFinal);
 
     if (dto.centroDeCustoId) {
-      const center = await this.costCenters.findActiveById(dto.centroDeCustoId);
+      const center = await this.costCenters.findActiveById(dto.centroDeCustoId, actorCompanyId);
       if (!center) {
         throw new CostCenterNotFoundError();
       }

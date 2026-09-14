@@ -44,8 +44,8 @@ export function createCreditCardRouter({
     '/',
     requireAuth,
     requirePermission('CARTAO.VISUALIZAR'),
-    asyncHandler(async (_req, res) => {
-      const cards = await listCreditCardsService.execute();
+    asyncHandler(async (req, res) => {
+      const cards = await listCreditCardsService.execute(req.auth!.user.companyId);
       res.json(success({ cards }));
     }),
   );
@@ -54,8 +54,8 @@ export function createCreditCardRouter({
     '/disponiveis',
     requireAuth,
     requirePermission('VIAGEM.CARTAO.SELECIONAR'),
-    asyncHandler(async (_req, res) => {
-      const cards = await listCreditCardsService.executeActive();
+    asyncHandler(async (req, res) => {
+      const cards = await listCreditCardsService.executeActive(req.auth!.user.companyId);
       res.json(success({ cards }));
     }),
   );
@@ -67,7 +67,11 @@ export function createCreditCardRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const input = createCreditCardSchema.parse(req.body);
-      const card = await createCreditCardService.execute(input, req.auth!.userId);
+      const card = await createCreditCardService.execute(
+        input,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.status(201).json(success({ card }));
     }),
   );
@@ -79,7 +83,12 @@ export function createCreditCardRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const input = updateCreditCardSchema.parse(req.body);
-      const card = await updateCreditCardService.execute(req.params.id!, input, req.auth!.userId);
+      const card = await updateCreditCardService.execute(
+        req.params.id!,
+        input,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.json(success({ card }));
     }),
   );
@@ -95,6 +104,7 @@ export function createCreditCardRouter({
         req.params.id!,
         active,
         req.auth!.userId,
+        req.auth!.user.companyId,
       );
       res.json(success({ card }));
     }),

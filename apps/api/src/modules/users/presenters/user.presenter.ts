@@ -14,6 +14,7 @@ export function userToView(
     cargo: user.cargo,
     roleCode: roleCode as UserView['roleCode'],
     status: user.status,
+    companyId: user.companyId,
     permissions,
   };
 }

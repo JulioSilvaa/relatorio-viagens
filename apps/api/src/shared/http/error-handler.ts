@@ -59,6 +59,8 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   logger.error('Erro não tratado', {
     method: req.method,
     path: req.path,
+    message: err instanceof Error ? err.message : String(err),
+    stack: err instanceof Error ? err.stack : undefined,
   });
 
   res.status(500).json({

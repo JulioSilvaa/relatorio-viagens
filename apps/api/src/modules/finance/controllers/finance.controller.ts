@@ -94,6 +94,7 @@ export function createFinanceRouter({
         req.auth!.userId,
         req.auth!.user.permissions.includes('FINANCEIRO.REEMBOLSO.PROCESSAR'),
         req.auth!.user.roleCode === 'MANAGER_ADMIN',
+        req.auth!.user.companyId,
       );
       res.json(success(view));
     }),
@@ -106,7 +107,11 @@ export function createFinanceRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       receiveSchema.parse(req.body);
-      await receiveFinanceService.execute(req.params.tripId!, req.auth!.userId);
+      await receiveFinanceService.execute(
+        req.params.tripId!,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.status(204).send();
     }),
   );
@@ -128,6 +133,7 @@ export function createFinanceRouter({
           comprovante: fileOf(req),
         },
         req.auth!.userId,
+        req.auth!.user.companyId,
       );
       res.json(success({ payment }));
     }),
@@ -147,6 +153,7 @@ export function createFinanceRouter({
           justificativaSolicitacao: parsed.justificativaSolicitacao,
         },
         req.auth!.userId,
+        req.auth!.user.companyId,
       );
       res.status(201).json(success({ advance }));
     }),
@@ -167,6 +174,7 @@ export function createFinanceRouter({
           justificativaAnalise: parsed.justificativaAnalise,
         },
         req.auth!.userId,
+        req.auth!.user.companyId,
       );
       res.json(success({ advance }));
     }),
@@ -183,6 +191,7 @@ export function createFinanceRouter({
         req.params.advanceId!,
         { observacoesPagamento: parsed.observacoesPagamento ?? null },
         req.auth!.userId,
+        req.auth!.user.companyId,
       );
       res.json(success({ advance }));
     }),
@@ -206,6 +215,7 @@ export function createFinanceRouter({
           comprovante: fileOf(req),
         },
         req.auth!.userId,
+        req.auth!.user.companyId,
       );
       res.json(success({ refund }));
     }),

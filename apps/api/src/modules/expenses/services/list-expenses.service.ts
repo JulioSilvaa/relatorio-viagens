@@ -1,4 +1,5 @@
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import { ExpenseForbiddenError, ExpenseTripNotFoundError } from '../expense.errors.js';
 import { expenseToView } from '../presenters/expense.presenter.js';
 import type { ExpensesRepository } from '../repositories/expenses.repository.js';
@@ -10,12 +11,17 @@ export class ListExpensesService {
     private readonly expenses: ExpensesRepository,
   ) {}
 
-  async execute(tripId: string | undefined, actorId: string): Promise<ExpenseView[]> {
+  async execute(
+    tripId: string | undefined,
+    actorId: string,
+    actorCompanyId: string | null,
+  ): Promise<ExpenseView[]> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     if (!tripId) {
       throw new ExpenseTripNotFoundError();
     }
     const trip = await this.trips.findById(tripId);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new ExpenseTripNotFoundError();
     }
     const isParticipant = await this.trips.participantExists(tripId, actorId);

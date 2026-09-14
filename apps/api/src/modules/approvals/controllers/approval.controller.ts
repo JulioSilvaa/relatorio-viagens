@@ -44,7 +44,12 @@ export function createApprovalsRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = approveReportSchema.parse(req.body ?? {});
-      await approveReportService.execute(req.params.tripId!, req.auth!.userId, dto);
+      await approveReportService.execute(
+        req.params.tripId!,
+        req.auth!.userId,
+        dto,
+        req.auth!.user.companyId,
+      );
       res.status(204).send();
     }),
   );
@@ -56,7 +61,12 @@ export function createApprovalsRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = returnReportSchema.parse(req.body);
-      await returnReportService.execute(req.params.tripId!, dto.justificativa, req.auth!.userId);
+      await returnReportService.execute(
+        req.params.tripId!,
+        dto.justificativa,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.status(204).send();
     }),
   );
@@ -71,6 +81,7 @@ export function createApprovalsRouter({
       const reembolsavel = await changeReimbursabilityService.execute(
         { expenseId: req.params.expenseId!, ...dto },
         req.auth!.userId,
+        req.auth!.user.companyId,
       );
       res.json(success({ reembolsavel }));
     }),

@@ -29,7 +29,14 @@ export function createExpenseCategoriesRouter({
     requireAuth,
     asyncHandler(async (req, res) => {
       const includeInactive = req.auth!.user.roleCode === 'MANAGER_ADMIN';
-      res.json(success({ categories: await listCategoriesService.execute(includeInactive) }));
+      res.json(
+        success({
+          categories: await listCategoriesService.execute(
+            includeInactive,
+            req.auth!.user.companyId,
+          ),
+        }),
+      );
     }),
   );
 
@@ -40,7 +47,11 @@ export function createExpenseCategoriesRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = createCategorySchema.parse(req.body);
-      const category = await createCategoryService.execute(dto, req.auth!.userId);
+      const category = await createCategoryService.execute(
+        dto,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.status(201).json(success({ category }));
     }),
   );
@@ -52,7 +63,12 @@ export function createExpenseCategoriesRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = updateCategorySchema.parse(req.body);
-      const category = await updateCategoryService.execute(req.params.id!, dto, req.auth!.userId);
+      const category = await updateCategoryService.execute(
+        req.params.id!,
+        dto,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.json(success({ category }));
     }),
   );

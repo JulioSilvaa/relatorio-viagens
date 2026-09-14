@@ -1,4 +1,5 @@
 import type { AuditService } from '../../../modules/audit/audit.service.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import type { NotificationPublisher } from '../../notifications/notification-publisher.js';
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
 import { TripNotFoundError } from '../../trips/trip.errors.js';
@@ -28,9 +29,11 @@ export class RegisterPaymentService {
       comprovante: PaymentComprovante | null;
     },
     actorId: string,
+    actorCompanyId: string | null,
   ): Promise<TripPaymentRecord> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     const trip = await this.trips.findById(tripId);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
     if (trip.status !== 'FINANCEIRO') {

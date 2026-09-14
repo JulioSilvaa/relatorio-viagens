@@ -46,7 +46,7 @@ export class RegisterService {
 
     const passwordHash = await hashPassword(input.password);
 
-    const company = await this.companies.create({
+    const company = await this.companies.createWithDefaultCategories({
       name: input.companyName,
       cnpj: input.cnpj,
     });

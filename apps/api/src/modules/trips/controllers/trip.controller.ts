@@ -65,10 +65,14 @@ export function createTripsRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = createTripSchema.parse(req.body);
-      const trip = await createTripService.execute(dto, {
-        id: req.auth!.userId,
-        name: req.auth!.user.name,
-      });
+      const trip = await createTripService.execute(
+        dto,
+        {
+          id: req.auth!.userId,
+          name: req.auth!.user.name,
+        },
+        req.auth!.user.companyId,
+      );
       res.status(201).json(success({ trip }));
     }),
   );
@@ -77,7 +81,11 @@ export function createTripsRouter({
     '/',
     requireAuth,
     asyncHandler(async (req, res) => {
-      const trips = await listTripsService.execute(req.auth!.userId, req.auth!.user.roleCode);
+      const trips = await listTripsService.execute(
+        req.auth!.userId,
+        req.auth!.user.roleCode,
+        req.auth!.user.companyId,
+      );
       res.json(success({ trips }));
     }),
   );
@@ -107,6 +115,7 @@ export function createTripsRouter({
         },
         limit,
         offset,
+        req.auth!.user.companyId,
       );
       res.json(success(result));
     }),
@@ -119,7 +128,12 @@ export function createTripsRouter({
       const canViewAny =
         req.auth!.user.roleCode === 'MANAGER_ADMIN' ||
         req.auth!.user.permissions.includes('RELATORIO.VISUALIZAR');
-      const trip = await getTripService.execute(req.params.tripId!, req.auth!.userId, canViewAny);
+      const trip = await getTripService.execute(
+        req.params.tripId!,
+        req.auth!.userId,
+        canViewAny,
+        req.auth!.user.companyId,
+      );
       res.json(success({ trip }));
     }),
   );
@@ -131,7 +145,12 @@ export function createTripsRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = updateTripSchema.parse(req.body);
-      const trip = await editTripService.execute(req.params.tripId!, dto, req.auth!.userId);
+      const trip = await editTripService.execute(
+        req.params.tripId!,
+        dto,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.json(success({ trip }));
     }),
   );
@@ -147,6 +166,7 @@ export function createTripsRouter({
         dto,
         req.auth!.userId,
         req.auth!.user.roleCode,
+        req.auth!.user.companyId,
       );
       res.status(201).json(success({ participant }));
     }),
@@ -162,6 +182,7 @@ export function createTripsRouter({
         req.params.userId!,
         req.auth!.userId,
         req.auth!.user.roleCode,
+        req.auth!.user.companyId,
       );
       res.status(204).send();
     }),
@@ -174,7 +195,12 @@ export function createTripsRouter({
     verifyCsrf,
     asyncHandler(async (req, res) => {
       const dto = deliverTripSchema.parse(req.body ?? {});
-      await deliverReportService.execute(req.params.tripId!, req.auth!.userId, dto.mensagem);
+      await deliverReportService.execute(
+        req.params.tripId!,
+        req.auth!.userId,
+        dto.mensagem,
+        req.auth!.user.companyId,
+      );
       res.status(204).send();
     }),
   );
@@ -190,6 +216,7 @@ export function createTripsRouter({
         dto.motivo,
         req.auth!.userId,
         req.auth!.user.roleCode,
+        req.auth!.user.companyId,
       );
       res.json(success({ trip }));
     }),
@@ -201,7 +228,11 @@ export function createTripsRouter({
     requirePermission('VIAGEM.EXCLUIR'),
     verifyCsrf,
     asyncHandler(async (req, res) => {
-      await deleteTripService.execute(req.params.tripId!, req.auth!.userId);
+      await deleteTripService.execute(
+        req.params.tripId!,
+        req.auth!.userId,
+        req.auth!.user.companyId,
+      );
       res.status(204).send();
     }),
   );

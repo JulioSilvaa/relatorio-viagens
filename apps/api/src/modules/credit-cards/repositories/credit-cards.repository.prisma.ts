@@ -10,6 +10,7 @@ import type {
 function toRecord(card: CreditCard): CreditCardRecord {
   return {
     id: card.id,
+    companyId: card.companyId,
     cardholderName: card.cardholderName,
     last4: card.last4,
     brand: card.brand,
@@ -28,6 +29,7 @@ export class PrismaCreditCardsRepository implements CreditCardsRepository {
       encryptedCardNumber: string;
       last4: string;
       createdById: string;
+      companyId: string;
     },
   ): Promise<CreditCardRecord> {
     const card = await prisma.creditCard.create({
@@ -37,19 +39,20 @@ export class PrismaCreditCardsRepository implements CreditCardsRepository {
         last4: input.last4,
         brand: input.brand ?? null,
         createdById: input.createdById,
+        companyId: input.companyId,
       },
     });
     return toRecord(card);
   }
 
-  async findById(id: string): Promise<CreditCardRecord | null> {
-    const card = await prisma.creditCard.findUnique({ where: { id } });
+  async findById(id: string, companyId: string): Promise<CreditCardRecord | null> {
+    const card = await prisma.creditCard.findFirst({ where: { id, companyId, deletedAt: null } });
     return card ? toRecord(card) : null;
   }
 
-  async findAll(): Promise<CreditCardRecord[]> {
+  async findAll(companyId: string): Promise<CreditCardRecord[]> {
     const cards = await prisma.creditCard.findMany({
-      where: { deletedAt: null },
+      where: { companyId, deletedAt: null },
       orderBy: [{ active: 'desc' }, { cardholderName: 'asc' }],
     });
     return cards.map(toRecord);

@@ -1,4 +1,5 @@
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
+import { TenantRequiredError } from '../../../shared/errors/tenant.errors.js';
 import { TripNotFoundError } from '../../trips/trip.errors.js';
 import type { ExpensesRepository } from '../../expenses/repositories/expenses.repository.js';
 import { FinanceForbiddenError } from '../finance.errors.js';
@@ -25,9 +26,11 @@ export class GetFinanceService {
     actorId: string,
     canManageFinance: boolean,
     isManager: boolean,
+    actorCompanyId: string | null,
   ): Promise<FinanceView> {
+    if (!actorCompanyId) throw new TenantRequiredError();
     const trip = await this.trips.findById(tripId);
-    if (!trip || trip.deletadoEm) {
+    if (!trip || trip.deletadoEm || trip.companyId !== actorCompanyId) {
       throw new TripNotFoundError();
     }
 
