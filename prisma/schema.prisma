@@ -478,6 +478,10 @@ model ReceiptOcr {
   itens               Json?
   dadosOriginais      Json?
   erro                String?
+  engine              String?
+  processingMs        Int?
+  confidence          Decimal?            @db.Decimal(5, 4)
+  attempts            Int                 @default(1)
   extraidoEm          DateTime?
   conferidoPorId      String?             @db.Uuid
   conferidoPor        User?               @relation("OcrConferidoPor", fields: [conferidoPorId], references: [id])
