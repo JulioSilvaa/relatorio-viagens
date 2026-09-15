@@ -27,6 +27,7 @@ interface Column {
   align?: 'left' | 'right';
 }
 interface PageContext {
+  empresaNome: string;
   title: string;
   subtitle: string;
   emittedAt: Date;
@@ -102,11 +103,11 @@ function renderPageChrome(doc: Doc, context: PageContext): void {
     // independent stacks capped to their own width, with a fixed gap between them —
     // stacking them on shared y-coordinates without a width cap previously let the
     // subtitle and "Status" lines render on top of each other on the right edge.
-    doc
-      .font(FONT.bold)
-      .fontSize(13)
-      .fillColor(COLORS.ink)
-      .text('vaiefecha', MARGIN, 20, { lineBreak: false });
+    doc.font(FONT.bold).fontSize(13).fillColor(COLORS.ink).text(context.empresaNome, MARGIN, 20, {
+      width: HEADER_LEFT_WIDTH,
+      lineBreak: false,
+      ellipsis: true,
+    });
     doc.font(FONT.regular).fontSize(7).fillColor(COLORS.muted).text(context.title, MARGIN, 37, {
       width: HEADER_LEFT_WIDTH,
       characterSpacing: 1.2,
@@ -192,8 +193,15 @@ function ensureSpace(doc: Doc, height: number): void {
 // checking only the title's own 34pt let a section title fit at the bottom
 // of a page while its content immediately broke to the next one, leaving an
 // orphaned heading followed by an almost-blank page.
+const SECTION_GAP = 20;
+
 function sectionTitle(doc: Doc, title: string, note?: string, minContentHeight = 0): void {
-  ensureSpace(doc, 34 + minContentHeight);
+  // Extra breathing room between sections (1→2, 2→3, ...) — só quando já existe
+  // conteúdo acima (não no topo de uma página nova, onde já há a margem do
+  // cabeçalho); sem isso as seções ficavam praticamente coladas uma na outra.
+  const gap = doc.y > CONTENT_TOP ? SECTION_GAP : 0;
+  ensureSpace(doc, gap + 34 + minContentHeight);
+  doc.y += gap;
   const y = doc.y;
   doc
     .font(FONT.bold)
@@ -1215,6 +1223,7 @@ function attachComprovantes(doc: Doc, attachments: PdfAttachment[], startIndex: 
 
 function reportContext(data: ReportData, title: string, subtitle: string): PageContext {
   return {
+    empresaNome: data.empresaNome,
     title,
     subtitle,
     emittedAt: data.emitidoEm,
@@ -1259,7 +1268,9 @@ export async function renderOfficialPdf(
       renderCoverage(doc, data);
       renderFinanceiro(doc, data);
       renderAprovacao(doc);
-      if (ordered.length > 0) attachComprovantes(doc, ordered, 0);
+      // A seção "Comprovantes" (renderReceiptBlocks) já mostra a imagem de cada
+      // comprovante ao lado dos dados extraídos — anexar as mesmas imagens de
+      // novo em página inteira no final era redundante e inflava o PDF.
     },
     reportContext(
       data,

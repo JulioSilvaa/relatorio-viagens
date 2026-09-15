@@ -102,6 +102,7 @@ export function buildReportData(
   trip: TripDetailRecord,
   finance: TripFinanceData | undefined,
   emitidoPor: string,
+  empresaNome = 'Empresa não identificada',
   versao = 1,
 ): ReportData {
   const despesas: ReportExpenseRow[] = (trip.expenses ?? [])
@@ -156,6 +157,7 @@ export function buildReportData(
 
   return {
     trip: toTripData(trip),
+    empresaNome,
     participantes: trip.participants.map((p) => ({
       id: p.userId,
       nome: p.name,

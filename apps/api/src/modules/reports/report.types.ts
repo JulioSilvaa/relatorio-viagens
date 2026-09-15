@@ -128,6 +128,7 @@ export interface ReportOcrReceipt {
 
 export interface ReportData {
   trip: ReportTripData;
+  empresaNome: string;
   participantes: Array<{
     id: string;
     nome: string;

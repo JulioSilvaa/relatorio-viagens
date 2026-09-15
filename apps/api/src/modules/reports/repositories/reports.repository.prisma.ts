@@ -1,3 +1,4 @@
+import { prisma } from '../../../config/database.js';
 import { TripNotFoundError } from '../../trips/trip.errors.js';
 import type { TripsRepository } from '../../trips/repositories/trips.repository.js';
 import { PrismaReceiptsRepository } from '../../receipts/receipts.repository.prisma.js';
@@ -21,7 +22,11 @@ export class PrismaReportsRepository implements ReportsRepository {
       throw new TripNotFoundError();
     }
     const finance = await this.finance.listByTrip(tripId);
-    return buildReportData(trip, finance, emitidoPor);
+    const company = await prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { company: { select: { name: true } } },
+    });
+    return buildReportData(trip, finance, emitidoPor, company?.company.name);
   }
 
   async listImageReceipts(tripId: string): Promise<PdfAttachment[]> {
