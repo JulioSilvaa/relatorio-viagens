@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { logger } from '../../shared/logger.js';
 import type {
   OcrExtractedItem,
@@ -8,6 +9,12 @@ import type {
 } from './ocr.types.js';
 
 const GEMINI_MAX_ATTEMPTS = 2;
+// Reduz a imagem só para a chamada ao Gemini (o arquivo original continua intacto no
+// armazenamento): menos pixels = menos tokens de visão por requisição, o que ajuda a
+// não estourar a cota de tokens/minuto da API — a mesma cota que gerou o incidente de
+// HTTP 429 em produção quando passamos a enviar a imagem em tamanho integral (até 2400px).
+const GEMINI_IMAGE_MAX_DIMENSION = 1600;
+const GEMINI_IMAGE_QUALITY = 82;
 
 type GeminiValue = string | number | boolean | null;
 type GeminiCupom = {
@@ -256,7 +263,7 @@ export class GeminiOcrProvider implements OcrProvider {
       .finally(() => {
         paddleMs = Date.now() - startedAt;
       });
-    const imageBase64 = Buffer.from(input.fileData).toString('base64');
+    const { base64: imageBase64, mimeType } = await toGeminiImage(input.fileData, input.fileType);
 
     const fallbackData = (
       erro: string,
@@ -271,11 +278,7 @@ export class GeminiOcrProvider implements OcrProvider {
     let lastFailureReason = 'Falha na leitura estruturada pelo Gemini.';
     for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
       const attemptStartedAt = Date.now();
-      const attemptResult = await this.attemptExtraction(
-        input.fileName,
-        imageBase64,
-        input.fileType,
-      );
+      const attemptResult = await this.attemptExtraction(input.fileName, imageBase64, mimeType);
       const attemptMs = Date.now() - attemptStartedAt;
       if (attemptResult.ok) {
         const paddleResult = await paddlePromise;
@@ -303,8 +306,12 @@ export class GeminiOcrProvider implements OcrProvider {
         attempt,
         maxAttempts: GEMINI_MAX_ATTEMPTS,
         reason: attemptResult.reason,
+        retryable: attemptResult.retryable,
         geminiMs: attemptMs,
       });
+      // HTTP 429 é limite de cota/taxa da API: repetir na hora só consome mais cota já
+      // estourada e não muda o resultado. Desiste sem gastar a segunda tentativa.
+      if (!attemptResult.retryable) break;
     }
     logger.error('OCR Gemini: todas as tentativas falharam', {
       fileName: input.fileName,
@@ -325,7 +332,7 @@ export class GeminiOcrProvider implements OcrProvider {
     fileName: string,
     imageBase64: string,
     mimeType: string,
-  ): Promise<{ ok: true; cupom: GeminiCupom } | { ok: false; reason: string }> {
+  ): Promise<{ ok: true; cupom: GeminiCupom } | { ok: false; reason: string; retryable: boolean }> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -356,27 +363,47 @@ export class GeminiOcrProvider implements OcrProvider {
         },
       );
       if (!response.ok) {
-        return { ok: false, reason: `HTTP ${response.status}` };
+        return { ok: false, reason: `HTTP ${response.status}`, retryable: response.status !== 429 };
       }
       const payload = (await response.json()) as {
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
       };
       const jsonText = payload.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonText) {
-        return { ok: false, reason: 'resposta_vazia' };
+        return { ok: false, reason: 'resposta_vazia', retryable: true };
       }
       try {
         return { ok: true, cupom: JSON.parse(jsonText) as GeminiCupom };
       } catch {
-        return { ok: false, reason: 'json_invalido' };
+        return { ok: false, reason: 'json_invalido', retryable: true };
       }
     } catch (error) {
       const reason =
         error instanceof Error && error.name === 'AbortError' ? 'timeout' : 'erro_rede';
-      return { ok: false, reason };
+      return { ok: false, reason, retryable: true };
     } finally {
       clearTimeout(timeout);
     }
+  }
+}
+
+async function toGeminiImage(
+  fileData: Uint8Array,
+  fileType: string,
+): Promise<{ base64: string; mimeType: string }> {
+  try {
+    const resized = await sharp(Buffer.from(fileData))
+      .resize({
+        width: GEMINI_IMAGE_MAX_DIMENSION,
+        height: GEMINI_IMAGE_MAX_DIMENSION,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: GEMINI_IMAGE_QUALITY, mozjpeg: true })
+      .toBuffer();
+    return { base64: resized.toString('base64'), mimeType: 'image/jpeg' };
+  } catch {
+    return { base64: Buffer.from(fileData).toString('base64'), mimeType: fileType };
   }
 }
 

@@ -11,7 +11,7 @@ export class ExtractReceiptOcrService {
     private readonly ocr: ReceiptOcrRepository,
     private readonly provider: OcrProvider,
     private readonly audit: AuditService,
-  ) { }
+  ) {}
 
   async execute(
     receiptId: string,
@@ -21,7 +21,7 @@ export class ExtractReceiptOcrService {
     await authorizeReceiptAccess(this.receipts, this.trips, receiptId, actorId, canManageFiscal);
 
     const previous = await this.ocr.findByReceipt(receiptId);
-    if (previous) return previous;
+    if (previous?.status === 'SUCESSO') return previous;
 
     const receipt = (await this.receipts.findById(receiptId))!;
     const extraction = await this.provider.extract({

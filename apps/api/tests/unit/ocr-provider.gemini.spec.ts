@@ -13,6 +13,11 @@ const INPUT: OcrExtractInput = {
   fileName: 'comprovante.jpg',
 };
 
+const VALID_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+);
+
 function fakePaddleProvider(result: OcrExtractionResult): OcrProvider {
   return {
     async extract(): Promise<OcrExtractionResult> {
@@ -75,6 +80,44 @@ describe('GeminiOcrProvider', () => {
       ),
     ).toBe(true);
     expect(body.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+  });
+
+  it('reduz a imagem para JPEG antes de enviar ao Gemini (economiza tokens/cota)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(geminiResponse(VALID_CUPOM));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const provider = new GeminiOcrProvider(
+      'fake-key',
+      'gemini-3.6-flash',
+      5000,
+      fakePaddleProvider(paddleSuccess()),
+    );
+
+    await provider.extract({ ...INPUT, fileData: VALID_PNG, fileType: 'image/png' });
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+    const inlineData = body.contents[0].parts.find(
+      (p: { inline_data?: { mime_type: string; data: string } }) => p.inline_data,
+    ).inline_data;
+    expect(inlineData.mime_type).toBe('image/jpeg');
+    expect(inlineData.data).not.toBe(VALID_PNG.toString('base64'));
+  });
+
+  it('não repete a tentativa quando o Gemini responde 429 (cota/limite de taxa excedidos)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"error":"quota"}', { status: 429 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const provider = new GeminiOcrProvider(
+      'fake-key',
+      'gemini-3.6-flash',
+      5000,
+      fakePaddleProvider(paddleSuccess()),
+    );
+
+    const result = await provider.extract(INPUT);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('FALHA');
   });
 
   it('continua a leitura pela imagem mesmo se o Paddle falhar completamente', async () => {
