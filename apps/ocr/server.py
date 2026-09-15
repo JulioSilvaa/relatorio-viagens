@@ -2,13 +2,26 @@ from io import BytesIO
 
 from fastapi import FastAPI, File, UploadFile
 import numpy as np
-from PIL import Image
-from PIL import ImageEnhance, ImageOps, ImageFilter
-from paddleocr import PaddleOCR
+from PIL import Image, ImageEnhance, ImageOps, ImageFilter
+from rapidocr import RapidOCR
 from pyzbar.pyzbar import decode
 
 app = FastAPI(title="VDR OCR")
-ocr = PaddleOCR(use_angle_cls=True, lang="pt", show_log=False)
+
+# RapidOCR (ONNX Runtime) no lugar do PaddleOCR: mesmos modelos PP-OCR por trás,
+# porém rodando num runtime de inferência bem mais leve e rápido em CPU — é o que
+# resolve os timeouts que o PaddleOCR-em-Docker vinha dando em fotos reais.
+# "Rec.lang_type": "pt" seleciona o modelo de reconhecimento com português
+# (confirmado via inspeção do pacote instalado: PP-OCRv6 lista "pt" entre os
+# idiomas suportados nos modelos tiny/small/medium — não existe "latin" genérico
+# aqui). model_root_dir fixo evita depender do cache default (dentro do
+# site-packages) e é o caminho montado como volume persistente no Docker.
+ocr = RapidOCR(
+    params={
+        "Global.model_root_dir": "/home/ocr/.rapidocr/models",
+        "Rec.lang_type": "pt",
+    }
+)
 
 
 @app.get("/health")
@@ -20,23 +33,28 @@ def health() -> dict[str, str]:
 async def extract(file: UploadFile = File(...)) -> dict[str, object]:
     source = ImageOps.exif_transpose(Image.open(BytesIO(await file.read()))).convert("RGB")
     image = enhance_for_ocr(source)
-    # Uma única passada, na imagem já normalizada/realçada para OCR. Antes rodava o
-    # PaddleOCR duas vezes (nessa imagem e na original em resolução cheia) e mesclava
-    # as linhas — em fotos reais de comprovante (muito texto pequeno) isso dobra o
-    # tempo de processamento e estourava o timeout da API em produção.
-    result = ocr.ocr(image, cls=True)
+    result = ocr(image)
+
     lines: list[str] = []
-    for page in result or []:
-        for item in page or []:
-            if len(item) > 1 and item[1]:
-                value = str(item[1][0]).strip()
-                if value and value not in lines:
-                    lines.append(value)
+    scores: list[float] = []
+    for text, score in zip(result.txts or (), result.scores or ()):
+        value = str(text).strip()
+        if value and value not in lines:
+            lines.append(value)
+            scores.append(float(score))
+
     barcodes = [item.data.decode("utf-8", errors="ignore") for item in decode(np.asarray(source))]
+    confidence = sum(scores) / len(scores) if scores else 0.0
+    # result.elapse já é o tempo real medido pelo próprio RapidOCR (det+cls+rec),
+    # em segundos — mais preciso que medir na mão em volta da chamada.
+    processing_ms = int(result.elapse * 1000)
+
     return {
         "text": "\n".join(lines),
         "barcodes": barcodes,
         "lines": str(len(lines)),
+        "confidence": round(confidence, 4),
+        "processingMs": processing_ms,
     }
 
 

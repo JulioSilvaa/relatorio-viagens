@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 LABEL org.opencontainers.image.source="https://github.com/JulioSilvaa/relatorio-viagens"
-LABEL org.opencontainers.image.title="vaiefecha - OCR Paddle"
+LABEL org.opencontainers.image.title="vaiefecha - OCR RapidOCR"
 LABEL org.opencontainers.image.licenses="UNLICENSED"
 
 RUN apt-get update \
@@ -27,7 +27,7 @@ RUN groupadd -r ocr \
 
 ENV HOME=/home/ocr
 
-RUN mkdir -p /home/ocr/.paddleocr \
+RUN mkdir -p /home/ocr/.rapidocr/models \
     && chown -R ocr:ocr /home/ocr
 
 COPY apps/ocr/requirements.txt ./requirements.txt
