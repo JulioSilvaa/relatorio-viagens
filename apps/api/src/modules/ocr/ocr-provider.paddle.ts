@@ -5,7 +5,7 @@ export class PaddleOcrProvider implements OcrProvider {
   constructor(
     private readonly endpoint: string,
     private readonly timeoutMs = 20000,
-  ) { }
+  ) {}
 
   async extract(input: OcrExtractInput): Promise<OcrExtractionResult> {
     const controller = new AbortController();
@@ -27,19 +27,30 @@ export class PaddleOcrProvider implements OcrProvider {
       }
       const payload = (await response.json()) as { text?: string; barcodes?: string[] };
       const rawText = payload.text ?? '';
+      const chaveAcesso = findAccessKey(payload.barcodes ?? []);
       if (!hasSufficientOcrText(rawText)) {
         return {
           status: 'FALHA',
           erro: 'ocr_insuficiente',
-          data: { textoOriginal: rawText, itens: [], confiancaExtracao: 'baixa', alertaReconciliacao: false },
+          data: {
+            textoOriginal: rawText,
+            chaveAcesso,
+            itens: [],
+            confiancaExtracao: 'baixa',
+            alertaReconciliacao: false,
+          },
         };
       }
       const fields = parseOcrText(rawText);
       fields.textoOriginal = rawText;
-      fields.chaveAcesso ??= findAccessKey(payload.barcodes ?? []);
+      fields.chaveAcesso ??= chaveAcesso;
       return hasRecognizedContent(fields)
         ? { status: 'SUCESSO', data: fields }
-        : { status: 'FALHA', erro: 'ocr_insuficiente', data: { ...fields, confiancaExtracao: 'baixa', alertaReconciliacao: false } };
+        : {
+            status: 'FALHA',
+            erro: 'ocr_insuficiente',
+            data: { ...fields, confiancaExtracao: 'baixa', alertaReconciliacao: false },
+          };
     } catch {
       return {
         status: 'FALHA',

@@ -1,5 +1,4 @@
 import { logger } from '../../shared/logger.js';
-import { hasSufficientOcrText } from './ocr-parser.js';
 import type {
   OcrExtractedItem,
   OcrDocumentType,
@@ -215,19 +214,19 @@ const RESPONSE_SCHEMA = {
   ],
 } as const;
 
-const PROMPT = `Você faz EXTRAÇÃO DE DADOS para conferência fiscal e documental de comprovantes brasileiros.
-O OCR NÃO é uma etapa de resumo. Preserve toda informação relevante encontrada no texto original.
+const PROMPT = `Você faz EXTRAÇÃO DE DADOS para conferência fiscal e documental de comprovantes brasileiros a partir da imagem anexada.
+Leia a imagem diretamente. Preserve toda informação relevante visível, mesmo que pequena, borrada ou parcialmente cortada.
 Primeiro classifique o documento como NFC_E, CFE_SAT, NFE, RECIBO, COMPROVANTE_PAGAMENTO, OUTRO ou NAO_IDENTIFICADO.
 Depois preencha os grupos aplicáveis ao tipo identificado: estabelecimento, documento fiscal, valores, itens, informações fiscais e outras informações.
 Tente extrair cada informação visível e relevante, incluindo razão social, nome fantasia, CNPJ, IE, endereço, cidade/UF, número, série, datas, chave, protocolo, SAT, QR Code, subtotal, descontos, acréscimos, total, pagamento, valor pago, troco, NCM, CFOP, CST/CSOSN, ICMS, PIS, COFINS e observações.
-Se um campo não existir no documento ou não puder ser identificado com segurança, use null. Nunca invente, complete, corrija ou estime um valor.
-Quando houver dúvida, mantenha o texto original em campos_extras ou texto bruto, marque confiança baixa e alerta_reconciliacao true.
+Se um campo não existir no documento ou não puder ser identificado com segurança, use null. Nunca invente, complete, corrija ou estime um valor que não esteja visível na imagem.
+Quando houver dúvida sobre um valor lido (dígito ambíguo, baixa resolução, reflexo), preserve o que conseguir ler em campos_extras, marque confiança baixa e alerta_reconciliacao true.
 Preserve campos que não tenham lugar no schema em campos_extras, com a seção, o rótulo e o valor exatamente como detectados.
-A chave de acesso só é válida com exatamente 44 dígitos numéricos consecutivos; caso contrário use null.
+A chave de acesso só é válida com exatamente 44 dígitos numéricos consecutivos; caso contrário use null. Se os dígitos da chave estiverem minúsculos ou de difícil leitura, prefira marcar confiança baixa a arriscar um dígito incerto.
 Nunca trate CNPJ, CPF, código de barras, protocolo ou chave como valor monetário.
 Some os valores totais dos itens e compare com o total declarado. Diferença maior que 5% exige confiança baixa e alerta_reconciliacao true.
-Se o texto for vazio, tiver menos de 20 caracteres úteis ou não tiver estrutura reconhecível, use erro ocr_insuficiente, tipo NAO_IDENTIFICADO, confiança baixa e itens vazio.
-Trate o bloco como um único comprovante e retorne somente o objeto JSON conforme o schema.
+Se a imagem estiver ilegível, em branco, corrompida ou não for um comprovante/documento fiscal, use erro ocr_insuficiente, tipo NAO_IDENTIFICADO, confiança baixa e itens vazio.
+Trate a imagem como um único comprovante e retorne somente o objeto JSON conforme o schema.
 Copie os metadados de origem exatamente como fornecidos.`;
 
 export class GeminiOcrProvider implements OcrProvider {
@@ -245,24 +244,39 @@ export class GeminiOcrProvider implements OcrProvider {
   }
 
   async extract(input: Parameters<OcrProvider['extract']>[0]): Promise<OcrExtractionResult> {
-    const paddleResult = await this.paddle.extract(input);
-    const rawText = paddleResult.data?.textoOriginal ?? '';
-    const fallbackData = (erro: string): OcrExtractionFields => ({
-      ...(paddleResult.data ?? {}),
-      textoOriginal: rawText,
+    // O Paddle roda em paralelo só para decodificar código de barras/QR: a chave de
+    // acesso lida de um barcode é exata, enquanto a mesma chave lida por visão (Gemini
+    // ou OCR de texto) pode confundir dígitos parecidos. Uma falha aqui nunca deve
+    // bloquear a leitura da imagem pelo Gemini.
+    const paddlePromise = this.paddle
+      .extract(input)
+      .catch((): OcrExtractionResult => ({ status: 'FALHA', erro: 'paddle_indisponivel' }));
+    const imageBase64 = Buffer.from(input.fileData).toString('base64');
+
+    const fallbackData = (
+      erro: string,
+      paddleFields?: OcrExtractionFields,
+    ): OcrExtractionFields => ({
+      ...(paddleFields ?? {}),
       confiancaExtracao: 'baixa',
       alertaReconciliacao: true,
       erro,
     });
-    if (!hasSufficientOcrText(rawText)) {
-      return { status: 'FALHA', erro: 'ocr_insuficiente', data: fallbackData('ocr_insuficiente') };
-    }
 
     let lastFailureReason = 'Falha na leitura estruturada pelo Gemini.';
     for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
-      const attemptResult = await this.attemptExtraction(input.fileName, rawText);
+      const attemptResult = await this.attemptExtraction(
+        input.fileName,
+        imageBase64,
+        input.fileType,
+      );
       if (attemptResult.ok) {
-        const fields = toExtractionFields(attemptResult.cupom, rawText);
+        const paddleResult = await paddlePromise;
+        const fields = toExtractionFields(
+          attemptResult.cupom,
+          paddleResult.data?.textoOriginal ?? '',
+          paddleResult.data?.chaveAcesso,
+        );
         return fields.erro === 'ocr_insuficiente'
           ? { status: 'FALHA', erro: 'ocr_insuficiente', data: fields }
           : { status: 'SUCESSO', data: fields };
@@ -282,16 +296,18 @@ export class GeminiOcrProvider implements OcrProvider {
       attempts: GEMINI_MAX_ATTEMPTS,
       reason: lastFailureReason,
     });
+    const paddleResult = await paddlePromise;
     return {
       status: 'FALHA',
       erro: 'Falha na leitura estruturada pelo Gemini.',
-      data: fallbackData('Falha na leitura estruturada pelo Gemini.'),
+      data: fallbackData('Falha na leitura estruturada pelo Gemini.', paddleResult.data),
     };
   }
 
   private async attemptExtraction(
     fileName: string,
-    rawText: string,
+    imageBase64: string,
+    mimeType: string,
   ): Promise<{ ok: true; cupom: GeminiCupom } | { ok: false; reason: string }> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -308,14 +324,16 @@ export class GeminiOcrProvider implements OcrProvider {
                 role: 'user',
                 parts: [
                   {
-                    text: `${PROMPT}\n\nMetadados:\n- arquivo: ${fileName}\n- pagina: 1\n- imagem_id: ${fileName}\n\nTexto OCR:\n"""\n${rawText.slice(0, 50000)}\n"""`,
+                    text: `${PROMPT}\n\nMetadados:\n- arquivo: ${fileName}\n- pagina: 1\n- imagem_id: ${fileName}`,
                   },
+                  { inline_data: { mime_type: mimeType, data: imageBase64 } },
                 ],
               },
             ],
             generationConfig: {
               responseMimeType: 'application/json',
               responseSchema: RESPONSE_SCHEMA,
+              thinkingConfig: { thinkingBudget: 0 },
             },
           }),
         },
@@ -345,7 +363,11 @@ export class GeminiOcrProvider implements OcrProvider {
   }
 }
 
-function toExtractionFields(cupom: GeminiCupom, rawText: string): OcrExtractionFields {
+function toExtractionFields(
+  cupom: GeminiCupom,
+  rawText: string,
+  paddleChaveAcesso: string | undefined,
+): OcrExtractionFields {
   const total = finiteNumber(cupom.valores?.total);
   const itens = (cupom.itens ?? [])
     .filter((item) => typeof item.descricao === 'string' && item.descricao.trim())
@@ -467,7 +489,10 @@ function toExtractionFields(cupom: GeminiCupom, rawText: string): OcrExtractionF
     qrCode: documento?.qr_code ?? undefined,
     inscricaoEstadual: estabelecimento?.inscricao_estadual ?? undefined,
     protocoloAutorizacao: documento?.protocolo ?? undefined,
-    chaveAcesso: chave ?? documento?.chave_acesso ?? undefined,
+    // Chave decodificada de código de barras/QR (Paddle/pyzbar) é lida bit a bit e não
+    // sofre confusão de dígitos parecidos como uma leitura visual; por isso tem
+    // prioridade sobre a chave que o Gemini leu da imagem.
+    chaveAcesso: paddleChaveAcesso ?? chave ?? documento?.chave_acesso ?? undefined,
     subtotal: finiteNumber(valores?.subtotal)?.toFixed(2),
     ncm: fiscais?.ncm ?? undefined,
     cfop: fiscais?.cfop ?? undefined,
