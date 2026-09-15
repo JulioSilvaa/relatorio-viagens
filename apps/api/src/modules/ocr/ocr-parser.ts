@@ -27,8 +27,15 @@ const ESTABELECIMENTO_HINTS = [
   'subtotal',
 ];
 
-const ITEM_EXCLUDED_LINE = /^(subtotal|total|desconto|tributos?|impostos?|forma\s+(?:de\s+)?pagamento|troco|dinheiro|cart[aã]o|pix|chave|cnpj|cpf|cupom|nota\s+fiscal)\b/i;
-const IDENTIFIER_LINE = /(?:c[oó]digo\s+de\s+barras|chave\s+(?:de\s+)?acesso|\bchNFe\b|\bcnpj\b|\bcpf\b|protocolo|inscri[cç][aã]o\s+estadual)/i;
+const ITEM_EXCLUDED_LINE =
+  /^(subtotal|total|desconto|tributos?|impostos?|forma\s+(?:de\s+)?pagamento|troco|dinheiro|cart[aã]o|pix|chave|cnpj|cpf|cupom|nota\s+fiscal)\b/i;
+const IDENTIFIER_LINE =
+  /(?:c[oó]digo\s+de\s+barras|chave\s+(?:de\s+)?acesso|\bchNFe\b|\bcnpj\b|\bcpf\b|protocolo|inscri[cç][aã]o\s+estadual)/i;
+// Linha de carimbo de data/hora reimpressa no rodapé do cupom (ex.: "04/11/2021
+// 16:15:43V") — quando o OCR gruda a data com a hora sem espaço ("2021.16:15"),
+// o fragmento "2021.16" bate no padrão de valor monetário e, sendo um número
+// grande, vencia a heurística de "maior valor da nota" no lugar do total real.
+const DATE_STAMP_LINE = /^\d{1,2}\/\d{1,2}\/\d{2,4}/;
 
 function sanitizeDecimal(value: string): string {
   const compact = value.replace(/\s/g, '');
@@ -43,9 +50,12 @@ function parseMoney(text: string): string | undefined {
   const lines = text.split('\n').map((line) => line.trim());
   const candidates: Array<{ lineIndex: number; raw: string; line: string }> = [];
   lines.forEach((line, lineIndex) => {
-    if (IDENTIFIER_LINE.test(line)) return;
+    if (IDENTIFIER_LINE.test(line) || DATE_STAMP_LINE.test(line)) return;
     const matches = [...line.matchAll(MONEY_PATTERN)].map((match) => match[1]!);
-    const values = matches.length > 0 ? matches : [...line.matchAll(BARE_MONEY_PATTERN)].map((match) => match[1]!);
+    const values =
+      matches.length > 0
+        ? matches
+        : [...line.matchAll(BARE_MONEY_PATTERN)].map((match) => match[1]!);
     for (const raw of values) candidates.push({ lineIndex, raw, line });
   });
   if (candidates.length === 0) return undefined;
@@ -58,7 +68,10 @@ function parseMoney(text: string): string | undefined {
     /(^|\s)total\b/i,
   ];
   for (const label of priorityLabels) {
-    const candidate = candidates.find((item) => label.test(item.line) && !/subtotal|base de cálculo|desconto|economiz/i.test(item.line));
+    const candidate = candidates.find(
+      (item) =>
+        label.test(item.line) && !/subtotal|base de cálculo|desconto|economiz/i.test(item.line),
+    );
     if (candidate) {
       const value = sanitizeDecimal(candidate.raw);
       if (value) return value;
@@ -70,9 +83,7 @@ function parseMoney(text: string): string | undefined {
   );
   const pool = validCandidates.length > 0 ? validCandidates : candidates;
   const largest = pool.reduce((best, candidate) =>
-    Number(sanitizeDecimal(candidate.raw)) > Number(sanitizeDecimal(best.raw))
-      ? candidate
-      : best,
+    Number(sanitizeDecimal(candidate.raw)) > Number(sanitizeDecimal(best.raw)) ? candidate : best,
   );
   const value = sanitizeDecimal(largest.raw);
   return value || undefined;
@@ -82,7 +93,10 @@ function parseLabeledMoney(text: string, labels: RegExp): string | undefined {
   for (const line of text.split('\n')) {
     if (!labels.test(line)) continue;
     const prefixed = [...line.matchAll(MONEY_PATTERN)].map((match) => match[1]!);
-    const values = prefixed.length > 0 ? prefixed : [...line.matchAll(BARE_MONEY_PATTERN)].map((match) => match[1]!);
+    const values =
+      prefixed.length > 0
+        ? prefixed
+        : [...line.matchAll(BARE_MONEY_PATTERN)].map((match) => match[1]!);
     const value = values.at(-1);
     if (value) {
       const sanitized = sanitizeDecimal(value);
@@ -142,24 +156,33 @@ export function parseOcrText(text: string): OcrExtractionFields {
   const hora = timeMatch && isValidTime(timeMatch[0]) ? timeMatch[0] : undefined;
 
   const valorTotal = parseMoney(normalized);
-  const valorProdutos = parseLabeledMoney(normalized, /valor\s+total\s+dos\s+produtos|valor\s+dos\s+produtos/i);
+  const valorProdutos = parseLabeledMoney(
+    normalized,
+    /valor\s+total\s+dos\s+produtos|valor\s+dos\s+produtos/i,
+  );
   const desconto = parseLabeledMoney(normalized, /desconto|descontos/i);
   const tributos = parseLabeledMoney(normalized, /tributos\s+totais|total\s+tributos|impostos/i);
   const serie = captureLabel(normalized, /s[ée]rie\s*[:.]?\s*([\w-]+)/i);
-  const inscricaoEstadual = captureLabel(normalized, /(?:inscri[cç][aã]o\s+estadual|\bI\.?\s*E\.?\b)\s*[:.]?\s*([\d./-]+)/i);
+  const inscricaoEstadual = captureLabel(
+    normalized,
+    /(?:inscri[cç][aã]o\s+estadual|\bI\.?\s*E\.?\b)\s*[:.]?\s*([\d./-]+)/i,
+  );
   const emitente = captureLabel(normalized, /emitente\s*[:.]?\s*(.+)$/i);
   const destinatario = captureLabel(normalized, /destinat[aá]rio\s*[:.]?\s*(.+)$/i);
-  const formaPagamento = captureLabel(normalized, /(?:forma|meio)\s+(?:de\s+)?pagamento\s*[:.]?\s*(.+)$/i);
-  const protocoloAutorizacao = captureLabel(normalized, /protocolo(?:\s+de\s+autoriza[cç][aã]o)?\s*[:.]?\s*([\d.-]+)/i);
+  const formaPagamento = captureLabel(
+    normalized,
+    /(?:forma|meio)\s+(?:de\s+)?pagamento\s*[:.]?\s*(.+)$/i,
+  );
+  const protocoloAutorizacao = captureLabel(
+    normalized,
+    /protocolo(?:\s+de\s+autoriza[cç][aã]o)?\s*[:.]?\s*([\d.-]+)/i,
+  );
   const subtotal = parseLabeledMoney(normalized, /subtotal/i);
   const itens = parseItems(normalized);
   const alertaReconciliacao = hasReconciliationAlert(itens, valorTotal);
   const dataConfidence = data && !isPlausibleDate(data) ? 'baixa' : undefined;
-  const confiancaExtracao = alertaReconciliacao || dataConfidence
-    ? 'baixa'
-    : itens.length > 0
-      ? 'alta'
-      : 'media';
+  const confiancaExtracao =
+    alertaReconciliacao || dataConfidence ? 'baixa' : itens.length > 0 ? 'alta' : 'media';
 
   const hasStructuralContent = Boolean(
     cnpj || data || hora || valorTotal || valorProdutos || numeroDocumento || chaveAcesso,
@@ -191,7 +214,8 @@ export function parseOcrText(text: string): OcrExtractionFields {
       }
       if (line.length < 5 || line.split(' ').length > 12) return false;
       if (ESTABELECIMENTO_HINTS.some((hint) => upper.includes(hint))) return false;
-      if (/(identifica[cç][aã]o|assinatura|recebedor|destinat[aá]rio|remetente)/i.test(upper)) return false;
+      if (/(identifica[cç][aã]o|assinatura|recebedor|destinat[aá]rio|remetente)/i.test(upper))
+        return false;
       return true;
     });
     const firstCandidate = candidateLines[0];
@@ -203,7 +227,9 @@ export function parseOcrText(text: string): OcrExtractionFields {
     if (establishment && establishment.length >= 6) {
       nomeEstabelecimento = establishment;
     }
-    endereco = lines.find((line) => /\b(?:rua|r\.|avenida|av\.|rodovia|rod\.|estrada|est\.)\b/i.test(line));
+    endereco = lines.find((line) =>
+      /\b(?:rua|r\.|avenida|av\.|rodovia|rod\.|estrada|est\.)\b/i.test(line),
+    );
   }
 
   return {
@@ -234,13 +260,23 @@ export function parseOcrText(text: string): OcrExtractionFields {
 }
 
 function detectDocumentType(text: string): {
-  value: 'NFC_E' | 'CFE_SAT' | 'NFE' | 'RECIBO' | 'COMPROVANTE_PAGAMENTO' | 'OUTRO' | 'NAO_IDENTIFICADO';
+  value:
+    | 'NFC_E'
+    | 'CFE_SAT'
+    | 'NFE'
+    | 'RECIBO'
+    | 'COMPROVANTE_PAGAMENTO'
+    | 'OUTRO'
+    | 'NAO_IDENTIFICADO';
   confidence: 'alta' | 'media' | 'baixa';
 } {
   if (/NFC\s*[- ]?E|NFC-E|NFCe/i.test(text)) return { value: 'NFC_E', confidence: 'alta' };
-  if (/CF\s*[- ]?E\s*SAT|SAT\s*CF|CUPOM\s+FISCAL\s+ELETR[ÔO]NICO/i.test(text)) return { value: 'CFE_SAT', confidence: 'media' };
-  if (/NF\s*[- ]?E|DANFE|NOTA\s+FISCAL\s+ELETR[ÔO]NICA/i.test(text)) return { value: 'NFE', confidence: 'alta' };
-  if (/COMPROVANTE.*PAGAMENTO|PAGAMENTO.*CART[ÃA]O|TRANSA[CÇ][ÃA]O\s+APROVADA/i.test(text)) return { value: 'COMPROVANTE_PAGAMENTO', confidence: 'media' };
+  if (/CF\s*[- ]?E\s*SAT|SAT\s*CF|CUPOM\s+FISCAL\s+ELETR[ÔO]NICO/i.test(text))
+    return { value: 'CFE_SAT', confidence: 'media' };
+  if (/NF\s*[- ]?E|DANFE|NOTA\s+FISCAL\s+ELETR[ÔO]NICA/i.test(text))
+    return { value: 'NFE', confidence: 'alta' };
+  if (/COMPROVANTE.*PAGAMENTO|PAGAMENTO.*CART[ÃA]O|TRANSA[CÇ][ÃA]O\s+APROVADA/i.test(text))
+    return { value: 'COMPROVANTE_PAGAMENTO', confidence: 'media' };
   if (/\bRECIBO\b/i.test(text)) return { value: 'RECIBO', confidence: 'alta' };
   if (/CUPOM\s+FISCAL|NOTA\s+FISCAL/i.test(text)) return { value: 'OUTRO', confidence: 'baixa' };
   return { value: 'NAO_IDENTIFICADO', confidence: 'baixa' };
@@ -248,7 +284,13 @@ function detectDocumentType(text: string): {
 
 function isValidTime(value: string): boolean {
   const [hours = -1, minutes = -1, seconds] = value.split(':').map(Number);
-  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59 && (seconds === undefined || (seconds >= 0 && seconds <= 59));
+  return (
+    hours >= 0 &&
+    hours <= 23 &&
+    minutes >= 0 &&
+    minutes <= 59 &&
+    (seconds === undefined || (seconds >= 0 && seconds <= 59))
+  );
 }
 
 function isPlausibleDate(value: Date): boolean {
@@ -267,10 +309,14 @@ function parseItems(text: string): OcrExtractedItem[] {
     const lastValue = Number(sanitizeDecimal(lastMatch[1]!));
     if (!Number.isFinite(lastValue)) continue;
     const secondLastMatch = moneyMatches.length > 1 ? moneyMatches.at(-2) : undefined;
-    const secondLastValue = secondLastMatch ? Number(sanitizeDecimal(secondLastMatch[1]!)) : undefined;
+    const secondLastValue = secondLastMatch
+      ? Number(sanitizeDecimal(secondLastMatch[1]!))
+      : undefined;
     const itemPrefixEnd = secondLastMatch?.index ?? lastMatch.index ?? line.length;
     const beforeValues = line.slice(0, itemPrefixEnd).trim();
-    const parts = beforeValues.match(/^(?:(\d{3,14})\s+)?(\d+(?:[.,]\d+)?)\s+(?:(UN|UND|UNID|KG|G|L|ML|CX|PC|PCT|LT)\s+)?(.+)$/i);
+    const parts = beforeValues.match(
+      /^(?:(\d{3,14})\s+)?(\d+(?:[.,]\d+)?)\s+(?:(UN|UND|UNID|KG|G|L|ML|CX|PC|PCT|LT)\s+)?(.+)$/i,
+    );
     if (!parts?.[2] || !parts[4]) continue;
     const quantity = Number(parts[2]!.replace(',', '.'));
     if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 100000) continue;
@@ -302,7 +348,9 @@ function extractCnpj(text: string): string | undefined {
   const lines = text.split('\n');
   const candidates: Array<{ value: string; labeled: boolean; formatted: boolean }> = [];
   for (const line of lines) {
-    for (const match of line.matchAll(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{2}\s*\d{3}\s*\d{3}\s*\/?\s*\d{4}\s*-?\s*\d{2}|\d{14})/g)) {
+    for (const match of line.matchAll(
+      /(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{2}\s*\d{3}\s*\d{3}\s*\/?\s*\d{4}\s*-?\s*\d{2}|\d{14})/g,
+    )) {
       const value = match[1]!.replace(/\D/g, '');
       if (value.length !== 14) continue;
       candidates.push({
@@ -312,9 +360,11 @@ function extractCnpj(text: string): string | undefined {
       });
     }
   }
-  return candidates.find((candidate) => candidate.labeled && candidate.formatted)?.value
-    ?? candidates.find((candidate) => candidate.labeled)?.value
-    ?? candidates.find((candidate) => candidate.formatted)?.value;
+  return (
+    candidates.find((candidate) => candidate.labeled && candidate.formatted)?.value ??
+    candidates.find((candidate) => candidate.labeled)?.value ??
+    candidates.find((candidate) => candidate.formatted)?.value
+  );
 }
 
 function extractDocumentNumber(text: string): string | undefined {
@@ -356,8 +406,8 @@ export function hasSufficientOcrText(text: string): boolean {
 export function hasRecognizedContent(fields: OcrExtractionFields): boolean {
   return Boolean(
     fields.cnpj ||
-    fields.valorTotal ||
-    fields.chaveAcesso ||
-    (fields.nomeEstabelecimento && fields.data),
+      fields.valorTotal ||
+      fields.chaveAcesso ||
+      (fields.nomeEstabelecimento && fields.data),
   );
 }
