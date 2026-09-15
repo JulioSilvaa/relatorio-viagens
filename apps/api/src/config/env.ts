@@ -41,7 +41,7 @@ const envSchema = z.object({
         rejectPlaceholder('CARD_ENCRYPTION_KEY')(value, ctx);
       }
     }),
-  OCR_PROVIDER: z.enum(['paddleocr', 'gemini', 'neutro']).default('paddleocr'),
+  OCR_PROVIDER: z.enum(['gemini', 'neutro']).default('neutro'),
   OCR_AUTO_ON_UPLOAD: z
     .enum(['true', 'false'])
     .default('true')

@@ -11,6 +11,7 @@ import type { SaveReceiptOcrService } from '../services/save-receipt-ocr.service
 import type { OcrProvider } from '../ocr.types.js';
 import multer from 'multer';
 import { MAX_UPLOAD_BYTES } from '../../../shared/upload/files.js';
+import { optimizeReceiptImage } from '../../../shared/upload/images.js';
 
 export interface OcrDeps {
   requireAuth: RequestHandler;
@@ -124,10 +125,11 @@ export function createOcrRouter({
         });
         return;
       }
+      const optimized = await optimizeReceiptImage(file);
       const result = await ocrProvider.extract({
-        fileData: file.buffer,
-        fileType: file.mimetype,
-        fileName: file.originalname,
+        fileData: optimized.buffer,
+        fileType: optimized.mimetype,
+        fileName: optimized.originalname,
       });
       res.json(success(result));
     }),

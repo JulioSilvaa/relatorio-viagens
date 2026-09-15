@@ -28,8 +28,24 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
     const originalFetch = globalThis.fetch;
     vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === 'object' && 'url' in input ? input.url : String(input);
-      if (url.includes('/ocr')) {
-        return new Response(JSON.stringify({ text: '' }), {
+      if (url.includes('generativelanguage.googleapis.com')) {
+        const cupom = {
+          tipo_documento: 'NAO_IDENTIFICADO',
+          tipo_documento_confianca: 'baixa',
+          itens: [],
+          confianca_extracao: 'baixa',
+          alerta_reconciliacao: true,
+          erro: 'ocr_insuficiente',
+        };
+        return new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: JSON.stringify(cupom) }] } }],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.includes('/barcode')) {
+        return new Response(JSON.stringify({ barcodes: [] }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });

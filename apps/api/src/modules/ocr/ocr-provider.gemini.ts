@@ -244,13 +244,18 @@ export class GeminiOcrProvider implements OcrProvider {
   }
 
   async extract(input: Parameters<OcrProvider['extract']>[0]): Promise<OcrExtractionResult> {
+    const startedAt = Date.now();
     // O Paddle roda em paralelo só para decodificar código de barras/QR: a chave de
     // acesso lida de um barcode é exata, enquanto a mesma chave lida por visão (Gemini
     // ou OCR de texto) pode confundir dígitos parecidos. Uma falha aqui nunca deve
     // bloquear a leitura da imagem pelo Gemini.
+    let paddleMs = 0;
     const paddlePromise = this.paddle
       .extract(input)
-      .catch((): OcrExtractionResult => ({ status: 'FALHA', erro: 'paddle_indisponivel' }));
+      .catch((): OcrExtractionResult => ({ status: 'FALHA', erro: 'paddle_indisponivel' }))
+      .finally(() => {
+        paddleMs = Date.now() - startedAt;
+      });
     const imageBase64 = Buffer.from(input.fileData).toString('base64');
 
     const fallbackData = (
@@ -265,11 +270,13 @@ export class GeminiOcrProvider implements OcrProvider {
 
     let lastFailureReason = 'Falha na leitura estruturada pelo Gemini.';
     for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
+      const attemptStartedAt = Date.now();
       const attemptResult = await this.attemptExtraction(
         input.fileName,
         imageBase64,
         input.fileType,
       );
+      const attemptMs = Date.now() - attemptStartedAt;
       if (attemptResult.ok) {
         const paddleResult = await paddlePromise;
         const fields = toExtractionFields(
@@ -277,6 +284,14 @@ export class GeminiOcrProvider implements OcrProvider {
           paddleResult.data?.textoOriginal ?? '',
           paddleResult.data?.chaveAcesso,
         );
+        logger.info('OCR Gemini: extração concluída', {
+          fileName: input.fileName,
+          model: this.model,
+          attempt,
+          geminiMs: attemptMs,
+          paddleMs,
+          totalMs: Date.now() - startedAt,
+        });
         return fields.erro === 'ocr_insuficiente'
           ? { status: 'FALHA', erro: 'ocr_insuficiente', data: fields }
           : { status: 'SUCESSO', data: fields };
@@ -288,6 +303,7 @@ export class GeminiOcrProvider implements OcrProvider {
         attempt,
         maxAttempts: GEMINI_MAX_ATTEMPTS,
         reason: attemptResult.reason,
+        geminiMs: attemptMs,
       });
     }
     logger.error('OCR Gemini: todas as tentativas falharam', {
@@ -295,6 +311,7 @@ export class GeminiOcrProvider implements OcrProvider {
       model: this.model,
       attempts: GEMINI_MAX_ATTEMPTS,
       reason: lastFailureReason,
+      totalMs: Date.now() - startedAt,
     });
     const paddleResult = await paddlePromise;
     return {
