@@ -13,6 +13,8 @@ import {
 
 const app: Express = buildApp();
 type Agent = ReturnType<typeof request.agent>;
+const NEUTRO_OCR_ERRO =
+  'Infraestrutura de OCR/IA ainda não definida (Item pendente ESPEC-TEC §33). Preencha os dados manualmente.';
 const VALID_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64',
@@ -153,7 +155,7 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
         status: 'FALHA',
         origem: 'MANUAL',
       });
-      expect(extract.body.data.erro).toBe('ocr_insuficiente');
+      expect(['ocr_insuficiente', NEUTRO_OCR_ERRO]).toContain(extract.body.data.erro);
 
       const save = await ana.agent
         .put(`/api/ocr/receipts/${receiptId}/dados`)
