@@ -20,16 +20,18 @@ def health() -> dict[str, str]:
 async def extract(file: UploadFile = File(...)) -> dict[str, object]:
     source = ImageOps.exif_transpose(Image.open(BytesIO(await file.read()))).convert("RGB")
     image = enhance_for_ocr(source)
+    # Uma única passada, na imagem já normalizada/realçada para OCR. Antes rodava o
+    # PaddleOCR duas vezes (nessa imagem e na original em resolução cheia) e mesclava
+    # as linhas — em fotos reais de comprovante (muito texto pequeno) isso dobra o
+    # tempo de processamento e estourava o timeout da API em produção.
     result = ocr.ocr(image, cls=True)
-    original_result = ocr.ocr(np.asarray(source), cls=True)
     lines: list[str] = []
-    for extraction in (original_result, result):
-        for page in extraction or []:
-            for item in page or []:
-                if len(item) > 1 and item[1]:
-                    value = str(item[1][0]).strip()
-                    if value and value not in lines:
-                        lines.append(value)
+    for page in result or []:
+        for item in page or []:
+            if len(item) > 1 and item[1]:
+                value = str(item[1][0]).strip()
+                if value and value not in lines:
+                    lines.append(value)
     barcodes = [item.data.decode("utf-8", errors="ignore") for item in decode(np.asarray(source))]
     return {
         "text": "\n".join(lines),
@@ -40,8 +42,12 @@ async def extract(file: UploadFile = File(...)) -> dict[str, object]:
 
 def enhance_for_ocr(source: Image.Image) -> np.ndarray:
     width, height = source.size
-    scale = min(2.0, 1800 / max(width, 1)) if width < 1800 else 1.0
-    if scale > 1:
+    longest = max(width, height, 1)
+    # Normaliza tanto imagens pequenas (upscale até 1800px ajuda o detector) quanto
+    # fotos de celular muito grandes (downscale: acima disso só adiciona tempo de
+    # processamento sem ganho de leitura).
+    scale = 1800 / longest
+    if abs(scale - 1) > 0.01:
         source = source.resize((round(width * scale), round(height * scale)), Image.Resampling.LANCZOS)
     enhanced = ImageOps.autocontrast(source)
     enhanced = ImageEnhance.Contrast(enhanced).enhance(1.25)
