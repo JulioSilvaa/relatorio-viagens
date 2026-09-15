@@ -41,16 +41,13 @@ const envSchema = z.object({
         rejectPlaceholder('CARD_ENCRYPTION_KEY')(value, ctx);
       }
     }),
-  OCR_PROVIDER: z.enum(['paddleocr', 'gemini', 'neutro']).default('paddleocr'),
+  OCR_PROVIDER: z.enum(['paddleocr', 'neutro']).default('paddleocr'),
   OCR_AUTO_ON_UPLOAD: z
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
   OCR_PADDLE_URL: z.string().default('http://ocr:8000'),
   OCR_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
-  GEMINI_API_KEY: z.string().min(1).optional(),
-  GEMINI_MODEL: z.string().default('gemini-3.6-flash'),
-  GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
 });
 
 const parsed = envSchema.safeParse(process.env);
