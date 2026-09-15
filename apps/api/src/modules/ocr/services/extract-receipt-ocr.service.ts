@@ -56,6 +56,9 @@ export class ExtractReceiptOcrService {
           itens: extraction.data.itens ?? [],
           dadosOriginais: extraction.data,
           erro: null,
+          engine: extraction.data.engine ?? null,
+          processingMs: extraction.data.processingMs ?? null,
+          confidence: extraction.data.confidence ?? null,
         },
         extraidoEm,
       );
@@ -79,6 +82,9 @@ export class ExtractReceiptOcrService {
         origem: 'MANUAL',
         itens: extraction.data?.itens ?? [],
         dadosOriginais: extraction.data,
+        engine: extraction.data?.engine ?? null,
+        processingMs: extraction.data?.processingMs ?? null,
+        confidence: extraction.data?.confidence ?? null,
       },
       extraidoEm,
     );

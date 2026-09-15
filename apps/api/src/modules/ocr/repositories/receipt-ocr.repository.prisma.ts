@@ -16,6 +16,10 @@ interface PrismaReceiptOcrRow {
   itens: Prisma.JsonValue | null;
   dadosOriginais: Prisma.JsonValue | null;
   erro: string | null;
+  engine: string | null;
+  processingMs: number | null;
+  confidence: Prisma.Decimal | null;
+  attempts: number;
   extraidoEm: Date | null;
   conferidoPorId: string | null;
   conferidoPor: { id: string; name: string } | null;
@@ -39,10 +43,15 @@ function toRecord(row: PrismaReceiptOcrRow): ReceiptOcrRecord {
     numeroDocumento: row.numeroDocumento,
     chaveAcesso: row.chaveAcesso,
     itens: Array.isArray(row.itens) ? (row.itens as unknown[]) : null,
-    dadosOriginais: row.dadosOriginais && typeof row.dadosOriginais === 'object'
-      ? (row.dadosOriginais as ReceiptOcrRecord['dadosOriginais'])
-      : null,
+    dadosOriginais:
+      row.dadosOriginais && typeof row.dadosOriginais === 'object'
+        ? (row.dadosOriginais as ReceiptOcrRecord['dadosOriginais'])
+        : null,
     erro: row.erro,
+    engine: row.engine,
+    processingMs: row.processingMs,
+    confidence: row.confidence ? row.confidence.toNumber() : null,
+    attempts: row.attempts,
     extraidoEm: row.extraidoEm,
     conferidoPorId: row.conferidoPorId,
     conferidoPor: row.conferidoPor,
@@ -98,6 +107,9 @@ function toUnchecked(data: SaveReceiptOcrData): Prisma.ReceiptOcrUncheckedUpdate
   if (data.itens !== undefined) fields.itens = jsonValue(data.itens);
   if (data.dadosOriginais !== undefined) fields.dadosOriginais = jsonValue(data.dadosOriginais);
   if (data.erro !== undefined) fields.erro = text(data.erro);
+  if (data.engine !== undefined) fields.engine = text(data.engine);
+  if (data.processingMs !== undefined) fields.processingMs = data.processingMs;
+  if (data.confidence !== undefined) fields.confidence = data.confidence;
   return fields;
 }
 
@@ -118,14 +130,19 @@ export class PrismaReceiptOcrRepository implements ReceiptOcrRepository {
       const row = await prisma.receiptOcr.update({
         where: { receiptId },
         data: {
-          ...(upgradeToSuccess
-            ? { status: 'SUCESSO' as const, origem: data.origem ?? 'OCR' }
-            : {}),
+          ...(upgradeToSuccess ? { status: 'SUCESSO' as const, origem: data.origem ?? 'OCR' } : {}),
           ...fillOnlyNulls(existing, data),
           extraidoEm,
           ...(existing.dadosOriginais === null && data.dadosOriginais
             ? { dadosOriginais: jsonValue(data.dadosOriginais) }
             : {}),
+          // engine/processingMs/confidence descrevem a última tentativa, não um
+          // dado definitivo do comprovante — sempre sobrescrevem, diferente dos
+          // campos fiscais acima que só preenchem se ainda nulos.
+          ...(data.engine !== undefined ? { engine: text(data.engine) } : {}),
+          ...(data.processingMs !== undefined ? { processingMs: data.processingMs } : {}),
+          ...(data.confidence !== undefined ? { confidence: data.confidence } : {}),
+          attempts: existing.attempts + 1,
         },
         include: OCR_INCLUDE,
       });
@@ -146,6 +163,9 @@ export class PrismaReceiptOcrRepository implements ReceiptOcrRepository {
         itens: jsonValue(data.itens),
         dadosOriginais: jsonValue(data.dadosOriginais),
         erro: text(data.erro),
+        engine: text(data.engine),
+        processingMs: data.processingMs ?? null,
+        confidence: data.confidence ?? null,
         extraidoEm,
       },
       include: OCR_INCLUDE,
@@ -176,19 +196,19 @@ export class PrismaReceiptOcrRepository implements ReceiptOcrRepository {
     const existing = await prisma.receiptOcr.findUnique({ where: { receiptId } });
     const row = existing
       ? await prisma.receiptOcr.update({
-        where: { receiptId },
-        data: {
-          ...toUnchecked(data),
-          status: 'SUCESSO',
-          conferidoPorId,
-          conferidoEm: new Date(),
-        },
-        include: OCR_INCLUDE,
-      })
+          where: { receiptId },
+          data: {
+            ...toUnchecked(data),
+            status: 'SUCESSO',
+            conferidoPorId,
+            conferidoEm: new Date(),
+          },
+          include: OCR_INCLUDE,
+        })
       : await prisma.receiptOcr.create({
-        data: { ...ensure, conferidoPorId, conferidoEm: new Date() },
-        include: OCR_INCLUDE,
-      });
+          data: { ...ensure, conferidoPorId, conferidoEm: new Date() },
+          include: OCR_INCLUDE,
+        });
     return toRecord(row);
   }
 }

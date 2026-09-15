@@ -142,6 +142,9 @@ export interface OcrExtractionFields {
   itens?: OcrStoredItem[];
   confiancaExtracao?: OcrExtractionConfidence;
   alertaReconciliacao?: boolean;
+  engine?: string;
+  processingMs?: number;
+  confidence?: number;
 }
 
 export type OcrExtractionResult =
@@ -172,6 +175,10 @@ export interface ReceiptOcrRecord {
   itens: unknown[] | null;
   dadosOriginais: OcrExtractionFields | null;
   erro: string | null;
+  engine: string | null;
+  processingMs: number | null;
+  confidence: number | null;
+  attempts: number;
   extraidoEm: Date | null;
   conferidoPorId: string | null;
   conferidoPor: { id: string; name: string } | null;
@@ -193,6 +200,9 @@ export interface SaveReceiptOcrData {
   itens?: unknown[] | null;
   dadosOriginais?: OcrExtractionFields | null;
   erro?: string | null;
+  engine?: string | null;
+  processingMs?: number | null;
+  confidence?: number | null;
 }
 
 export interface ReceiptOcrRepository {

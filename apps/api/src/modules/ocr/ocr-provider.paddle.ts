@@ -33,9 +33,16 @@ export class PaddleOcrProvider implements OcrProvider {
         });
         return { status: 'FALHA', erro: 'Não foi possível processar o comprovante.' };
       }
-      const payload = (await response.json()) as { text?: string; barcodes?: string[] };
+      const payload = (await response.json()) as {
+        text?: string;
+        barcodes?: string[];
+        confidence?: number;
+        processingMs?: number;
+      };
       const rawText = payload.text ?? '';
       const chaveAcesso = findAccessKey(payload.barcodes ?? []);
+      const engine = 'rapidocr';
+      const { confidence, processingMs } = payload;
       if (!hasSufficientOcrText(rawText)) {
         logger.info('OCR PaddleOCR: texto insuficiente', { fileName: input.fileName, paddleMs });
         return {
@@ -47,17 +54,26 @@ export class PaddleOcrProvider implements OcrProvider {
             itens: [],
             confiancaExtracao: 'baixa',
             alertaReconciliacao: false,
+            engine,
+            confidence,
+            processingMs,
           },
         };
       }
       const fields = parseOcrText(rawText);
       fields.textoOriginal = rawText;
       fields.chaveAcesso ??= chaveAcesso;
+      fields.engine = engine;
+      fields.confidence = confidence;
+      fields.processingMs = processingMs;
       const recognized = hasRecognizedContent(fields);
       logger.info('OCR PaddleOCR: extração concluída', {
         fileName: input.fileName,
         status: recognized ? 'SUCESSO' : 'FALHA',
         paddleMs,
+        engine,
+        confidence,
+        processingMs,
       });
       return recognized
         ? { status: 'SUCESSO', data: fields }
