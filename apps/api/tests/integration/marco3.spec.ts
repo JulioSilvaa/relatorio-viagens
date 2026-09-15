@@ -13,8 +13,6 @@ import {
 
 const app: Express = buildApp();
 type Agent = ReturnType<typeof request.agent>;
-const NEUTRO_OCR_ERRO =
-  'Infraestrutura de OCR/IA ainda não definida (Item pendente ESPEC-TEC §33). Preencha os dados manualmente.';
 const VALID_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64',
@@ -30,24 +28,8 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
     const originalFetch = globalThis.fetch;
     vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === 'object' && 'url' in input ? input.url : String(input);
-      if (url.includes('generativelanguage.googleapis.com')) {
-        const cupom = {
-          tipo_documento: 'NAO_IDENTIFICADO',
-          tipo_documento_confianca: 'baixa',
-          itens: [],
-          confianca_extracao: 'baixa',
-          alerta_reconciliacao: true,
-          erro: 'ocr_insuficiente',
-        };
-        return new Response(
-          JSON.stringify({
-            candidates: [{ content: { parts: [{ text: JSON.stringify(cupom) }] } }],
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        );
-      }
-      if (url.includes('/barcode')) {
-        return new Response(JSON.stringify({ barcodes: [] }), {
+      if (url.includes('/ocr')) {
+        return new Response(JSON.stringify({ text: '' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -155,7 +137,7 @@ describe('marco 3: OCR, fiscal, financeiro, dashboard, histórico, auditoria e r
         status: 'FALHA',
         origem: 'MANUAL',
       });
-      expect(['ocr_insuficiente', NEUTRO_OCR_ERRO]).toContain(extract.body.data.erro);
+      expect(extract.body.data.erro).toBe('ocr_insuficiente');
 
       const save = await ana.agent
         .put(`/api/ocr/receipts/${receiptId}/dados`)

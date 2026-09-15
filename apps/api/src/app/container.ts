@@ -80,8 +80,7 @@ import { env } from '../config/env.js';
 import { SearchTripsService } from '../modules/trips/services/search-trips.service.js';
 import { PrismaReceiptOcrRepository } from '../modules/ocr/repositories/receipt-ocr.repository.prisma.js';
 import { NeutralOcrProvider } from '../modules/ocr/ocr-provider.neutro.js';
-import { PaddleBarcodeProvider } from '../modules/ocr/ocr-provider.paddle-barcode.js';
-import { GeminiOcrProvider } from '../modules/ocr/ocr-provider.gemini.js';
+import { PaddleOcrProvider } from '../modules/ocr/ocr-provider.paddle.js';
 import { ExtractReceiptOcrService } from '../modules/ocr/services/extract-receipt-ocr.service.js';
 import { GetReceiptOcrService } from '../modules/ocr/services/get-receipt-ocr.service.js';
 import { SaveReceiptOcrService } from '../modules/ocr/services/save-receipt-ocr.service.js';
@@ -185,15 +184,9 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
   const deleteTripService = new DeleteTripService(trips, audit);
 
   const ocrRepo = new PrismaReceiptOcrRepository();
-  const paddleBarcodeProvider = new PaddleBarcodeProvider(env.OCR_PADDLE_URL, env.OCR_TIMEOUT_MS);
   const ocrProvider =
-    env.OCR_PROVIDER === 'gemini' && env.GEMINI_API_KEY
-      ? new GeminiOcrProvider(
-          env.GEMINI_API_KEY,
-          env.GEMINI_MODEL,
-          env.GEMINI_TIMEOUT_MS,
-          paddleBarcodeProvider,
-        )
+    env.OCR_PROVIDER === 'paddleocr'
+      ? new PaddleOcrProvider(env.OCR_PADDLE_URL, env.OCR_TIMEOUT_MS)
       : new NeutralOcrProvider();
   const extractReceiptOcrService = new ExtractReceiptOcrService(
     receipts,
