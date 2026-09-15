@@ -21,8 +21,19 @@ const COLORS = {
   paper: '#ffffff',
 };
 
-interface Column { title: string; width: number; align?: 'left' | 'right'; }
-interface PageContext { title: string; subtitle: string; emittedAt: Date; emittedBy: string; version: number; status: string; }
+interface Column {
+  title: string;
+  width: number;
+  align?: 'left' | 'right';
+}
+interface PageContext {
+  title: string;
+  subtitle: string;
+  emittedAt: Date;
+  emittedBy: string;
+  version: number;
+  status: string;
+}
 
 const FONT = {
   regular: 'Helvetica',
@@ -32,17 +43,23 @@ const FONT = {
 };
 
 function brl(value: string): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value));
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+    Number(value),
+  );
 }
 
 function dateBR(date: Date): string {
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
 }
 
-function cleanStatus(status: string): string { return status.replaceAll('_', ' '); }
+function cleanStatus(status: string): string {
+  return status.replaceAll('_', ' ');
+}
 
 function isUuid(value: string | null): boolean {
-  return value !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+  return (
+    value !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+  );
 }
 
 function accessKeyDisplay(value: string | null): string | null {
@@ -54,7 +71,13 @@ function accessKeyDisplay(value: string | null): string | null {
 
 function render(content: (doc: Doc) => void, context: PageContext): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: MARGIN, pdfVersion: '1.7', bufferPages: true, info: { Title: context.title, Author: 'vaiefecha' } });
+    const doc = new PDFDocument({
+      size: 'A4',
+      margin: MARGIN,
+      pdfVersion: '1.7',
+      bufferPages: true,
+      info: { Title: context.title, Author: 'vaiefecha' },
+    });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -70,41 +93,143 @@ function renderPageChrome(doc: Doc, context: PageContext): void {
   for (let index = start; index < start + count; index += 1) {
     doc.switchToPage(index);
 
-    doc.font(FONT.bold).fontSize(13).fillColor(COLORS.ink).text('vaiefecha', MARGIN, 22, { lineBreak: false });
-    doc.font(FONT.regular).fontSize(7).fillColor(COLORS.muted)
+    doc
+      .font(FONT.bold)
+      .fontSize(13)
+      .fillColor(COLORS.ink)
+      .text('vaiefecha', MARGIN, 22, { lineBreak: false });
+    doc
+      .font(FONT.regular)
+      .fontSize(7)
+      .fillColor(COLORS.muted)
       .text(context.title, MARGIN, 39, { characterSpacing: 1.2, lineBreak: false });
-    doc.font(FONT.regular).fontSize(7).fillColor(COLORS.muted)
-      .text(context.subtitle, MARGIN + 190, 39, { width: CONTENT_WIDTH - 190, align: 'right', characterSpacing: 0.6, lineBreak: false });
+    doc
+      .font(FONT.regular)
+      .fontSize(7)
+      .fillColor(COLORS.muted)
+      .text(context.subtitle, MARGIN + 190, 39, {
+        width: CONTENT_WIDTH - 190,
+        align: 'right',
+        characterSpacing: 0.6,
+        lineBreak: false,
+      });
 
-    doc.font(FONT.bold).fontSize(8).fillColor(COLORS.ink)
-      .text(`Nº ${context.version} · ${dateBR(context.emittedAt)}`, PAGE_WIDTH - MARGIN - 190, 22, { width: 190, align: 'right', lineBreak: false });
-    doc.font(FONT.regular).fontSize(7).fillColor(COLORS.muted)
-      .text(`Status · ${cleanStatus(context.status)}`, PAGE_WIDTH - MARGIN - 190, 34, { width: 190, align: 'right', characterSpacing: 0.6, lineBreak: false });
+    doc
+      .font(FONT.bold)
+      .fontSize(8)
+      .fillColor(COLORS.ink)
+      .text(`Nº ${context.version} · ${dateBR(context.emittedAt)}`, PAGE_WIDTH - MARGIN - 190, 22, {
+        width: 190,
+        align: 'right',
+        lineBreak: false,
+      });
+    doc
+      .font(FONT.regular)
+      .fontSize(7)
+      .fillColor(COLORS.muted)
+      .text(`Status · ${cleanStatus(context.status)}`, PAGE_WIDTH - MARGIN - 190, 34, {
+        width: 190,
+        align: 'right',
+        characterSpacing: 0.6,
+        lineBreak: false,
+      });
 
-    doc.moveTo(MARGIN, 58).lineTo(PAGE_WIDTH - MARGIN, 58).lineWidth(1.4).strokeColor(COLORS.teal).stroke();
-    doc.moveTo(MARGIN, 60).lineTo(PAGE_WIDTH - MARGIN, 60).lineWidth(0.4).strokeColor(COLORS.line).stroke();
+    doc
+      .moveTo(MARGIN, 58)
+      .lineTo(PAGE_WIDTH - MARGIN, 58)
+      .lineWidth(1.4)
+      .strokeColor(COLORS.teal)
+      .stroke();
+    doc
+      .moveTo(MARGIN, 60)
+      .lineTo(PAGE_WIDTH - MARGIN, 60)
+      .lineWidth(0.4)
+      .strokeColor(COLORS.line)
+      .stroke();
 
-    doc.moveTo(MARGIN, CONTENT_BOTTOM + 10).lineTo(PAGE_WIDTH - MARGIN, CONTENT_BOTTOM + 10).lineWidth(0.5).strokeColor(COLORS.line).stroke();
-    doc.font(FONT.regular).fontSize(7).fillColor(COLORS.faded)
-      .text(`Emitido em ${dateBR(context.emittedAt)} às ${context.emittedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} por ${context.emittedBy} · Versão ${context.version}`, MARGIN, CONTENT_BOTTOM + 16, { width: CONTENT_WIDTH - 70, lineBreak: false });
-    doc.font(FONT.bold).fontSize(7).fillColor(COLORS.faded).text(`PÁGINA ${index + 1}`, PAGE_WIDTH - MARGIN - 70, CONTENT_BOTTOM + 16, { width: 70, align: 'right', characterSpacing: 0.8, lineBreak: false });
+    doc
+      .moveTo(MARGIN, CONTENT_BOTTOM + 10)
+      .lineTo(PAGE_WIDTH - MARGIN, CONTENT_BOTTOM + 10)
+      .lineWidth(0.5)
+      .strokeColor(COLORS.line)
+      .stroke();
+    doc
+      .font(FONT.regular)
+      .fontSize(7)
+      .fillColor(COLORS.faded)
+      .text(
+        `Emitido em ${dateBR(context.emittedAt)} às ${context.emittedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} por ${context.emittedBy} · Versão ${context.version}`,
+        MARGIN,
+        CONTENT_BOTTOM + 16,
+        { width: CONTENT_WIDTH - 70, lineBreak: false },
+      );
+    doc
+      .font(FONT.bold)
+      .fontSize(7)
+      .fillColor(COLORS.faded)
+      .text(`PÁGINA ${index + 1}`, PAGE_WIDTH - MARGIN - 70, CONTENT_BOTTOM + 16, {
+        width: 70,
+        align: 'right',
+        characterSpacing: 0.8,
+        lineBreak: false,
+      });
   }
 }
 
-function newPage(doc: Doc): void { doc.addPage(); doc.y = CONTENT_TOP; }
-function ensureSpace(doc: Doc, height: number): void { if (doc.y + height > CONTENT_BOTTOM) newPage(doc); }
+function newPage(doc: Doc): void {
+  doc.addPage();
+  doc.y = CONTENT_TOP;
+}
+function ensureSpace(doc: Doc, height: number): void {
+  if (doc.y + height > CONTENT_BOTTOM) newPage(doc);
+}
 
-function sectionTitle(doc: Doc, title: string, note?: string): void {
-  ensureSpace(doc, 34);
+// minContentHeight keeps the title glued to at least the start of its body:
+// checking only the title's own 34pt let a section title fit at the bottom
+// of a page while its content immediately broke to the next one, leaving an
+// orphaned heading followed by an almost-blank page.
+function sectionTitle(doc: Doc, title: string, note?: string, minContentHeight = 0): void {
+  ensureSpace(doc, 34 + minContentHeight);
   const y = doc.y;
-  doc.font(FONT.bold).fontSize(10.5).fillColor(COLORS.ink).text(title, MARGIN, y, { width: 300, lineBreak: false });
-  if (note) doc.font(FONT.regular).fontSize(7).fillColor(COLORS.faded).text(note, PAGE_WIDTH - MARGIN - 180, y + 3, { width: 180, align: 'right', characterSpacing: 0.6, lineBreak: false });
-  doc.moveTo(MARGIN, y + 18).lineTo(PAGE_WIDTH - MARGIN, y + 18).lineWidth(0.7).strokeColor(COLORS.teal).stroke();
+  doc
+    .font(FONT.bold)
+    .fontSize(10.5)
+    .fillColor(COLORS.ink)
+    .text(title, MARGIN, y, { width: 300, lineBreak: false });
+  if (note)
+    doc
+      .font(FONT.regular)
+      .fontSize(7)
+      .fillColor(COLORS.faded)
+      .text(note, PAGE_WIDTH - MARGIN - 180, y + 3, {
+        width: 180,
+        align: 'right',
+        characterSpacing: 0.6,
+        lineBreak: false,
+      });
+  doc
+    .moveTo(MARGIN, y + 18)
+    .lineTo(PAGE_WIDTH - MARGIN, y + 18)
+    .lineWidth(0.7)
+    .strokeColor(COLORS.teal)
+    .stroke();
   doc.y = y + 26;
 }
 
-function smallCapsLabel(doc: Doc, text: string, x: number, y: number, width: number, color = COLORS.muted, align: 'left' | 'right' = 'left'): void {
-  doc.font(FONT.regular).fontSize(6.4).fillColor(color).text(text, x, y, { width, align, characterSpacing: 0.9, lineBreak: false });
+function smallCapsLabel(
+  doc: Doc,
+  text: string,
+  x: number,
+  y: number,
+  width: number,
+  color = COLORS.muted,
+  align: 'left' | 'right' = 'left',
+): void {
+  doc
+    .font(FONT.regular)
+    .fontSize(6.4)
+    .fillColor(color)
+    .text(text, x, y, { width, align, characterSpacing: 0.9, lineBreak: false });
 }
 
 function balanceStrip(doc: Doc, cells: Array<{ label: string; value: string }>): void {
@@ -115,16 +240,33 @@ function balanceStrip(doc: Doc, cells: Array<{ label: string; value: string }>):
   const cellWidth = CONTENT_WIDTH / cells.length;
   cells.forEach((cell, index) => {
     if (index > 0) {
-      doc.moveTo(MARGIN + cellWidth * index, y + 8).lineTo(MARGIN + cellWidth * index, y + height - 8).lineWidth(0.4).strokeColor(COLORS.line).stroke();
+      doc
+        .moveTo(MARGIN + cellWidth * index, y + 8)
+        .lineTo(MARGIN + cellWidth * index, y + height - 8)
+        .lineWidth(0.4)
+        .strokeColor(COLORS.line)
+        .stroke();
     }
     const x = MARGIN + cellWidth * index;
     smallCapsLabel(doc, cell.label, x + 10, y + 9, cellWidth - 20);
-    doc.font(FONT.bold).fontSize(11.5).fillColor(COLORS.ink).text(cell.value, x + 10, y + 22, { width: cellWidth - 20, align: 'right', lineBreak: false });
+    doc
+      .font(FONT.bold)
+      .fontSize(11.5)
+      .fillColor(COLORS.ink)
+      .text(cell.value, x + 10, y + 22, {
+        width: cellWidth - 20,
+        align: 'right',
+        lineBreak: false,
+      });
   });
   doc.y = y + height + 10;
 }
 
-function ledgerFields(doc: Doc, fields: Array<{ label: string; value: string }>, single = false): void {
+function ledgerFields(
+  doc: Doc,
+  fields: Array<{ label: string; value: string }>,
+  single = false,
+): void {
   const columns = single ? 1 : 2;
   const gap = 18;
   const columnWidth = (CONTENT_WIDTH - gap * (columns - 1)) / columns;
@@ -133,7 +275,13 @@ function ledgerFields(doc: Doc, fields: Array<{ label: string; value: string }>,
     const row = fields.slice(index, index + columns);
     const heights = row.map((field) => {
       doc.font(FONT.regular).fontSize(9);
-      return Math.max(30, doc.heightOfString(field.value || '—', { width: columnWidth - labelWidth - 6, lineGap: 1 }) + 20);
+      return Math.max(
+        30,
+        doc.heightOfString(field.value || '—', {
+          width: columnWidth - labelWidth - 6,
+          lineGap: 1,
+        }) + 20,
+      );
     });
     const height = Math.max(...heights);
     ensureSpace(doc, height + 8);
@@ -142,8 +290,20 @@ function ledgerFields(doc: Doc, fields: Array<{ label: string; value: string }>,
       if (!field) return;
       const x = MARGIN + offset * (columnWidth + gap);
       smallCapsLabel(doc, field.label.toUpperCase(), x, y + 7, columnWidth);
-      doc.font(FONT.regular).fontSize(9).fillColor(COLORS.ink).text(field.value || '—', x + labelWidth, y + 6, { width: columnWidth - labelWidth - 6, lineGap: 1 });
-      doc.moveTo(x, y + height).lineTo(x + columnWidth, y + height).lineWidth(0.4).strokeColor(COLORS.line).stroke();
+      doc
+        .font(FONT.regular)
+        .fontSize(9)
+        .fillColor(COLORS.ink)
+        .text(field.value || '—', x + labelWidth, y + 6, {
+          width: columnWidth - labelWidth - 6,
+          lineGap: 1,
+        });
+      doc
+        .moveTo(x, y + height)
+        .lineTo(x + columnWidth, y + height)
+        .lineWidth(0.4)
+        .strokeColor(COLORS.line)
+        .stroke();
     });
     doc.y = y + height + 5;
   }
@@ -156,36 +316,84 @@ function maskCard(last4: string | null, brand: string | null): string {
 function drawTableHeader(doc: Doc, columns: Column[]): void {
   ensureSpace(doc, 26);
   const y = doc.y;
-  doc.moveTo(MARGIN, y).lineTo(PAGE_WIDTH - MARGIN, y).lineWidth(0.7).strokeColor(COLORS.ink).stroke();
+  doc
+    .moveTo(MARGIN, y)
+    .lineTo(PAGE_WIDTH - MARGIN, y)
+    .lineWidth(0.7)
+    .strokeColor(COLORS.ink)
+    .stroke();
   let x = MARGIN;
   for (const column of columns) {
-    smallCapsLabel(doc, column.title.toUpperCase(), x, y + 5, column.width, COLORS.muted, column.align === 'right' ? 'right' : 'left');
+    smallCapsLabel(
+      doc,
+      column.title.toUpperCase(),
+      x,
+      y + 5,
+      column.width,
+      COLORS.muted,
+      column.align === 'right' ? 'right' : 'left',
+    );
     x += column.width;
   }
-  doc.moveTo(MARGIN, y + 15).lineTo(PAGE_WIDTH - MARGIN, y + 15).lineWidth(0.4).strokeColor(COLORS.line).stroke();
+  doc
+    .moveTo(MARGIN, y + 15)
+    .lineTo(PAGE_WIDTH - MARGIN, y + 15)
+    .lineWidth(0.4)
+    .strokeColor(COLORS.line)
+    .stroke();
   doc.y = y + 15;
 }
 
-function drawTableRow(doc: Doc, columns: Column[], cells: string[], rowIndex: number, emphasized = false): boolean {
+function drawTableRow(
+  doc: Doc,
+  columns: Column[],
+  cells: string[],
+  rowIndex: number,
+  emphasized = false,
+): boolean {
   const padding = 6;
   doc.font(FONT.regular).fontSize(8.2);
-  const height = Math.max(21, ...columns.map((column, index) => doc.heightOfString(cells[index] ?? '—', { width: column.width - padding * 2, lineGap: 1 }) + padding * 2));
+  const height = Math.max(
+    21,
+    ...columns.map(
+      (column, index) =>
+        doc.heightOfString(cells[index] ?? '—', { width: column.width - padding * 2, lineGap: 1 }) +
+        padding * 2,
+    ),
+  );
   if (doc.y + height > CONTENT_BOTTOM) return false;
   const y = doc.y;
   let x = MARGIN;
   if (emphasized) {
-    doc.moveTo(MARGIN, y).lineTo(PAGE_WIDTH - MARGIN, y).lineWidth(0.7).strokeColor(COLORS.ink).stroke();
+    doc
+      .moveTo(MARGIN, y)
+      .lineTo(PAGE_WIDTH - MARGIN, y)
+      .lineWidth(0.7)
+      .strokeColor(COLORS.ink)
+      .stroke();
   } else if (rowIndex % 2 === 1) {
     doc.rect(MARGIN, y, CONTENT_WIDTH, height).fill(COLORS.faint);
   }
-  doc.font(emphasized ? FONT.bold : FONT.regular).fontSize(8.2).fillColor(COLORS.ink);
+  doc
+    .font(emphasized ? FONT.bold : FONT.regular)
+    .fontSize(8.2)
+    .fillColor(COLORS.ink);
   for (let index = 0; index < columns.length; index += 1) {
     const column = columns[index];
     if (!column) continue;
-    doc.text(cells[index] ?? '—', x + padding, y + (emphasized ? 4 : padding), { width: column.width - padding * 2, align: column.align ?? 'left', lineGap: 1 });
+    doc.text(cells[index] ?? '—', x + padding, y + (emphasized ? 4 : padding), {
+      width: column.width - padding * 2,
+      align: column.align ?? 'left',
+      lineGap: 1,
+    });
     x += column.width;
   }
-  doc.moveTo(MARGIN, y + height).lineTo(PAGE_WIDTH - MARGIN, y + height).lineWidth(0.3).strokeColor(COLORS.line).stroke();
+  doc
+    .moveTo(MARGIN, y + height)
+    .lineTo(PAGE_WIDTH - MARGIN, y + height)
+    .lineWidth(0.3)
+    .strokeColor(COLORS.line)
+    .stroke();
   doc.y = y + height;
   return true;
 }
@@ -194,21 +402,31 @@ function renderTable(doc: Doc, columns: Column[], rows: string[][], total?: stri
   drawTableHeader(doc, columns);
   let rowIndex = 0;
   for (const row of rows) {
-    if (!drawTableRow(doc, columns, row, rowIndex)) { newPage(doc); drawTableHeader(doc, columns); drawTableRow(doc, columns, row, rowIndex); }
+    if (!drawTableRow(doc, columns, row, rowIndex)) {
+      newPage(doc);
+      drawTableHeader(doc, columns);
+      drawTableRow(doc, columns, row, rowIndex);
+    }
     rowIndex += 1;
   }
-  if (total && !drawTableRow(doc, columns, total, rowIndex, true)) { newPage(doc); drawTableHeader(doc, columns); drawTableRow(doc, columns, total, rowIndex, true); }
+  if (total && !drawTableRow(doc, columns, total, rowIndex, true)) {
+    newPage(doc);
+    drawTableHeader(doc, columns);
+    drawTableRow(doc, columns, total, rowIndex, true);
+  }
   doc.y += 10;
 }
 
 function tripInfo(doc: Doc, data: ReportData): void {
   const trip = data.trip;
-  const kmPercorridos = trip.kmInicial !== null && trip.kmFinal !== null
-    ? Number(trip.kmFinal) - Number(trip.kmInicial)
-    : null;
-  const valorReembolsoKm = kmPercorridos !== null && Number.isFinite(kmPercorridos) && trip.taxaKm
-    ? (kmPercorridos * Number(trip.taxaKm)).toFixed(2)
-    : null;
+  const kmPercorridos =
+    trip.kmInicial !== null && trip.kmFinal !== null
+      ? Number(trip.kmFinal) - Number(trip.kmInicial)
+      : null;
+  const valorReembolsoKm =
+    kmPercorridos !== null && Number.isFinite(kmPercorridos) && trip.taxaKm
+      ? (kmPercorridos * Number(trip.taxaKm)).toFixed(2)
+      : null;
   sectionTitle(doc, '1 · Identificação da viagem', 'PRESTAÇÃO DE CONTAS');
   balanceStrip(doc, [
     { label: 'DESPESAS LANÇADAS', value: brl(data.totalDespesas) },
@@ -220,36 +438,73 @@ function tripInfo(doc: Doc, data: ReportData): void {
     { label: 'Departamento', value: trip.departamento },
     { label: 'Destino', value: `${trip.cidade}/${trip.uf}` },
     { label: 'Período', value: `${dateBR(trip.dataSaida)} a ${dateBR(trip.dataRetorno)}` },
-    { label: 'Centro de custo', value: isUuid(trip.centroDeCusto) ? 'Não informado' : (trip.centroDeCusto ?? 'Não informado') },
+    {
+      label: 'Centro de custo',
+      value: isUuid(trip.centroDeCusto) ? 'Não informado' : (trip.centroDeCusto ?? 'Não informado'),
+    },
     { label: 'Motivo', value: trip.motivo },
-    { label: 'Veículo', value: trip.tipoVeiculo ? `${trip.tipoVeiculo}${trip.veiculo ? ` · ${trip.veiculo}` : ''}` : (trip.veiculo ?? 'Não informado') },
+    {
+      label: 'Veículo',
+      value: trip.tipoVeiculo
+        ? `${trip.tipoVeiculo}${trip.veiculo ? ` · ${trip.veiculo}` : ''}`
+        : (trip.veiculo ?? 'Não informado'),
+    },
     { label: 'Placa', value: trip.placa ?? 'Não informado' },
-    { label: 'Quilometragem', value: trip.kmInicial !== null && trip.kmFinal !== null ? `${trip.kmInicial} km a ${trip.kmFinal} km (${kmPercorridos} km rodados)` : 'Não informado' },
+    {
+      label: 'Quilometragem',
+      value:
+        trip.kmInicial !== null && trip.kmFinal !== null
+          ? `${trip.kmInicial} km a ${trip.kmFinal} km (${kmPercorridos} km rodados)`
+          : 'Não informado',
+    },
     { label: 'Taxa por km', value: trip.taxaKm ? brl(trip.taxaKm) : 'Não informado' },
-    { label: 'Reembolso por km', value: valorReembolsoKm ? brl(valorReembolsoKm) : 'Não informado' },
+    {
+      label: 'Reembolso por km',
+      value: valorReembolsoKm ? brl(valorReembolsoKm) : 'Não informado',
+    },
   ]);
-  if (trip.observacoes) ledgerFields(doc, [{ label: 'Observações', value: trip.observacoes }], true);
+  if (trip.observacoes)
+    ledgerFields(doc, [{ label: 'Observações', value: trip.observacoes }], true);
 }
 
 function renderParticipantes(doc: Doc, data: ReportData): void {
   sectionTitle(doc, '2 · Participantes', 'PESSOAS E CARTÕES VINCULADOS');
   renderTable(
     doc,
-    [{ title: 'Participante', width: 310 }, { title: 'Cartão corporativo', width: CONTENT_WIDTH - 310 }],
-    data.participantes.map((participant) => [participant.nome, maskCard(participant.cartaoLast4, participant.cartaoBandeira)]),
+    [
+      { title: 'Participante', width: 310 },
+      { title: 'Cartão corporativo', width: CONTENT_WIDTH - 310 },
+    ],
+    data.participantes.map((participant) => [
+      participant.nome,
+      maskCard(participant.cartaoLast4, participant.cartaoBandeira),
+    ]),
   );
 }
 
 function renderDespesas(doc: Doc, data: ReportData): void {
   sectionTitle(doc, '3 · Despesas e comprovantes', 'LANÇAMENTOS E EXCEÇÕES');
   const columns: Column[] = [
-    { title: 'Data', width: 58 }, { title: 'Categoria', width: 90 }, { title: 'Responsável', width: 76 }, { title: 'Descrição', width: 133 },
-    { title: 'Reemb.', width: 44, align: 'right' }, { title: 'Alerta', width: 40 }, { title: 'Valor', width: 66, align: 'right' },
+    { title: 'Data', width: 58 },
+    { title: 'Categoria', width: 90 },
+    { title: 'Responsável', width: 76 },
+    { title: 'Descrição', width: 133 },
+    { title: 'Reemb.', width: 44, align: 'right' },
+    { title: 'Alerta', width: 40 },
+    { title: 'Valor', width: 66, align: 'right' },
   ];
   renderTable(
     doc,
     columns,
-    data.despesas.map((expense) => [dateBR(expense.dataDespesa), expense.categoria, expense.autor, expense.justificativa, expense.reembolsavel ? 'Sim' : 'Não', expense.alertaExcesso ? 'Revisar' : '—', brl(expense.valor)]),
+    data.despesas.map((expense) => [
+      dateBR(expense.dataDespesa),
+      expense.categoria,
+      expense.autor,
+      expense.justificativa,
+      expense.reembolsavel ? 'Sim' : 'Não',
+      expense.alertaExcesso ? 'Revisar' : '—',
+      brl(expense.valor),
+    ]),
     ['', 'TOTAL', '', '', '', '', brl(data.totalDespesas)],
   );
 }
@@ -283,16 +538,43 @@ function dateValue(value: string | null): string | null {
   return Number.isNaN(parsed.getTime()) ? value : dateBR(parsed);
 }
 
-function drawReceiptThumb(doc: Doc, attachment: PdfAttachment | undefined, x: number, y: number, width: number, height: number): void {
+function drawReceiptThumb(
+  doc: Doc,
+  attachment: PdfAttachment | undefined,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void {
   doc.rect(x, y, width, height).lineWidth(0.5).strokeColor(COLORS.line).stroke();
   if (!attachment) {
-    doc.font(FONT.regular).fontSize(7).fillColor(COLORS.faded).text('Sem imagem', x + 4, y + height / 2 - 4, { width: width - 8, align: 'center', lineBreak: false });
+    doc
+      .font(FONT.regular)
+      .fontSize(7)
+      .fillColor(COLORS.faded)
+      .text('Sem imagem', x + 4, y + height / 2 - 4, {
+        width: width - 8,
+        align: 'center',
+        lineBreak: false,
+      });
     return;
   }
   try {
-    doc.image(Buffer.from(attachment.data), x + 4, y + 4, { fit: [width - 8, height - 8], align: 'center', valign: 'center' });
+    doc.image(Buffer.from(attachment.data), x + 4, y + 4, {
+      fit: [width - 8, height - 8],
+      align: 'center',
+      valign: 'center',
+    });
   } catch {
-    doc.font(FONT.regular).fontSize(7).fillColor(COLORS.faded).text('Formato não suportado', x + 4, y + height / 2 - 4, { width: width - 8, align: 'center', lineBreak: false });
+    doc
+      .font(FONT.regular)
+      .fontSize(7)
+      .fillColor(COLORS.faded)
+      .text('Formato não suportado', x + 4, y + height / 2 - 4, {
+        width: width - 8,
+        align: 'center',
+        lineBreak: false,
+      });
   }
 }
 
@@ -302,10 +584,20 @@ function txt(value: string | null | undefined): string | null {
   return trimmed ? trimmed : null;
 }
 
-function ni(value: string | null | undefined): string { return txt(value) ?? NI; }
-function mn(value: string | null | undefined): string { return txt(value) ? brl(txt(value) as string) : NI; }
-function dtf(value: string | null): string { const t = txt(value); if (!t) return NI; return dateValue(t) ?? NI; }
-function chave(value: string | null): string { return txt(value) ? (accessKeyDisplay(value) ?? NI) : NI; }
+function ni(value: string | null | undefined): string {
+  return txt(value) ?? NI;
+}
+function mn(value: string | null | undefined): string {
+  return txt(value) ? brl(txt(value) as string) : NI;
+}
+function dtf(value: string | null): string {
+  const t = txt(value);
+  if (!t) return NI;
+  return dateValue(t) ?? NI;
+}
+function chave(value: string | null): string {
+  return txt(value) ? (accessKeyDisplay(value) ?? NI) : NI;
+}
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   NFC_E: 'NFC-e',
@@ -322,10 +614,20 @@ function docType(fields: Fields): string {
   return raw in DOC_TYPE_LABELS ? raw : 'NAO_IDENTIFICADO';
 }
 
-const docTypeLabel = (type: string): string => DOC_TYPE_LABELS[type] ?? DOC_TYPE_LABELS.NAO_IDENTIFICADO ?? 'Não identificado';
+const docTypeLabel = (type: string): string =>
+  DOC_TYPE_LABELS[type] ?? DOC_TYPE_LABELS.NAO_IDENTIFICADO ?? 'Não identificado';
 
-interface FichaRow { label: string; value: string; money?: boolean; strong?: boolean; warn?: boolean }
-interface FichaGroup { title: string; rows: FichaRow[] }
+interface FichaRow {
+  label: string;
+  value: string;
+  money?: boolean;
+  strong?: boolean;
+  warn?: boolean;
+}
+interface FichaGroup {
+  title: string;
+  rows: FichaRow[];
+}
 
 function establishmentGroup(type: string, f: Fields): FichaGroup | null {
   const rows: FichaRow[] = [
@@ -340,7 +642,11 @@ function establishmentGroup(type: string, f: Fields): FichaGroup | null {
       { label: 'Cidade/UF', value: ni(f.cidadeUf) },
     );
   }
-  if ((type === 'RECIBO' || type === 'COMPROVANTE_PAGAMENTO') && rows.every((row) => row.value === NI)) return null;
+  if (
+    (type === 'RECIBO' || type === 'COMPROVANTE_PAGAMENTO') &&
+    rows.every((row) => row.value === NI)
+  )
+    return null;
   return { title: 'DADOS DO ESTABELECIMENTO', rows };
 }
 
@@ -441,7 +747,8 @@ function fiscalGroup(f: Fields): FichaGroup | null {
 function otherGroup(f: Fields): FichaGroup | null {
   const rows: FichaRow[] = [];
   if (f.observacoes) rows.push({ label: 'Observações', value: f.observacoes });
-  if (f.informacoesComplementares) rows.push({ label: 'Informações complementares', value: f.informacoesComplementares });
+  if (f.informacoesComplementares)
+    rows.push({ label: 'Informações complementares', value: f.informacoesComplementares });
   for (const extra of f.camposExtras ?? []) {
     if (rows.length >= 8) break;
     if (!extra.label?.trim()) continue;
@@ -452,15 +759,18 @@ function otherGroup(f: Fields): FichaGroup | null {
 }
 
 function statusLabel(item: Ficha): string {
-  if (item.status === 'SUCESSO') return item.origem === 'OCR' ? 'Extraído com sucesso' : 'Informado manualmente';
-  if (item.status === 'FALHA') return item.origem === 'OCR' ? 'Falha na leitura' : 'Falha na leitura · dados manuais';
+  if (item.status === 'SUCESSO')
+    return item.origem === 'OCR' ? 'Extraído com sucesso' : 'Informado manualmente';
+  if (item.status === 'FALHA')
+    return item.origem === 'OCR' ? 'Falha na leitura' : 'Falha na leitura · dados manuais';
   return 'Pendente de conferência';
 }
 
 function fallbackNote(item: Ficha): string | null {
-  if (item.status === 'FALHA') return item.origem === 'OCR'
-    ? 'Não foi possível ler o comprovante automaticamente.'
-    : 'Não foi possível ler o comprovante. Dados foram informados manualmente.';
+  if (item.status === 'FALHA')
+    return item.origem === 'OCR'
+      ? 'Não foi possível ler o comprovante automaticamente.'
+      : 'Não foi possível ler o comprovante. Dados foram informados manualmente.';
   if (item.status === 'PENDENTE') return 'Dados ainda não informados para este comprovante.';
   return null;
 }
@@ -485,13 +795,26 @@ function buildFicha(item: Ficha): { groups: FichaGroup[]; identified: number; to
     }
   }
 
-  const needsReview = item.status === 'FALHA' || item.status === 'PENDENTE'
-    || f.confiancaExtracao === 'baixa' || f.alertaReconciliacao;
+  const needsReview =
+    item.status === 'FALHA' ||
+    item.status === 'PENDENTE' ||
+    f.confiancaExtracao === 'baixa' ||
+    f.alertaReconciliacao;
   groups.push({
     title: 'CONFIABILIDADE DA EXTRAÇÃO',
     rows: [
       { label: 'Status OCR', value: statusLabel(item) },
-      { label: 'Confiança da extração', value: f.confiancaExtracao === 'alta' ? 'Alta' : f.confiancaExtracao === 'media' ? 'Média' : f.confiancaExtracao === 'baixa' ? 'Baixa' : NI },
+      {
+        label: 'Confiança da extração',
+        value:
+          f.confiancaExtracao === 'alta'
+            ? 'Alta'
+            : f.confiancaExtracao === 'media'
+              ? 'Média'
+              : f.confiancaExtracao === 'baixa'
+                ? 'Baixa'
+                : NI,
+      },
       { label: 'Campos identificados', value: `${identified} de ${total}` },
       { label: 'Necessita revisão manual', value: needsReview ? 'Sim' : 'Não', warn: needsReview },
     ],
@@ -499,32 +822,78 @@ function buildFicha(item: Ficha): { groups: FichaGroup[]; identified: number; to
   return { groups, identified, total };
 }
 
-function fichaGroupHeight(doc: Doc, group: FichaGroup, width: number): number {
+const FICHA_LABEL_WIDTH = 84;
+
+// A ficha row's height must fit whichever of label/value wraps to more lines.
+// Long labels ("INSCRIÇÃO ESTADUAL", "PROTOCOLO/AUTORIZAÇÃO", "NECESSITA
+// REVISÃO MANUAL"...) routinely wrap to two lines in the narrow label column;
+// sizing the row from the value alone let the next row start underneath the
+// still-wrapping label, producing overlapping text.
+function fichaRowHeight(doc: Doc, row: FichaRow, valueWidth: number): number {
+  doc.font(FONT.regular).fontSize(6.4);
+  const labelHeight = doc.heightOfString(row.label.toUpperCase(), {
+    width: FICHA_LABEL_WIDTH - 4,
+    characterSpacing: 0.9,
+  });
   doc.font(FONT.regular).fontSize(7.6);
-  const valueWidth = width - 84 - 16;
+  const valueHeight = doc.heightOfString(row.value, { width: valueWidth, lineGap: 0.6 });
+  return Math.max(11, Math.max(labelHeight, valueHeight) + 3);
+}
+
+function fichaGroupHeight(doc: Doc, group: FichaGroup, width: number): number {
+  const valueWidth = width - FICHA_LABEL_WIDTH - 16;
   let inner = 0;
   for (const row of group.rows) {
-    inner += Math.max(11, doc.heightOfString(row.value, { width: valueWidth, lineGap: 0.6 }) + 3);
+    inner += fichaRowHeight(doc, row, valueWidth);
   }
   return 18 + inner + 5;
 }
 
-function renderFichaGroupAt(doc: Doc, group: FichaGroup, x: number, y: number, width: number): number {
+function renderFichaGroupAt(
+  doc: Doc,
+  group: FichaGroup,
+  x: number,
+  y: number,
+  width: number,
+): number {
   const height = fichaGroupHeight(doc, group, width);
   doc.rect(x, y, width, height).lineWidth(0.6).strokeColor(COLORS.line).stroke();
-  doc.font(FONT.bold).fontSize(6.6).fillColor(COLORS.teal)
-    .text(group.title, x + 7, y + 4, { width: width - 14, characterSpacing: 0.7, lineBreak: false });
-  doc.moveTo(x, y + 15).lineTo(x + width, y + 15).lineWidth(0.5).strokeColor(COLORS.teal).stroke();
-  const labelWidth = 84;
-  const valueWidth = width - labelWidth - 14;
+  doc
+    .font(FONT.bold)
+    .fontSize(6.6)
+    .fillColor(COLORS.teal)
+    .text(group.title, x + 7, y + 4, {
+      width: width - 14,
+      characterSpacing: 0.7,
+      lineBreak: false,
+    });
+  doc
+    .moveTo(x, y + 15)
+    .lineTo(x + width, y + 15)
+    .lineWidth(0.5)
+    .strokeColor(COLORS.teal)
+    .stroke();
+  const valueWidth = width - FICHA_LABEL_WIDTH - 14;
   let cursor = y + 18;
   for (const row of group.rows) {
-    doc.font(FONT.regular).fontSize(7.6);
-    const rowHeight = Math.max(11, doc.heightOfString(row.value, { width: valueWidth, lineGap: 0.6 }) + 3);
-    smallCapsLabel(doc, row.label.toUpperCase(), x + 7, cursor + 1.5, labelWidth - 4, row.money ? COLORS.muted : COLORS.faded);
-    doc.font(row.strong ? FONT.bold : FONT.regular).fontSize(7.6)
+    const rowHeight = fichaRowHeight(doc, row, valueWidth);
+    smallCapsLabel(
+      doc,
+      row.label.toUpperCase(),
+      x + 7,
+      cursor + 1.5,
+      FICHA_LABEL_WIDTH - 4,
+      row.money ? COLORS.muted : COLORS.faded,
+    );
+    doc
+      .font(row.strong ? FONT.bold : FONT.regular)
+      .fontSize(7.6)
       .fillColor(row.value === NI ? COLORS.faded : row.warn ? COLORS.warning : COLORS.ink)
-      .text(row.value, x + 7 + labelWidth, cursor, { width: valueWidth, align: row.money ? 'right' : 'left', lineGap: 0.6 });
+      .text(row.value, x + 7 + FICHA_LABEL_WIDTH, cursor, {
+        width: valueWidth,
+        align: row.money ? 'right' : 'left',
+        lineGap: 0.6,
+      });
     cursor += rowHeight;
   }
   return y + height + 6;
@@ -543,44 +912,103 @@ function renderFichaItems(doc: Doc, f: Fields, type: string): void {
   if (!showItems) return;
   ensureSpace(doc, 26);
   const y = doc.y;
-  doc.font(FONT.bold).fontSize(6.6).fillColor(COLORS.teal)
-    .text('ITENS DO DOCUMENTO', MARGIN, y, { width: CONTENT_WIDTH, characterSpacing: 0.7, lineBreak: false });
+  doc
+    .font(FONT.bold)
+    .fontSize(6.6)
+    .fillColor(COLORS.teal)
+    .text('ITENS DO DOCUMENTO', MARGIN, y, {
+      width: CONTENT_WIDTH,
+      characterSpacing: 0.7,
+      lineBreak: false,
+    });
   doc.y = y + 11;
   if (f.itens.length === 0) {
-    doc.font(FONT.regular).fontSize(7.6).fillColor(COLORS.faded)
+    doc
+      .font(FONT.regular)
+      .fontSize(7.6)
+      .fillColor(COLORS.faded)
       .text('Nenhum item identificado no documento.', MARGIN, doc.y, { width: CONTENT_WIDTH });
     doc.y += 14;
     return;
   }
-  renderTable(doc, [
-    { title: 'Descrição', width: 208 },
-    { title: 'Qtd', width: 40, align: 'right' },
-    { title: 'Un.', width: 42 },
-    { title: 'Valor unitário', width: 76, align: 'right' },
-    { title: 'Desconto', width: 68, align: 'right' },
-    { title: 'Valor total', width: 73, align: 'right' },
-  ], f.itens.map((item) => [
-    item.descricao,
-    item.quantidade === null || item.quantidade === undefined ? '—' : String(item.quantidade),
-    ni(item.unidade),
-    item.valorUnitario === null || item.valorUnitario === undefined ? '—' : brl(item.valorUnitario.toFixed(2)),
-    item.desconto === null || item.desconto === undefined ? '—' : brl(item.desconto.toFixed(2)),
-    item.valorTotal === null || item.valorTotal === undefined ? '—' : brl(item.valorTotal.toFixed(2)),
-  ]));
+  renderTable(
+    doc,
+    [
+      { title: 'Descrição', width: 208 },
+      { title: 'Qtd', width: 40, align: 'right' },
+      { title: 'Un.', width: 42 },
+      { title: 'Valor unitário', width: 76, align: 'right' },
+      { title: 'Desconto', width: 68, align: 'right' },
+      { title: 'Valor total', width: 73, align: 'right' },
+    ],
+    f.itens.map((item) => [
+      item.descricao,
+      item.quantidade === null || item.quantidade === undefined ? '—' : String(item.quantidade),
+      ni(item.unidade),
+      item.valorUnitario === null || item.valorUnitario === undefined
+        ? '—'
+        : brl(item.valorUnitario.toFixed(2)),
+      item.desconto === null || item.desconto === undefined ? '—' : brl(item.desconto.toFixed(2)),
+      item.valorTotal === null || item.valorTotal === undefined
+        ? '—'
+        : brl(item.valorTotal.toFixed(2)),
+    ]),
+  );
 }
 
-function renderReceiptFicha(doc: Doc, item: Ficha, attachment: PdfAttachment | undefined, index: number): void {
+function renderReceiptFicha(
+  doc: Doc,
+  item: Ficha,
+  attachment: PdfAttachment | undefined,
+  index: number,
+): void {
   ensureSpace(doc, 40);
   const yHeader = doc.y;
-  doc.font(FONT.bold).fontSize(9).fillColor(COLORS.ink).text(`Comprovante ${index + 1} · ${item.categoria}`, MARGIN, yHeader, { width: 250, lineBreak: false });
+  doc
+    .font(FONT.bold)
+    .fontSize(9)
+    .fillColor(COLORS.ink)
+    .text(`Comprovante ${index + 1} · ${item.categoria}`, MARGIN, yHeader, {
+      width: 250,
+      lineBreak: false,
+    });
   const marker = receiptMarker(item);
-  smallCapsLabel(doc, marker.label, PAGE_WIDTH - MARGIN - 190, yHeader + 2, 190, marker.color, 'right');
-  doc.font(FONT.regular).fontSize(7).fillColor(COLORS.faded)
-    .text(item.fileName, PAGE_WIDTH - MARGIN - 190, yHeader + 12, { width: 190, align: 'right', lineBreak: false, ellipsis: true });
+  smallCapsLabel(
+    doc,
+    marker.label,
+    PAGE_WIDTH - MARGIN - 190,
+    yHeader + 2,
+    190,
+    marker.color,
+    'right',
+  );
+  doc
+    .font(FONT.regular)
+    .fontSize(7)
+    .fillColor(COLORS.faded)
+    .text(item.fileName, PAGE_WIDTH - MARGIN - 190, yHeader + 12, {
+      width: 190,
+      align: 'right',
+      lineBreak: false,
+      ellipsis: true,
+    });
   if (item.conferidoEm) {
-    smallCapsLabel(doc, `CONFERIDO EM ${dateBR(item.conferidoEm)}`, PAGE_WIDTH - MARGIN - 190, yHeader + 23, 190, COLORS.faded, 'right');
+    smallCapsLabel(
+      doc,
+      `CONFERIDO EM ${dateBR(item.conferidoEm)}`,
+      PAGE_WIDTH - MARGIN - 190,
+      yHeader + 23,
+      190,
+      COLORS.faded,
+      'right',
+    );
   }
-  doc.moveTo(MARGIN, yHeader + 34).lineTo(PAGE_WIDTH - MARGIN, yHeader + 34).lineWidth(0.4).strokeColor(COLORS.line).stroke();
+  doc
+    .moveTo(MARGIN, yHeader + 34)
+    .lineTo(PAGE_WIDTH - MARGIN, yHeader + 34)
+    .lineWidth(0.4)
+    .strokeColor(COLORS.line)
+    .stroke();
 
   const { groups, identified } = buildFicha(item);
   const sticky = groups.slice(0, 3);
@@ -598,7 +1026,11 @@ function renderReceiptFicha(doc: Doc, item: Ficha, attachment: PdfAttachment | u
   const note = identified === 0 ? fallbackNote(item) : null;
   if (note) {
     ensureSpace(doc, 22);
-    doc.font(FONT.regular).fontSize(7.8).fillColor(COLORS.muted).text(note, MARGIN, doc.y, { width: CONTENT_WIDTH, lineGap: 0.8 });
+    doc
+      .font(FONT.regular)
+      .fontSize(7.8)
+      .fillColor(COLORS.muted)
+      .text(note, MARGIN, doc.y, { width: CONTENT_WIDTH, lineGap: 0.8 });
     doc.y += 14;
   }
 
@@ -610,17 +1042,22 @@ function renderReceiptFicha(doc: Doc, item: Ficha, attachment: PdfAttachment | u
     doc.y = renderFichaGroupAt(doc, group, MARGIN, doc.y, CONTENT_WIDTH);
   }
 
-  doc.moveTo(MARGIN, doc.y).lineTo(PAGE_WIDTH - MARGIN, doc.y).lineWidth(0.4).strokeColor(COLORS.line).stroke();
+  doc
+    .moveTo(MARGIN, doc.y)
+    .lineTo(PAGE_WIDTH - MARGIN, doc.y)
+    .lineWidth(0.4)
+    .strokeColor(COLORS.line)
+    .stroke();
   doc.y += 14;
 }
 
 function renderReceiptBlocks(doc: Doc, data: ReportData, attachments: PdfAttachment[]): void {
   if (data.ocrDetalhes.length === 0) return;
-  sectionTitle(doc, 'Comprovantes', 'FICHA FISCAL E DOCUMENTAL · CONFERÊNCIA');
+  sectionTitle(doc, 'Comprovantes', 'FICHA FISCAL E DOCUMENTAL · CONFERÊNCIA', 190);
   data.ocrDetalhes.forEach((item, index) => {
-    const attachment = attachments.find((candidate) => item.fileHash
-      ? candidate.fileHash === item.fileHash
-      : candidate.receiptId === item.receiptId);
+    const attachment = attachments.find((candidate) =>
+      item.fileHash ? candidate.fileHash === item.fileHash : candidate.receiptId === item.receiptId,
+    );
     renderReceiptFicha(doc, item, attachment, index);
   });
 }
@@ -629,23 +1066,55 @@ function renderCoverage(doc: Doc, data: ReportData): void {
   const ocr = data.ocr;
   sectionTitle(doc, '4 · Conferência de comprovantes', 'COBERTURA E RASTREABILIDADE');
   const line = `Total ${ocr.totalComprovantes} · OCR ${ocr.comOcr} · Manual ${ocr.manual} · Pendente ${ocr.pendentes} · Falha ${ocr.falhas} · Valor extraído ${brl(ocr.valorExtraidoTotal)}`;
-  doc.font(FONT.regular).fontSize(8.2).fillColor(COLORS.ink).text(line, MARGIN, doc.y, { width: CONTENT_WIDTH, lineGap: 1 });
+  doc
+    .font(FONT.regular)
+    .fontSize(8.2)
+    .fillColor(COLORS.ink)
+    .text(line, MARGIN, doc.y, { width: CONTENT_WIDTH, lineGap: 1 });
   doc.y += 14;
 }
 
 function renderFinanceiro(doc: Doc, data: ReportData): void {
   const financeiro = data.financeiro;
   const rows = [
-    ...financeiro.adiantamentos.map((record) => ['Adiantamento', dateBR(record.data), record.responsavel, '-', brl(record.valor)]),
-    ...financeiro.reembolsos.map((record) => ['Reembolso', dateBR(record.data), record.responsavel, record.comprovanteNome ?? '—', brl(record.valor)]),
-    ...financeiro.devolucoes.map((record) => ['Devolução', dateBR(record.data), record.responsavel, record.comprovanteNome ?? '—', brl(record.valor)]),
+    ...financeiro.adiantamentos.map((record) => [
+      'Adiantamento',
+      dateBR(record.data),
+      record.responsavel,
+      '-',
+      brl(record.valor),
+    ]),
+    ...financeiro.reembolsos.map((record) => [
+      'Reembolso',
+      dateBR(record.data),
+      record.responsavel,
+      record.comprovanteNome ?? '—',
+      brl(record.valor),
+    ]),
+    ...financeiro.devolucoes.map((record) => [
+      'Devolução',
+      dateBR(record.data),
+      record.responsavel,
+      record.comprovanteNome ?? '—',
+      brl(record.valor),
+    ]),
   ];
   sectionTitle(doc, '5 · Movimentações financeiras', 'ADIANTAMENTOS, PAGAMENTOS E DEVOLUÇÕES');
   if (rows.length === 0) {
-    ledgerFields(doc, [{ label: 'Situação financeira', value: 'Nenhuma movimentação financeira registrada.' }], true);
+    ledgerFields(
+      doc,
+      [{ label: 'Situação financeira', value: 'Nenhuma movimentação financeira registrada.' }],
+      true,
+    );
     return;
   }
-  const columns: Column[] = [{ title: 'Tipo', width: 103 }, { title: 'Data', width: 62 }, { title: 'Responsável', width: 112 }, { title: 'Comprovante', width: 140 }, { title: 'Valor', width: CONTENT_WIDTH - 417, align: 'right' }];
+  const columns: Column[] = [
+    { title: 'Tipo', width: 103 },
+    { title: 'Data', width: 62 },
+    { title: 'Responsável', width: 112 },
+    { title: 'Comprovante', width: 140 },
+    { title: 'Valor', width: CONTENT_WIDTH - 417, align: 'right' },
+  ];
   renderTable(doc, columns, rows);
   ledgerFields(doc, [
     { label: 'Total de reembolsos', value: brl(financeiro.totalReembolsos) },
@@ -655,20 +1124,48 @@ function renderFinanceiro(doc: Doc, data: ReportData): void {
 }
 
 function renderAprovacao(doc: Doc): void {
-  sectionTitle(doc, '6 · Aprovação', 'REGISTRO DE CONFERÊNCIA');
+  sectionTitle(doc, '6 · Aprovação', 'REGISTRO DE CONFERÊNCIA', 86);
   const labelWidth = 120;
-  ensureSpace(doc, 74);
   const y = doc.y;
   smallCapsLabel(doc, 'APROVADO POR', MARGIN, y + 2, labelWidth);
-  doc.font(FONT.regular).fontSize(8.6).fillColor(COLORS.ink).text('Gestor responsável', MARGIN + labelWidth, y, { width: CONTENT_WIDTH - labelWidth, lineBreak: false });
-  doc.moveTo(MARGIN, y + 20).lineTo(MARGIN + 220, y + 20).lineWidth(0.6).strokeColor(COLORS.ink).stroke();
+  doc
+    .font(FONT.regular)
+    .fontSize(8.6)
+    .fillColor(COLORS.ink)
+    .text('Gestor responsável', MARGIN + labelWidth, y, {
+      width: CONTENT_WIDTH - labelWidth,
+      lineBreak: false,
+    });
+  doc
+    .moveTo(MARGIN, y + 20)
+    .lineTo(MARGIN + 220, y + 20)
+    .lineWidth(0.6)
+    .strokeColor(COLORS.ink)
+    .stroke();
   smallCapsLabel(doc, 'ASSINATURA', MARGIN + 14, y + 24, 120);
   smallCapsLabel(doc, 'OBSERVAÇÕES', MARGIN, y + 42, labelWidth);
-  doc.moveTo(MARGIN, y + 62).lineTo(PAGE_WIDTH - MARGIN, y + 62).lineWidth(0.5).strokeColor(COLORS.line).stroke();
+  doc
+    .moveTo(MARGIN, y + 62)
+    .lineTo(PAGE_WIDTH - MARGIN, y + 62)
+    .lineWidth(0.5)
+    .strokeColor(COLORS.line)
+    .stroke();
   smallCapsLabel(doc, 'DATA', MARGIN + 240, y + 24, 60);
-  doc.moveTo(MARGIN + 240, y + 38).lineTo(MARGIN + 300, y + 38).lineWidth(0.6).strokeColor(COLORS.ink).stroke();
+  doc
+    .moveTo(MARGIN + 240, y + 38)
+    .lineTo(MARGIN + 300, y + 38)
+    .lineWidth(0.6)
+    .strokeColor(COLORS.ink)
+    .stroke();
   doc.y = y + 70;
-  smallCapsLabel(doc, 'DOCUMENTO GERADO ELETRONICAMENTE PELA VAIEFECHA', MARGIN, doc.y, CONTENT_WIDTH, COLORS.faded);
+  smallCapsLabel(
+    doc,
+    'DOCUMENTO GERADO ELETRONICAMENTE PELA VAIEFECHA',
+    MARGIN,
+    doc.y,
+    CONTENT_WIDTH,
+    COLORS.faded,
+  );
   doc.y += 12;
 }
 
@@ -676,61 +1173,123 @@ function attachComprovantes(doc: Doc, attachments: PdfAttachment[], startIndex: 
   for (const [index, attachment] of attachments.entries()) {
     newPage(doc);
     doc.font(FONT.bold).fontSize(9).fillColor(COLORS.ink).text('Comprovante anexado');
-    doc.font(FONT.regular).fontSize(7).fillColor(COLORS.faded)
-      .text(`Anexo ${startIndex + index + 1} de ${startIndex + attachments.length} · ${attachment.fileName}`, MARGIN, doc.y + 2, { characterSpacing: 0.6, lineBreak: false });
-    doc.moveTo(MARGIN, doc.y + 12).lineTo(PAGE_WIDTH - MARGIN, doc.y + 12).lineWidth(0.4).strokeColor(COLORS.teal).stroke();
+    doc
+      .font(FONT.regular)
+      .fontSize(7)
+      .fillColor(COLORS.faded)
+      .text(
+        `Anexo ${startIndex + index + 1} de ${startIndex + attachments.length} · ${attachment.fileName}`,
+        MARGIN,
+        doc.y + 2,
+        { characterSpacing: 0.6, lineBreak: false },
+      );
+    doc
+      .moveTo(MARGIN, doc.y + 12)
+      .lineTo(PAGE_WIDTH - MARGIN, doc.y + 12)
+      .lineWidth(0.4)
+      .strokeColor(COLORS.teal)
+      .stroke();
     doc.y += 18;
-    try { doc.image(Buffer.from(attachment.data), MARGIN, doc.y, { fit: [CONTENT_WIDTH, 620], align: 'center', valign: 'center' }); }
-    catch { doc.rect(MARGIN, doc.y, CONTENT_WIDTH, 90).lineWidth(0.5).strokeColor(COLORS.line).stroke(); doc.font(FONT.regular).fontSize(8).fillColor(COLORS.muted).text('Comprovante em formato não suportado para exibição.', MARGIN + 12, doc.y + 39, { width: CONTENT_WIDTH - 24, align: 'center' }); }
+    try {
+      doc.image(Buffer.from(attachment.data), MARGIN, doc.y, {
+        fit: [CONTENT_WIDTH, 620],
+        align: 'center',
+      });
+    } catch {
+      doc.rect(MARGIN, doc.y, CONTENT_WIDTH, 90).lineWidth(0.5).strokeColor(COLORS.line).stroke();
+      doc
+        .font(FONT.regular)
+        .fontSize(8)
+        .fillColor(COLORS.muted)
+        .text('Comprovante em formato não suportado para exibição.', MARGIN + 12, doc.y + 39, {
+          width: CONTENT_WIDTH - 24,
+          align: 'center',
+        });
+    }
   }
 }
 
 function reportContext(data: ReportData, title: string, subtitle: string): PageContext {
-  return { title, subtitle, emittedAt: data.emitidoEm, emittedBy: data.emitidoPor, version: data.versao, status: data.trip.status };
+  return {
+    title,
+    subtitle,
+    emittedAt: data.emitidoEm,
+    emittedBy: data.emitidoPor,
+    version: data.versao,
+    status: data.trip.status,
+  };
 }
 
 function orderAttachments(data: ReportData, attachments: PdfAttachment[]): PdfAttachment[] {
-  const id = (attachment: PdfAttachment): string => attachment.fileHash || `receipt:${attachment.receiptId}`;
+  const id = (attachment: PdfAttachment): string =>
+    attachment.fileHash || `receipt:${attachment.receiptId}`;
   const byId = new Map<string, PdfAttachment>();
-  for (const attachment of attachments) if (!byId.has(id(attachment))) byId.set(id(attachment), attachment);
+  for (const attachment of attachments)
+    if (!byId.has(id(attachment))) byId.set(id(attachment), attachment);
   const ordered: PdfAttachment[] = [];
   const seen = new Set<string>();
   for (const item of data.ocrDetalhes) {
     const key = item.fileHash || `receipt:${item.receiptId}`;
     const attachment = byId.get(key);
-    if (attachment && !seen.has(key)) { ordered.push(attachment); seen.add(key); }
+    if (attachment && !seen.has(key)) {
+      ordered.push(attachment);
+      seen.add(key);
+    }
   }
   for (const attachment of attachments) {
     const key = id(attachment);
-    if (!seen.has(key)) { ordered.push(attachment); seen.add(key); }
+    if (!seen.has(key)) {
+      ordered.push(attachment);
+      seen.add(key);
+    }
   }
   return ordered;
 }
 
-export async function renderOfficialPdf(data: ReportData, options: { attachments: PdfAttachment[] }): Promise<Buffer> {
-  return render((doc) => {
-    doc.y = CONTENT_TOP;
-    tripInfo(doc, data);
-    renderParticipantes(doc, data);
-    renderDespesas(doc, data);
-    const ordered = orderAttachments(data, options.attachments);
-    renderReceiptBlocks(doc, data, ordered);
-    renderCoverage(doc, data);
-    renderFinanceiro(doc, data);
-    renderAprovacao(doc);
-    if (ordered.length > 0) attachComprovantes(doc, ordered, 0);
-  }, reportContext(data, 'RELATÓRIO OFICIAL DE VIAGEM', 'Prestação de contas e conferência documental'));
+export async function renderOfficialPdf(
+  data: ReportData,
+  options: { attachments: PdfAttachment[] },
+): Promise<Buffer> {
+  return render(
+    (doc) => {
+      doc.y = CONTENT_TOP;
+      tripInfo(doc, data);
+      renderParticipantes(doc, data);
+      renderDespesas(doc, data);
+      const ordered = orderAttachments(data, options.attachments);
+      renderReceiptBlocks(doc, data, ordered);
+      renderCoverage(doc, data);
+      renderFinanceiro(doc, data);
+      renderAprovacao(doc);
+      if (ordered.length > 0) attachComprovantes(doc, ordered, 0);
+    },
+    reportContext(
+      data,
+      'RELATÓRIO OFICIAL DE VIAGEM',
+      'Prestação de contas e conferência documental',
+    ),
+  );
 }
 
-export async function renderManagerPdf(data: ReportData, options: { attachments: PdfAttachment[] }): Promise<Buffer> {
-  return render((doc) => {
-    doc.y = CONTENT_TOP;
-    tripInfo(doc, data);
-    renderParticipantes(doc, data);
-    renderDespesas(doc, data);
-    renderCoverage(doc, data);
-    renderFinanceiro(doc, data);
-    renderAprovacao(doc);
-    if (options.attachments.length > 0) attachComprovantes(doc, options.attachments, 0);
-  }, reportContext(data, 'RESUMO GERENCIAL DE VIAGEM', 'Custos, participantes e documentos vinculados'));
+export async function renderManagerPdf(
+  data: ReportData,
+  options: { attachments: PdfAttachment[] },
+): Promise<Buffer> {
+  return render(
+    (doc) => {
+      doc.y = CONTENT_TOP;
+      tripInfo(doc, data);
+      renderParticipantes(doc, data);
+      renderDespesas(doc, data);
+      renderCoverage(doc, data);
+      renderFinanceiro(doc, data);
+      renderAprovacao(doc);
+      if (options.attachments.length > 0) attachComprovantes(doc, options.attachments, 0);
+    },
+    reportContext(
+      data,
+      'RESUMO GERENCIAL DE VIAGEM',
+      'Custos, participantes e documentos vinculados',
+    ),
+  );
 }
