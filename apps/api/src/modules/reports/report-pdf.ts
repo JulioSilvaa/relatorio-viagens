@@ -88,38 +88,42 @@ function render(content: (doc: Doc) => void, context: PageContext): Promise<Buff
   });
 }
 
+const HEADER_RIGHT_WIDTH = 190;
+const HEADER_COLUMN_GAP = 14;
+const HEADER_LEFT_WIDTH = CONTENT_WIDTH - HEADER_RIGHT_WIDTH - HEADER_COLUMN_GAP;
+const HEADER_RIGHT_X = PAGE_WIDTH - MARGIN - HEADER_RIGHT_WIDTH;
+
 function renderPageChrome(doc: Doc, context: PageContext): void {
   const { start, count } = doc.bufferedPageRange();
   for (let index = start; index < start + count; index += 1) {
     doc.switchToPage(index);
 
+    // Left column (brand/title/subtitle) and right column (version/status) are two
+    // independent stacks capped to their own width, with a fixed gap between them —
+    // stacking them on shared y-coordinates without a width cap previously let the
+    // subtitle and "Status" lines render on top of each other on the right edge.
     doc
       .font(FONT.bold)
       .fontSize(13)
       .fillColor(COLORS.ink)
-      .text('vaiefecha', MARGIN, 22, { lineBreak: false });
-    doc
-      .font(FONT.regular)
-      .fontSize(7)
-      .fillColor(COLORS.muted)
-      .text(context.title, MARGIN, 39, { characterSpacing: 1.2, lineBreak: false });
-    doc
-      .font(FONT.regular)
-      .fontSize(7)
-      .fillColor(COLORS.muted)
-      .text(context.subtitle, MARGIN + 190, 39, {
-        width: CONTENT_WIDTH - 190,
-        align: 'right',
-        characterSpacing: 0.6,
-        lineBreak: false,
-      });
+      .text('vaiefecha', MARGIN, 20, { lineBreak: false });
+    doc.font(FONT.regular).fontSize(7).fillColor(COLORS.muted).text(context.title, MARGIN, 37, {
+      width: HEADER_LEFT_WIDTH,
+      characterSpacing: 1.2,
+      lineBreak: false,
+    });
+    doc.font(FONT.regular).fontSize(7).fillColor(COLORS.muted).text(context.subtitle, MARGIN, 47, {
+      width: HEADER_LEFT_WIDTH,
+      characterSpacing: 0.6,
+      lineBreak: false,
+    });
 
     doc
       .font(FONT.bold)
       .fontSize(8)
       .fillColor(COLORS.ink)
-      .text(`Nº ${context.version} · ${dateBR(context.emittedAt)}`, PAGE_WIDTH - MARGIN - 190, 22, {
-        width: 190,
+      .text(`Nº ${context.version} · ${dateBR(context.emittedAt)}`, HEADER_RIGHT_X, 20, {
+        width: HEADER_RIGHT_WIDTH,
         align: 'right',
         lineBreak: false,
       });
@@ -127,8 +131,8 @@ function renderPageChrome(doc: Doc, context: PageContext): void {
       .font(FONT.regular)
       .fontSize(7)
       .fillColor(COLORS.muted)
-      .text(`Status · ${cleanStatus(context.status)}`, PAGE_WIDTH - MARGIN - 190, 34, {
-        width: 190,
+      .text(`Status · ${cleanStatus(context.status)}`, HEADER_RIGHT_X, 33, {
+        width: HEADER_RIGHT_WIDTH,
         align: 'right',
         characterSpacing: 0.6,
         lineBreak: false,
@@ -912,15 +916,11 @@ function renderFichaItems(doc: Doc, f: Fields, type: string): void {
   if (!showItems) return;
   ensureSpace(doc, 26);
   const y = doc.y;
-  doc
-    .font(FONT.bold)
-    .fontSize(6.6)
-    .fillColor(COLORS.teal)
-    .text('ITENS DO DOCUMENTO', MARGIN, y, {
-      width: CONTENT_WIDTH,
-      characterSpacing: 0.7,
-      lineBreak: false,
-    });
+  doc.font(FONT.bold).fontSize(6.6).fillColor(COLORS.teal).text('ITENS DO DOCUMENTO', MARGIN, y, {
+    width: CONTENT_WIDTH,
+    characterSpacing: 0.7,
+    lineBreak: false,
+  });
   doc.y = y + 11;
   if (f.itens.length === 0) {
     doc
@@ -962,7 +962,11 @@ function renderReceiptFicha(
   attachment: PdfAttachment | undefined,
   index: number,
 ): void {
-  ensureSpace(doc, 40);
+  // Reserve space for the header together with the thumbnail that always follows it
+  // (not just the header's own 40pt): otherwise the header could fit at the bottom
+  // of a page while the thumbnail+first fields broke to the next one, leaving an
+  // orphaned "Comprovante N" heading followed by an almost-blank page.
+  ensureSpace(doc, 40 + IMG_H + 16);
   const yHeader = doc.y;
   doc
     .font(FONT.bold)
@@ -1221,26 +1225,20 @@ function reportContext(data: ReportData, title: string, subtitle: string): PageC
 }
 
 function orderAttachments(data: ReportData, attachments: PdfAttachment[]): PdfAttachment[] {
-  const id = (attachment: PdfAttachment): string =>
-    attachment.fileHash || `receipt:${attachment.receiptId}`;
-  const byId = new Map<string, PdfAttachment>();
-  for (const attachment of attachments)
-    if (!byId.has(id(attachment))) byId.set(id(attachment), attachment);
+  const byReceiptId = new Map(attachments.map((attachment) => [attachment.receiptId, attachment]));
   const ordered: PdfAttachment[] = [];
-  const seen = new Set<string>();
+  const used = new Set<string>();
   for (const item of data.ocrDetalhes) {
-    const key = item.fileHash || `receipt:${item.receiptId}`;
-    const attachment = byId.get(key);
-    if (attachment && !seen.has(key)) {
+    const attachment = byReceiptId.get(item.receiptId);
+    if (attachment) {
       ordered.push(attachment);
-      seen.add(key);
+      used.add(attachment.receiptId);
     }
   }
   for (const attachment of attachments) {
-    const key = id(attachment);
-    if (!seen.has(key)) {
+    if (!used.has(attachment.receiptId)) {
       ordered.push(attachment);
-      seen.add(key);
+      used.add(attachment.receiptId);
     }
   }
   return ordered;
