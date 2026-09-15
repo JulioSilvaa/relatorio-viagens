@@ -49,8 +49,27 @@ function brl(value: string): string {
   );
 }
 
+// Fixo em America/Sao_Paulo em vez de usar o fuso local do processo: o container
+// da API roda em UTC por padrão, então getDate()/getMonth()/toLocaleTimeString()
+// sem timeZone explícito mostravam a hora (e às vezes até a data) erradas no
+// rodapé do PDF — o horário "de verdade" do usuário sempre 3h atrás do exibido.
+const REPORT_TIME_ZONE = 'America/Sao_Paulo';
+
 function dateBR(date: Date): string {
-  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: REPORT_TIME_ZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function timeBR(date: Date): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: REPORT_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function cleanStatus(status: string): string {
@@ -163,7 +182,7 @@ function renderPageChrome(doc: Doc, context: PageContext): void {
       .fontSize(7)
       .fillColor(COLORS.faded)
       .text(
-        `Emitido em ${dateBR(context.emittedAt)} às ${context.emittedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} por ${context.emittedBy} · Versão ${context.version}`,
+        `Emitido em ${dateBR(context.emittedAt)} às ${timeBR(context.emittedAt)} por ${context.emittedBy} · Versão ${context.version}`,
         MARGIN,
         CONTENT_BOTTOM + 16,
         { width: CONTENT_WIDTH - 70, lineBreak: false },
