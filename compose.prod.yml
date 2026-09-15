@@ -29,7 +29,7 @@ services:
       dockerfile: apps/ocr/Dockerfile
     restart: unless-stopped
     volumes:
-      - ocr_models:/home/ocr/.paddleocr
+      - ocr_models:/home/ocr/.rapidocr
     expose:
       - "8000"
     healthcheck:
