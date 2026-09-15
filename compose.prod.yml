@@ -28,6 +28,11 @@ services:
       context: .
       dockerfile: apps/ocr/Dockerfile
     restart: unless-stopped
+    environment:
+      # Precisa bater com "cpus" logo abaixo — ONNX Runtime detecta os núcleos do
+      # HOST por padrão (não o limite de cgroup do container), então sem isso ele
+      # abre threads demais e a inferência fica bem mais lenta.
+      OCR_CPU_THREADS: "2"
     volumes:
       - ocr_models:/home/ocr/.rapidocr
     expose:

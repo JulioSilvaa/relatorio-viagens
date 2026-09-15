@@ -1,3 +1,4 @@
+import os
 from io import BytesIO
 
 from fastapi import FastAPI, File, UploadFile
@@ -7,6 +8,15 @@ from rapidocr import RapidOCR
 from pyzbar.pyzbar import decode
 
 app = FastAPI(title="VDR OCR")
+
+# Quantas CPUs o container realmente tem (ver "cpus" no compose.*.yml) — o ONNX
+# Runtime, por padrão (intra/inter_op_num_threads=-1), detecta os núcleos do HOST,
+# não o limite de cgroup do container. Num host com mais núcleos que a cota do
+# container, isso gera oversubscription de threads brigando por pouca CPU de
+# verdade — foi exatamente essa configuração default que deixou a inferência em
+# produção ~10x mais lenta do que o esperado. Fixar o número de threads pro que
+# o container realmente tem resolve o oversubscription.
+_OCR_CPU_THREADS = int(os.environ.get("OCR_CPU_THREADS", "2"))
 
 # RapidOCR (ONNX Runtime) no lugar do PaddleOCR: mesmos modelos PP-OCR por trás,
 # porém rodando num runtime de inferência bem mais leve e rápido em CPU — é o que
@@ -20,6 +30,8 @@ ocr = RapidOCR(
     params={
         "Global.model_root_dir": "/home/ocr/.rapidocr/models",
         "Rec.lang_type": "pt",
+        "EngineConfig.onnxruntime.intra_op_num_threads": _OCR_CPU_THREADS,
+        "EngineConfig.onnxruntime.inter_op_num_threads": 1,
     }
 )
 
