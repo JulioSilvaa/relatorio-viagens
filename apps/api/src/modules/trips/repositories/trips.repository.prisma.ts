@@ -46,6 +46,7 @@ interface PrismaTripRow {
 
 const DETAIL_INCLUDE = {
   criadoPor: { select: { id: true, name: true } },
+  centroDeCusto: { select: { id: true, nome: true } },
   participants: {
     include: {
       user: { select: { id: true, name: true } },
@@ -184,12 +185,14 @@ function toDetailRecord(
   participants: TripParticipantRecord[],
   expenses: ExpenseDetailRecord[],
   adiantamento: TripDetailPayload['advances'][number] | null,
+  centroDeCusto: TripDetailPayload['centroDeCusto'],
 ): TripDetailRecord {
   return {
     ...toTripRecord(trip, criadoPor),
     participants,
     expenses,
     adiantamento: adiantamento ? toAdvanceRecord(adiantamento) : null,
+    centroDeCusto,
   };
 }
 
@@ -256,7 +259,14 @@ export class PrismaTripsRepository implements TripsRepository {
     }));
 
     const expenses = trip.expenses.map(toExpenseDetail);
-    return toDetailRecord(trip, trip.criadoPor, participants, expenses, trip.advances[0] ?? null);
+    return toDetailRecord(
+      trip,
+      trip.criadoPor,
+      participants,
+      expenses,
+      trip.advances[0] ?? null,
+      trip.centroDeCusto,
+    );
   }
 
   async findByParticipant(userId: string, companyId: string): Promise<TripRecord[]> {

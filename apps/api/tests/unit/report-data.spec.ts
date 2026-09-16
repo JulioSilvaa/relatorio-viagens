@@ -55,6 +55,7 @@ function fakeTrip(expenses: ExpenseDetailRecord[]): TripDetailRecord {
     kmFinal: null,
     taxaKm: null,
     centroDeCustoId: null,
+    centroDeCusto: null,
     observacoes: null,
     status: 'APROVADA',
     motivoCancelamento: null,

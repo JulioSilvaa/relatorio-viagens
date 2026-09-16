@@ -133,6 +133,7 @@ export interface TripDetailRecord extends TripRecord {
   participants: TripParticipantRecord[];
   expenses: ExpenseDetailRecord[] | null;
   adiantamento: TripAdvanceRecord | null;
+  centroDeCusto: { id: string; nome: string } | null;
 }
 
 export interface CreateTripInput extends CreateTripData {

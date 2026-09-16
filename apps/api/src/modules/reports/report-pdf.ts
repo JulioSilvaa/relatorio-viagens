@@ -76,12 +76,6 @@ function cleanStatus(status: string): string {
   return status.replaceAll('_', ' ');
 }
 
-function isUuid(value: string | null): boolean {
-  return (
-    value !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
-  );
-}
-
 function accessKeyDisplay(value: string | null): string | null {
   if (!value) return null;
   const digits = value.replace(/\D/g, '');
@@ -460,10 +454,6 @@ function tripInfo(doc: Doc, data: ReportData): void {
     trip.kmInicial !== null && trip.kmFinal !== null
       ? Number(trip.kmFinal) - Number(trip.kmInicial)
       : null;
-  const valorReembolsoKm =
-    kmPercorridos !== null && Number.isFinite(kmPercorridos) && trip.taxaKm
-      ? (kmPercorridos * Number(trip.taxaKm)).toFixed(2)
-      : null;
   sectionTitle(doc, '1 · Identificação da viagem', 'PRESTAÇÃO DE CONTAS');
   balanceStrip(doc, [
     { label: 'DESPESAS LANÇADAS', value: brl(data.totalDespesas) },
@@ -475,10 +465,7 @@ function tripInfo(doc: Doc, data: ReportData): void {
     { label: 'Departamento', value: trip.departamento },
     { label: 'Destino', value: `${trip.cidade}/${trip.uf}` },
     { label: 'Período', value: `${dateBR(trip.dataSaida)} a ${dateBR(trip.dataRetorno)}` },
-    {
-      label: 'Centro de custo',
-      value: isUuid(trip.centroDeCusto) ? 'Não informado' : (trip.centroDeCusto ?? 'Não informado'),
-    },
+    { label: 'Centro de custo', value: trip.centroDeCusto ?? 'Não informado' },
     { label: 'Motivo', value: trip.motivo },
     {
       label: 'Veículo',
@@ -495,10 +482,6 @@ function tripInfo(doc: Doc, data: ReportData): void {
           : 'Não informado',
     },
     { label: 'Taxa por km', value: trip.taxaKm ? brl(trip.taxaKm) : 'Não informado' },
-    {
-      label: 'Reembolso por km',
-      value: valorReembolsoKm ? brl(valorReembolsoKm) : 'Não informado',
-    },
   ]);
   if (trip.observacoes)
     ledgerFields(doc, [{ label: 'Observações', value: trip.observacoes }], true);

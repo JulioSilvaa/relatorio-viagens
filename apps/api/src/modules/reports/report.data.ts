@@ -41,7 +41,7 @@ function toTripData(trip: TripDetailRecord): ReportTripData {
     kmInicial: trip.kmInicial,
     kmFinal: trip.kmFinal,
     taxaKm: trip.taxaKm,
-    centroDeCusto: trip.centroDeCustoId,
+    centroDeCusto: trip.centroDeCusto?.nome ?? null,
     observacoes: trip.observacoes,
     status: trip.status,
   };
