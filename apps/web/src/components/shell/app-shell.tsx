@@ -68,7 +68,7 @@ function BottomNav() {
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_-4px_rgb(24_28_36_/_0.08)] md:hidden"
     >
       <div className="grid grid-cols-5 items-center px-2">
         {first.map((item) => (
@@ -81,7 +81,7 @@ function BottomNav() {
         <Link
           href="/viagens/nova"
           aria-label="Nova viagem"
-          className="flex size-14 items-center justify-center self-center justify-self-center rounded-full bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/80"
+          className="flex size-14 items-center justify-center self-center justify-self-center rounded-full bg-primary text-primary-foreground shadow-lg transition-[background-color,transform] duration-150 hover:bg-primary/80 active:scale-95"
         >
           <Plus className="size-6" aria-hidden="true" />
         </Link>

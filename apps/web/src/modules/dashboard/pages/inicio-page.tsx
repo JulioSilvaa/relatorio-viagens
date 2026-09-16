@@ -7,6 +7,7 @@ import {
   Building2,
   CheckCircle2,
   CircleHelp,
+  Clock3,
   FileText,
   MapPin,
   Plane,
@@ -19,8 +20,10 @@ import { StatCard } from "../components/stat-card";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "cn";
 import { formatDate, formatMoney } from "@/lib/format";
 import { getErrorMessage } from "@/lib/api";
+import { getTripStatusMeta } from "@/lib/trip-status";
 import { TripStatusBadge } from "@/modules/trips/components/trip-status-badge";
 
 function StatGridSkeleton() {
@@ -223,9 +226,6 @@ function ManagerDashboard() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-primary">
-            Visão gerencial
-          </p>
           <h1 className="text-2xl font-semibold tracking-tight">Resumo operacional</h1>
           <p className="text-sm text-muted-foreground">
             {formatDate(data.periodoDe)} — {formatDate(data.periodoAte)}
@@ -253,26 +253,37 @@ function ManagerDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-[1.3fr_1fr]">
         <StatCard
+          featured
           label="Despesas no período"
           value={formatMoney(data.totalDespesas)}
+          tone="info"
           icon={<WalletCards className="size-4" aria-hidden="true" />}
         />
         <StatCard
-          label="Reembolsos"
-          value={formatMoney(data.totalReembolsado)}
-          icon={<Activity className="size-4" aria-hidden="true" />}
-        />
-        <StatCard
+          featured
           label="Valores pendentes"
           value={formatMoney(data.valoresPendentes)}
           hint="Acompanhar"
+          tone={Number(data.valoresPendentes) > 0 ? "warning" : "success"}
+          icon={<Clock3 className="size-4" aria-hidden="true" />}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Reembolsos"
+          value={formatMoney(data.totalReembolsado)}
+          tone="success"
+          icon={<Activity className="size-4" aria-hidden="true" />}
         />
         <StatCard
           label="Relatórios pendentes"
           value={data.relatoriosPendentes}
           hint="Em aprovação"
+          tone={data.relatoriosPendentes > 0 ? "info" : "neutral"}
+          icon={<FileText className="size-4" aria-hidden="true" />}
         />
         <StatCard
           label="Viagens"
@@ -452,18 +463,33 @@ function ManagerDashboard() {
               Considera todas as viagens, sem filtro de período.
             </p>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {data.reembolsosStatus.map((item) => (
-              <span
-                key={item.status}
-                className="inline-flex items-center gap-1.5"
-              >
-                <TripStatusBadge status={item.status} />
-                <span className="text-sm text-muted-foreground">
-                  {item.quantidade}
-                </span>
-              </span>
-            ))}
+          <CardContent className="flex flex-col gap-3">
+            {(() => {
+              const total = data.reembolsosStatus.reduce(
+                (sum, item) => sum + item.quantidade,
+                0,
+              );
+              return data.reembolsosStatus.map((item) => {
+                const meta = getTripStatusMeta(item.status);
+                const percentage = total > 0 ? (item.quantidade / total) * 100 : 0;
+                return (
+                  <div key={item.status} className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <TripStatusBadge status={item.status} />
+                      <span className="text-sm font-semibold tabular-nums text-foreground">
+                        {item.quantidade}
+                      </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn("h-full rounded-full", meta.dotClass)}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </CardContent>
         </Card>
       ) : null}

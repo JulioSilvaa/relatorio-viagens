@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
+  Compass,
   Plus,
   Search,
+  SearchX,
   SlidersHorizontal,
 } from "lucide-react";
 import { useSession } from "@/modules/auth/session-context";
@@ -288,7 +290,7 @@ export default function TripsPage() {
 
       {!isLoading && !isError && filtered.length === 0 ? (
         <EmptyState
-          emoji={hasActiveFilters ? "🔍" : "🧭"}
+          icon={hasActiveFilters ? SearchX : Compass}
           title={
             hasActiveFilters
               ? "Nenhuma viagem encontrada"

@@ -9,6 +9,12 @@ import {
   PieChart as PieChartIcon,
   BarChart3,
   Banknote,
+  Receipt,
+  Map,
+  Building2,
+  Users,
+  MapPin,
+  Plane,
 } from "lucide-react";
 import {
   Area,
@@ -109,7 +115,7 @@ function EvolutionChart({
   if (data.length === 0) {
     return (
       <EmptyState
-        emoji="📈"
+        icon={TrendingUp}
         title="Sem despesas no período"
         description="Ajuste os filtros para visualizar a evolução."
       />
@@ -163,7 +169,7 @@ function CategoryChart({
   if (data.length === 0) {
     return (
       <EmptyState
-        emoji="🧾"
+        icon={Receipt}
         title="Sem categorias no período"
         description="Ajuste os filtros para visualizar as categorias."
       />
@@ -220,7 +226,7 @@ function StatusChart({
   if (rows.length === 0) {
     return (
       <EmptyState
-        emoji="🗺️"
+        icon={Plane}
         title="Sem viagens"
         description="Nenhuma viagem registrada ainda."
       />
@@ -285,7 +291,7 @@ function DepartmentChart({
   if (rows.length === 0) {
     return (
       <EmptyState
-        emoji="🏢"
+        icon={Building2}
         title="Sem viagens no período"
         description="Ajuste os filtros para visualizar o segmento."
       />
@@ -330,7 +336,7 @@ function RegionChart({ data }: { data: DashboardManagerReport["viagensPorRegiao"
   if (rows.length === 0) {
     return (
       <EmptyState
-        emoji="🗺️"
+        icon={Map}
         title="Sem viagens"
         description="Nenhuma viagem registrada ainda."
       />
@@ -391,7 +397,7 @@ function TripsByContributorChart({
   if (top.length === 0) {
     return (
       <EmptyState
-        emoji="👤"
+        icon={Users}
         title="Sem viagens"
         description="Nenhuma viagem registrada ainda."
       />
@@ -437,7 +443,7 @@ function CitiesChart({ data }: { data: DashboardManagerReport["cidadesMaisVisita
   if (top.length === 0) {
     return (
       <EmptyState
-        emoji="📍"
+        icon={MapPin}
         title="Sem viagens"
         description="Nenhuma viagem registrada ainda."
       />
@@ -722,26 +728,37 @@ export default function ManagerDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-[1.3fr_1fr]">
         <StatCard
+          featured
           label="Despesas no período"
           value={formatMoney(data.totalDespesas)}
+          tone="info"
           icon={<WalletCards className="size-4" aria-hidden="true" />}
         />
         <StatCard
-          label="Reembolsos"
-          value={formatMoney(data.totalReembolsado)}
-          icon={<TrendingUp className="size-4" aria-hidden="true" />}
-        />
-        <StatCard
+          featured
           label="Valores pendentes"
           value={formatMoney(data.valoresPendentes)}
           hint="Acompanhar"
+          tone={Number(data.valoresPendentes) > 0 ? "warning" : "success"}
+          icon={<Banknote className="size-4" aria-hidden="true" />}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Reembolsos"
+          value={formatMoney(data.totalReembolsado)}
+          tone="success"
+          icon={<TrendingUp className="size-4" aria-hidden="true" />}
         />
         <StatCard
           label="Relatórios pendentes"
           value={data.relatoriosPendentes}
           hint="Em aprovação"
+          tone={data.relatoriosPendentes > 0 ? "info" : "neutral"}
+          icon={<PieChartIcon className="size-4" aria-hidden="true" />}
         />
         <StatCard
           label="Viagens"
@@ -751,7 +768,7 @@ export default function ManagerDashboardPage() {
         <StatCard
           label="Cidades com despesas"
           value={data.porCidade.length}
-          icon={<PieChartIcon className="size-4" aria-hidden="true" />}
+          icon={<MapPin className="size-4" aria-hidden="true" />}
         />
       </div>
 
@@ -857,7 +874,7 @@ export default function ManagerDashboardPage() {
               <ContributorList data={data.porColaborador} />
             ) : (
               <EmptyState
-                emoji="👤"
+                icon={Users}
                 title="Sem despesas no período"
                 description="Ajuste os filtros para visualizar os colaboradores."
               />

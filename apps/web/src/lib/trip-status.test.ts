@@ -14,12 +14,13 @@ describe("getTripStatusMeta", () => {
     ] as const;
 
     for (const status of statuses) {
-      expect(getTripStatusMeta(status)).toMatchObject({
+      const meta = getTripStatusMeta(status);
+      expect(meta).toMatchObject({
         label: expect.any(String),
         dotClass: expect.any(String),
         badgeClass: expect.any(String),
-        emoji: expect.any(String),
       });
+      expect(meta.icon).toBeDefined();
     }
   });
 

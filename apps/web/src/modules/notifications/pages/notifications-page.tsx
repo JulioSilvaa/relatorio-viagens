@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Trash2 } from "lucide-react";
+import { ArrowRight, BellOff, Check, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { cn } from "cn";
 import { formatDateTime } from "@/lib/format";
 import { getErrorMessage } from "@/lib/api";
+import { getNotificationMeta } from "@/lib/notification-meta";
 import {
   useNotifications,
   useMarkNotificationRead,
@@ -88,7 +90,7 @@ export default function NotificationsPage() {
   if (groups.length === 0) {
     return (
       <EmptyState
-        emoji="🔔"
+        icon={BellOff}
         title="Nenhuma notificação"
         description="Quando algo acontecer com suas viagens e despesas, você será avisado aqui."
       />
@@ -103,80 +105,92 @@ export default function NotificationsPage() {
             {group.label}
           </h2>
           <ul className="flex flex-col gap-2">
-            {group.items.map((notification) => (
+            {group.items.map((notification) => {
+              const meta = getNotificationMeta(notification.event);
+              const NotificationIcon = meta.icon;
+              const unread = !notification.readAt;
+              return (
               <li key={notification.id}>
                 <div
-                  className={`rounded-xl border bg-card p-4 shadow-sm transition-colors ${notification.readAt
-                      ? "border-border"
-                      : "border-info/30 bg-info/5"
-                    }`}
+                  className={cn(
+                    "flex items-start gap-3 rounded-xl border bg-card p-3 shadow-sm transition-colors",
+                    unread ? "border-info/30 bg-info/8" : "border-border",
+                  )}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <button
-                      type="button"
-                      className={`min-w-0 flex-1 text-left ${notification.tripId
-                          ? "cursor-pointer rounded-lg outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50"
-                          : "cursor-default"
-                        }`}
-                      onClick={() => openNotification(notification)}
-                      disabled={!notification.tripId}
-                      title={notification.tripId ? "Abrir viagem" : undefined}
-                    >
-                      <p className="text-sm text-foreground">
-                        {notification.message}
+                  <span
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-full",
+                      meta.chipClass,
+                    )}
+                    aria-hidden="true"
+                  >
+                    <NotificationIcon className="size-4.5" />
+                  </span>
+                  <button
+                    type="button"
+                    className={`min-w-0 flex-1 text-left ${notification.tripId
+                        ? "cursor-pointer rounded-lg outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50"
+                        : "cursor-default"
+                      }`}
+                    onClick={() => openNotification(notification)}
+                    disabled={!notification.tripId}
+                    title={notification.tripId ? "Abrir viagem" : undefined}
+                  >
+                    <p className="text-sm text-foreground">
+                      {notification.message}
+                    </p>
+                    {notification.detail ? (
+                      <p className="mt-1.5 rounded-lg border border-border bg-muted/40 px-2.5 py-2 text-xs text-foreground">
+                        <span className="font-medium text-muted-foreground">
+                          Comentário:
+                        </span>{" "}
+                        {notification.detail}
                       </p>
-                      {notification.detail ? (
-                        <p className="mt-1.5 rounded-lg border border-border bg-muted/40 px-2.5 py-2 text-xs text-foreground">
-                          <span className="font-medium text-muted-foreground">
-                            Comentário:
-                          </span>{" "}
-                          {notification.detail}
-                        </p>
+                    ) : null}
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{formatDateTime(notification.createdAt)}</span>
+                      {notification.tripId ? (
+                        <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                          Abrir viagem
+                          <ArrowRight className="size-3" aria-hidden="true" />
+                        </span>
                       ) : null}
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{formatDateTime(notification.createdAt)}</span>
-                        {notification.tripId ? (
-                          <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                            Abrir viagem
-                            <ArrowRight className="size-3" aria-hidden="true" />
-                          </span>
-                        ) : null}
-                      </div>
-                    </button>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {!notification.readAt ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="cursor-pointer"
-                          disabled={markRead.isPending}
-                          onClick={() => markRead.mutate(notification.id)}
-                        >
-                          Marcar como lida
-                        </Button>
-                      ) : null}
+                    </div>
+                  </button>
+                  <div className="flex shrink-0 flex-col items-center gap-1">
+                    {unread ? (
                       <Button
                         variant="ghost"
-                        size="icon"
-                        aria-label="Remover notificação"
-                        disabled={
-                          remove.isPending &&
-                          pendingDeleteId === notification.id
-                        }
-                        onClick={() => {
-                          setPendingDeleteId(notification.id);
-                          remove.mutate(notification.id, {
-                            onSettled: () => setPendingDeleteId(null),
-                          });
-                        }}
+                        size="icon-sm"
+                        aria-label="Marcar como lida"
+                        disabled={markRead.isPending}
+                        onClick={() => markRead.mutate(notification.id)}
                       >
-                        <Trash2 className="size-4" aria-hidden="true" />
+                        <Check aria-hidden="true" />
                       </Button>
-                    </div>
+                    ) : null}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Remover notificação"
+                      disabled={
+                        remove.isPending &&
+                        pendingDeleteId === notification.id
+                      }
+                      onClick={() => {
+                        setPendingDeleteId(notification.id);
+                        remove.mutate(notification.id, {
+                          onSettled: () => setPendingDeleteId(null),
+                        });
+                      }}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
                   </div>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
       ))}

@@ -64,6 +64,7 @@ import { downloadReport } from "@/modules/reports/api";
 import type { ReportKind } from "@/modules/reports/api";
 import { formatDate, formatMoney, formatPeriodo, initials } from "@/lib/format";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getExpenseCategoryMeta } from "@/lib/expense-category";
 import type { TripExpenseView, TripParticipantView } from "@/types/domain";
 import { cn } from "cn";
 
@@ -547,22 +548,36 @@ export default function TripDetailPage() {
           </Card>
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            {trip.despesas.map((despesa) => (
+            {trip.despesas.map((despesa) => {
+              const categoryMeta = getExpenseCategoryMeta(despesa.category?.code ?? "");
+              const CategoryIcon = categoryMeta.icon;
+              return (
               <li key={despesa.id}>
                 <details className="group">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 [&::-webkit-details-marker]:hidden">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {despesa.category?.name ?? "Sem categoria"}
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 [&::-webkit-details-marker]:hidden">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span
+                        className={cn(
+                          "flex size-9 shrink-0 items-center justify-center rounded-full",
+                          categoryMeta.softClass,
+                        )}
+                        aria-hidden="true"
+                      >
+                        <CategoryIcon className={cn("size-4.5", categoryMeta.colorClass)} />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {despesa.category?.name ?? "Sem categoria"}
+                          </p>
+                          {despesa.alertaExcesso ? (
+                            <Badge variant="destructive">Acima do limite</Badge>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {formatDate(despesa.dataDespesa)} · {despesa.criadoPor.name}
                         </p>
-                        {despesa.alertaExcesso ? (
-                          <Badge variant="destructive">Acima do limite</Badge>
-                        ) : null}
                       </div>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {formatDate(despesa.dataDespesa)} · {despesa.criadoPor.name}
-                      </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <div className="text-right">
@@ -671,7 +686,8 @@ export default function TripDetailPage() {
                   </div>
                 </details>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>

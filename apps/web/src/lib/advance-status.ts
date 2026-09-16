@@ -1,10 +1,19 @@
+import {
+  CheckCircle2,
+  CircleHelp,
+  Clock3,
+  Hourglass,
+  Search,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react";
 import type { AdvanceStatus } from "@/types/domain";
 
 export interface AdvanceStatusMeta {
   label: string;
   dotClass: string;
   badgeClass: string;
-  emoji: string;
+  icon: LucideIcon;
 }
 
 const STATUS_META: Record<AdvanceStatus, AdvanceStatusMeta> = {
@@ -12,37 +21,37 @@ const STATUS_META: Record<AdvanceStatus, AdvanceStatusMeta> = {
     label: "Solicitado",
     dotClass: "bg-warning",
     badgeClass: "bg-warning/10 text-warning border-transparent",
-    emoji: "🟡",
+    icon: Clock3,
   },
   EM_ANALISE: {
     label: "Em análise",
     dotClass: "bg-info",
     badgeClass: "bg-info/10 text-info border-transparent",
-    emoji: "🔵",
+    icon: Search,
   },
   APROVADO: {
     label: "Aprovado",
     dotClass: "bg-success",
     badgeClass: "bg-success/10 text-success border-transparent",
-    emoji: "🟢",
+    icon: CheckCircle2,
   },
   RECUSADO: {
     label: "Recusado",
     dotClass: "bg-destructive",
     badgeClass: "bg-destructive/10 text-destructive border-transparent",
-    emoji: "🔴",
+    icon: XCircle,
   },
   PAGAMENTO_PENDENTE: {
     label: "Pagamento pendente",
     dotClass: "bg-info",
     badgeClass: "bg-info/10 text-info border-transparent",
-    emoji: "⏳",
+    icon: Hourglass,
   },
   PAGO: {
     label: "Pago",
     dotClass: "bg-success",
     badgeClass: "bg-success/10 text-success border-transparent",
-    emoji: "✅",
+    icon: CheckCircle2,
   },
 };
 
@@ -52,7 +61,7 @@ export function getAdvanceStatusMeta(status: AdvanceStatus): AdvanceStatusMeta {
       label: status,
       dotClass: "bg-muted-foreground",
       badgeClass: "bg-muted text-muted-foreground border-transparent",
-      emoji: "❔",
+      icon: CircleHelp,
     }
   );
 }

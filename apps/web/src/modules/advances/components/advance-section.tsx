@@ -411,7 +411,7 @@ export function AdvanceSection({ trip, canEdit, userRole }: AdvanceSectionProps)
             <>
               <div className="flex items-center justify-between gap-2">
                 <Badge variant="outline" className={`gap-1.5 border-transparent ${meta?.badgeClass ?? ""}`}>
-                  <span aria-hidden="true">{meta?.emoji ?? ""}</span>
+                  {meta?.icon ? <meta.icon className="size-3" aria-hidden="true" /> : null}
                   {meta?.label ?? advance.status}
                 </Badge>
                 {(showAnalisar || showPagar || showSolicitar || showCorrigir) ? (

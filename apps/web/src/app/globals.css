@@ -23,6 +23,30 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-category-hotel: var(--category-hotel);
+  --color-category-hotel-soft: var(--category-hotel-soft);
+  --color-category-diaria: var(--category-diaria);
+  --color-category-diaria-soft: var(--category-diaria-soft);
+  --color-category-alimentacao: var(--category-alimentacao);
+  --color-category-alimentacao-soft: var(--category-alimentacao-soft);
+  --color-category-combustivel: var(--category-combustivel);
+  --color-category-combustivel-soft: var(--category-combustivel-soft);
+  --color-category-mobilidade: var(--category-mobilidade);
+  --color-category-mobilidade-soft: var(--category-mobilidade-soft);
+  --color-category-km: var(--category-km);
+  --color-category-km-soft: var(--category-km-soft);
+  --color-category-estacionamento: var(--category-estacionamento);
+  --color-category-estacionamento-soft: var(--category-estacionamento-soft);
+  --color-category-metro: var(--category-metro);
+  --color-category-metro-soft: var(--category-metro-soft);
+  --color-category-aluguel-carro: var(--category-aluguel-carro);
+  --color-category-aluguel-carro-soft: var(--category-aluguel-carro-soft);
+  --color-category-aereo: var(--category-aereo);
+  --color-category-aereo-soft: var(--category-aereo-soft);
+  --color-category-pedagio: var(--category-pedagio);
+  --color-category-pedagio-soft: var(--category-pedagio-soft);
+  --color-category-outros: var(--category-outros);
+  --color-category-outros-soft: var(--category-outros-soft);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -57,6 +81,18 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Real elevation: layered ambient + contact shadows tinted with the brand
+   ink (#181c24) instead of flat black, per an offset+blur depth system
+   rather than a zero-offset colored halo. Overrides Tailwind's defaults. */
+@theme {
+  --shadow-2xs: 0 1px 1px rgb(24 28 36 / 0.03);
+  --shadow-xs: 0 1px 2px rgb(24 28 36 / 0.05);
+  --shadow-sm: 0 1px 2px -1px rgb(24 28 36 / 0.06), 0 2px 5px -1px rgb(24 28 36 / 0.06);
+  --shadow-md: 0 2px 4px -2px rgb(24 28 36 / 0.07), 0 8px 16px -4px rgb(24 28 36 / 0.08);
+  --shadow-lg: 0 4px 8px -4px rgb(24 28 36 / 0.08), 0 16px 32px -8px rgb(24 28 36 / 0.14);
+  --shadow-xl: 0 8px 16px -6px rgb(24 28 36 / 0.1), 0 28px 56px -14px rgb(24 28 36 / 0.2);
+}
+
 :root {
   --background: #f6f6f6;
   --foreground: #181818;
@@ -76,15 +112,42 @@
   --border: #e5e5e2;
   --input: #e5e5e2;
   --ring: #969692;
-  --chart-1: #45657a;
-  --chart-2: #2f6b4f;
-  --chart-3: #c5a059;
-  --chart-4: #b14343;
-  --chart-5: #181c24;
+  --chart-1: oklch(0.58 0.14 240);
+  --chart-2: oklch(0.58 0.15 155);
+  --chart-3: oklch(0.72 0.14 80);
+  --chart-4: oklch(0.62 0.17 25);
+  --chart-5: oklch(0.56 0.14 300);
   --success: #2f6b4f;
   --warning: #9a6a18;
   --danger: #b14343;
   --info: #45657a;
+  /* Categorical palette for expense categories: vivid, distinct hues (not
+     the muted semantic tones above) so category chips read as "type of
+     spend" at a glance, never as a status/alert signal. */
+  --category-hotel: oklch(0.53 0.15 305);
+  --category-hotel-soft: oklch(0.53 0.15 305 / 12%);
+  --category-diaria: oklch(0.56 0.17 338);
+  --category-diaria-soft: oklch(0.56 0.17 338 / 12%);
+  --category-alimentacao: oklch(0.56 0.18 18);
+  --category-alimentacao-soft: oklch(0.56 0.18 18 / 12%);
+  --category-combustivel: oklch(0.62 0.16 48);
+  --category-combustivel-soft: oklch(0.62 0.16 48 / 14%);
+  --category-mobilidade: oklch(0.58 0.14 100);
+  --category-mobilidade-soft: oklch(0.58 0.14 100 / 16%);
+  --category-km: oklch(0.55 0.14 128);
+  --category-km-soft: oklch(0.55 0.14 128 / 13%);
+  --category-estacionamento: oklch(0.52 0.13 155);
+  --category-estacionamento-soft: oklch(0.52 0.13 155 / 12%);
+  --category-metro: oklch(0.53 0.12 185);
+  --category-metro-soft: oklch(0.53 0.12 185 / 12%);
+  --category-aluguel-carro: oklch(0.55 0.13 222);
+  --category-aluguel-carro-soft: oklch(0.55 0.13 222 / 12%);
+  --category-aereo: oklch(0.55 0.14 250);
+  --category-aereo-soft: oklch(0.55 0.14 250 / 12%);
+  --category-pedagio: oklch(0.53 0.14 285);
+  --category-pedagio-soft: oklch(0.53 0.14 285 / 12%);
+  --category-outros: oklch(0.5 0.02 264);
+  --category-outros-soft: oklch(0.5 0.02 264 / 12%);
   --brand-ink: #181c24;
   --brand-ink-deep: #10141a;
   --brand-gold: #c5a059;
@@ -120,11 +183,35 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --chart-1: oklch(0.72 0.14 240);
+  --chart-2: oklch(0.72 0.15 155);
+  --chart-3: oklch(0.8 0.13 80);
+  --chart-4: oklch(0.72 0.16 25);
+  --chart-5: oklch(0.72 0.13 300);
+  --category-hotel: oklch(0.72 0.14 305);
+  --category-hotel-soft: oklch(0.72 0.14 305 / 20%);
+  --category-diaria: oklch(0.73 0.16 338);
+  --category-diaria-soft: oklch(0.73 0.16 338 / 20%);
+  --category-alimentacao: oklch(0.72 0.17 18);
+  --category-alimentacao-soft: oklch(0.72 0.17 18 / 20%);
+  --category-combustivel: oklch(0.75 0.15 48);
+  --category-combustivel-soft: oklch(0.75 0.15 48 / 22%);
+  --category-mobilidade: oklch(0.78 0.13 100);
+  --category-mobilidade-soft: oklch(0.78 0.13 100 / 24%);
+  --category-km: oklch(0.75 0.13 128);
+  --category-km-soft: oklch(0.75 0.13 128 / 20%);
+  --category-estacionamento: oklch(0.72 0.12 155);
+  --category-estacionamento-soft: oklch(0.72 0.12 155 / 20%);
+  --category-metro: oklch(0.72 0.11 185);
+  --category-metro-soft: oklch(0.72 0.11 185 / 20%);
+  --category-aluguel-carro: oklch(0.74 0.12 222);
+  --category-aluguel-carro-soft: oklch(0.74 0.12 222 / 20%);
+  --category-aereo: oklch(0.74 0.13 250);
+  --category-aereo-soft: oklch(0.74 0.13 250 / 20%);
+  --category-pedagio: oklch(0.73 0.13 285);
+  --category-pedagio-soft: oklch(0.73 0.13 285 / 20%);
+  --category-outros: oklch(0.75 0.02 264);
+  --category-outros-soft: oklch(0.75 0.02 264 / 20%);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -149,5 +236,28 @@
   }
   html {
     @apply font-sans antialiased;
+  }
+  ::selection {
+    background-color: var(--brand-gold-soft);
+    color: var(--brand-ink);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 999px;
+    border: 2px solid var(--background);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
   }
 }

@@ -8,6 +8,7 @@ import { useExpenseCategories, useCreateExpense } from "../hooks";
 import { preAnalyzeReceipt } from "../api";
 import { saveReceiptOcr } from "@/modules/ocr/api";
 import { formatDate, formatMoney, parseMoneyInput } from "@/lib/format";
+import { getExpenseCategoryMeta } from "@/lib/expense-category";
 import type { ReceiptTypeValue } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -577,11 +578,24 @@ export function ExpenseFormDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.code}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
+                    {categories.map((category) => {
+                      const categoryMeta = getExpenseCategoryMeta(category.code);
+                      const CategoryIcon = categoryMeta.icon;
+                      return (
+                        <SelectItem key={category.id} value={category.code}>
+                          <span
+                            className={cn(
+                              "flex size-5 shrink-0 items-center justify-center rounded-full",
+                              categoryMeta.softClass,
+                            )}
+                            aria-hidden="true"
+                          >
+                            <CategoryIcon className={cn("size-3", categoryMeta.colorClass)} />
+                          </span>
+                          {category.name}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectGroup>
                 </SelectContent>
               </Select>
