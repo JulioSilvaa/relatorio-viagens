@@ -8,6 +8,7 @@ import { getErrorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -158,7 +159,7 @@ export function ReceiptOcrDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-xl overflow-x-hidden overflow-y-auto">
+      <DialogContent className="max-w-xl overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>
             Dados do comprovante{readOnly ? " · somente leitura" : ""}
@@ -178,6 +179,7 @@ export function ReceiptOcrDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <DialogBody>
         {record?.erro || receipt.ocr?.erro ? (
           <p className="text-sm text-warning">
             {record?.erro ?? receipt.ocr?.erro}
@@ -259,6 +261,7 @@ export function ReceiptOcrDialog({
             </div>
           </div>
         </div>
+        </DialogBody>
         <DialogFooter className="flex-wrap" showCloseButton={false}>
           <Button
             type="button"

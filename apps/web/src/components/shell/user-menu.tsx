@@ -2,6 +2,7 @@
 
 import { LogOut } from "lucide-react";
 import { useSession } from "@/modules/auth/session-context";
+import { initials } from "@/lib/format";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -11,15 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 export function UserMenu() {
   const { user, logout } = useSession();

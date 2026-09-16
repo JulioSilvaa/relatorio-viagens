@@ -10,6 +10,12 @@ out/
 .turbo/
 *.tsbuildinfo
 
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/tests/e2e/__screenshots__/
+blob-report/
+
 # Banco de dados
 prisma/*.db
 prisma/*.db-journal

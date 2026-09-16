@@ -61,11 +61,24 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // Mobile: bottom sheet, the native pattern for forms on a phone —
+          // pinned to the bottom edge, full width, sliding up from below.
+          // flex-col + overflow-hidden here (not overflow-y-auto): the footer
+          // must sit outside the scrolling region (see DialogBody) — a sticky
+          // footer inside a single scrolling box pins itself over whatever
+          // content is currently at the bottom of the viewport from the very
+          // first frame, not just once the user scrolls to the end.
+          "fixed inset-x-0 bottom-0 top-auto z-50 flex max-h-[85dvh] w-full flex-col gap-4 overflow-hidden rounded-t-2xl bg-popover p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/10 outline-none data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom",
+          // Desktop: centered card, unchanged from before.
+          "duration-150 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-none sm:w-full sm:max-w-sm sm:-translate-x-1/2 sm:-translate-y-1/2 sm:overflow-visible sm:rounded-xl sm:pb-4 sm:data-open:slide-in-from-bottom-0 sm:data-open:zoom-in-95 sm:data-closed:slide-out-to-bottom-0 sm:data-closed:zoom-out-95",
           className,
         )}
         {...props}
       >
+        <div
+          aria-hidden="true"
+          className="mx-auto -mt-1 mb-1 h-1.5 w-10 shrink-0 rounded-full bg-foreground/15 sm:hidden"
+        />
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
@@ -94,6 +107,22 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn(
+        // The scrollable middle region — sits between the (non-scrolling)
+        // header and footer. min-h-0 is required for overflow-y-auto to
+        // actually engage inside a flex column instead of stretching it.
+        "flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto sm:flex-none sm:overflow-visible",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 function DialogFooter({
   className,
   showCloseButton = false,
@@ -106,7 +135,10 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        // Sits outside DialogBody's scroll area (see above), so it's always
+        // fully visible without needing sticky positioning or an opaque
+        // backdrop to hide content scrolling underneath.
+        "shrink-0 -mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-popover p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:static sm:pb-4 sm:flex-row sm:justify-end",
         className,
       )}
       {...props}
@@ -155,6 +187,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

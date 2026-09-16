@@ -60,6 +60,11 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      # O Dockerfile é multi-stage e feito para produção: o estágio final
+      # ("runner") só tem o output standalone do Next (sem node_modules, sem
+      # o binário `next`). O comando de dev abaixo roda `next dev`, que
+      # precisa do node_modules completo — presente no estágio "deps".
+      target: deps
     restart: unless-stopped
     env_file:
       - .env

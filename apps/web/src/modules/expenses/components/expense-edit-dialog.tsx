@@ -8,7 +8,7 @@ import { getErrorMessage } from "@/lib/api";
 import { useUpdateExpense } from "../hooks";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ExpenseEditDialogProps {
   tripId: string;
@@ -51,7 +51,8 @@ export function ExpenseEditDialog({ tripId, expense, open, onOpenChange }: Expen
             Atualize a descrição da despesa. O comprovante permanece o mesmo.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <DialogBody className="gap-2">
           <Label htmlFor="editar-descricao-despesa">Descrição da despesa</Label>
           <textarea
             id="editar-descricao-despesa"
@@ -66,7 +67,8 @@ export function ExpenseEditDialog({ tripId, expense, open, onOpenChange }: Expen
             aria-invalid={Boolean(error)}
           />
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <DialogFooter className="mt-2 -mx-0 -mb-0 rounded-none border-0 bg-transparent p-0 sm:px-0">
+          </DialogBody>
+          <DialogFooter className="mt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={updateExpense.isPending}>
               Cancelar
             </Button>

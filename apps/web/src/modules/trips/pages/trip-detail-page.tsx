@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
-  CreditCard,
   FileText,
   Paperclip,
   Pencil,
@@ -16,6 +15,7 @@ import {
   Trash2,
   Undo2,
   Users,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -62,7 +62,8 @@ import {
 import { getErrorMessage } from "@/lib/api";
 import { downloadReport } from "@/modules/reports/api";
 import type { ReportKind } from "@/modules/reports/api";
-import { formatDate, formatMoney, formatPeriodo } from "@/lib/format";
+import { formatDate, formatMoney, formatPeriodo, initials } from "@/lib/format";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { TripExpenseView, TripParticipantView } from "@/types/domain";
 import { cn } from "cn";
 
@@ -326,16 +327,16 @@ export default function TripDetailPage() {
       </div>
 
       <Card className="shadow-sm">
-        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-lg font-medium">
               {trip.cidade} - <span className="uppercase">{trip.uf}</span>
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               {formatPeriodo(trip.dataSaida, trip.dataRetorno)}
             </p>
             {trip.motivo ? (
-              <p className="mt-1 truncate text-sm text-muted-foreground">
+              <p className="mt-0.5 truncate text-sm text-muted-foreground">
                 {trip.motivo}
               </p>
             ) : null}
@@ -347,52 +348,43 @@ export default function TripDetailPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <Users
-              className="size-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <div>
-              <p className="text-lg font-semibold leading-none">{trip.participants.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Participantes</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <ReceiptText className="size-4 text-muted-foreground" aria-hidden="true" />
-            <div>
-              <p className="text-lg font-semibold leading-none">{trip.despesas.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Despesas</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <Paperclip
-              className="size-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <div>
-              <p className="text-lg font-semibold leading-none">{totalComprovantes}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Comprovantes</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</p>
-              <p className="mt-1 text-lg font-semibold leading-none">{formatMoney(totalDespesas)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+      <Card className="shadow-sm">
+        <CardContent className="flex flex-col p-2">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-2 py-2.5 text-sm">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <Users className="size-4" aria-hidden="true" />
+              Participantes
+            </span>
+            <span className="font-semibold tabular-nums">{trip.participants.length}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 border-b border-border px-2 py-2.5 text-sm">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <ReceiptText className="size-4" aria-hidden="true" />
+              Despesas
+            </span>
+            <span className="font-semibold tabular-nums">{trip.despesas.length}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 border-b border-border px-2 py-2.5 text-sm">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <Paperclip className="size-4" aria-hidden="true" />
+              Comprovantes
+            </span>
+            <span className="font-semibold tabular-nums">{totalComprovantes}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-2 py-2.5 text-sm">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <Wallet className="size-4" aria-hidden="true" />
+              Total
+            </span>
+            <span className="text-right">
+              <span className="block font-semibold tabular-nums">{formatMoney(totalDespesas)}</span>
+              <span className="block text-xs text-muted-foreground">
                 {reembolsavel ? "Reembolsável" : "Não reembolsável"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </span>
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       {canGeneratePdf ? (
         <Card className="shadow-sm">
@@ -728,44 +720,45 @@ export default function TripDetailPage() {
             ) : null}
           </div>
           <Card className="shadow-sm">
-            <CardContent className="flex flex-col gap-1 p-4">
+            <CardContent className="flex flex-col p-2">
               {trip.participants.length === 0 ? (
-                <p className="py-2 text-sm text-muted-foreground">
+                <p className="px-2 py-3 text-sm text-muted-foreground">
                   Nenhum colaborador autorizado a viajar até o momento.
                 </p>
               ) : (
                 trip.participants.map((participant) => (
                   <div
                     key={participant.userId}
-                    className="flex flex-col gap-2 border-b border-border py-3 text-sm last:border-0 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex items-center gap-3 border-b border-border px-2 py-2.5 text-sm last:border-0"
                   >
-                    <div className="min-w-0">
+                    <Avatar size="sm" className="shrink-0">
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {initials(participant.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
                       <p className="truncate text-foreground">{participant.name}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         Desde {formatDate(participant.addedAt)}
+                        {participant.cartaoLast4 ? (
+                          <> · •••• {participant.cartaoLast4}</>
+                        ) : canManageParticipants ? (
+                          <> · Sem cartão</>
+                        ) : null}
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                      {participant.cartaoLast4 ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <CreditCard className="size-3.5" aria-hidden="true" />
-                          {participant.cartaoBandeira ?? "Cartão"} · •••• {participant.cartaoLast4}
-                        </span>
-                      ) : canManageParticipants ? (
-                        <span className="text-xs text-muted-foreground">Sem cartão</span>
-                      ) : null}
-                      {canManageParticipants ? (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Remover ${participant.name}`}
-                          onClick={() => setParticipantToRemove(participant)}
-                          disabled={removeParticipant.isPending}
-                        >
-                          <Trash2 aria-hidden="true" />
-                        </Button>
-                      ) : null}
-                    </div>
+                    {canManageParticipants ? (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="shrink-0"
+                        aria-label={`Remover ${participant.name}`}
+                        onClick={() => setParticipantToRemove(participant)}
+                        disabled={removeParticipant.isPending}
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    ) : null}
                   </div>
                 ))
               )}

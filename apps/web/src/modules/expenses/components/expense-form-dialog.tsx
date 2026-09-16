@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, RefreshCw, TriangleAlert, X } from "lucide-react";
+import { ptBR } from "date-fns/locale";
+import { Calendar as CalendarIcon, Camera, ImagePlus, RefreshCw, TriangleAlert, X } from "lucide-react";
 import { toast } from "sonner";
 import { useExpenseCategories, useCreateExpense } from "../hooks";
 import { preAnalyzeReceipt } from "../api";
@@ -10,11 +11,13 @@ import { formatDate, formatMoney, parseMoneyInput } from "@/lib/format";
 import type { ReceiptTypeValue } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { MoneyInput } from "@/components/ui/money-input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -30,6 +33,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "cn";
+
+/** `dataDespesa` é guardado como "YYYY-MM-DD"; meio-dia local evita o campo
+ * voltar um dia por causa de fuso horário ao converter para/de `Date`. */
+function dateInputValueToDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+function dateToInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 function ReceiptPreview({ file }: { file: File }) {
   const src = useMemo(() => URL.createObjectURL(file), [file]);
@@ -166,8 +184,9 @@ export function ExpenseFormDialog({
   const [dataDespesa, setDataDespesa] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
+  const [dateOpen, setDateOpen] = useState(false);
   const [valor, setValor] = useState("");
-  const [reembolsavel, setReembolsavel] = useState("true");
+  const [reembolsavel, setReembolsavel] = useState("false");
   const [justificativa, setJustificativa] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
@@ -300,9 +319,11 @@ export function ExpenseFormDialog({
     if (firstFile) await analyzeFile(firstFile);
   }
 
-  function removeFile(inputId: string) {
-    const input = document.getElementById(inputId) as HTMLInputElement | null;
-    if (input) input.value = "";
+  function removeFile(inputIds: string[]) {
+    for (const inputId of inputIds) {
+      const input = document.getElementById(inputId) as HTMLInputElement | null;
+      if (input) input.value = "";
+    }
     setFiles([]);
     setOcrData(null);
     setConfirmadoOcr(false);
@@ -343,6 +364,7 @@ export function ExpenseFormDialog({
 
     if (Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors);
+      toast.error("Revise os campos destacados no formulário.");
       return;
     }
 
@@ -390,10 +412,7 @@ export function ExpenseFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
-      >
+      <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{formStarted ? "Nova despesa" : "Adicionar comprovante"}</DialogTitle>
           <DialogDescription>
@@ -404,24 +423,41 @@ export function ExpenseFormDialog({
         </DialogHeader>
 
         {!formStarted ? (
-          <div className="flex flex-col gap-3">
+          <DialogBody className="gap-3">
             <input
-              id="comprovantes-inicial"
+              id="comprovantes-inicial-camera"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(event) => void handleFilesChange(event)}
+              className="hidden"
+            />
+            <input
+              id="comprovantes-inicial-galeria"
               type="file"
               accept="image/*"
               onChange={(event) => void handleFilesChange(event)}
               className="hidden"
             />
-            <label
-              htmlFor="comprovantes-inicial"
-              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-input px-3 py-8 text-center hover:bg-muted/50"
-            >
-              <ImagePlus className="size-6 text-muted-foreground" aria-hidden="true" />
-              <span className="text-sm font-medium">Escolher comprovante</span>
-              <span className="text-xs text-muted-foreground">
-                A análise começa ao selecionar a imagem.
-              </span>
-            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label
+                htmlFor="comprovantes-inicial-camera"
+                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-input px-3 py-8 text-center hover:bg-muted/50"
+              >
+                <Camera className="size-6 text-muted-foreground" aria-hidden="true" />
+                <span className="text-sm font-medium">Tirar foto</span>
+              </label>
+              <label
+                htmlFor="comprovantes-inicial-galeria"
+                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-input px-3 py-8 text-center hover:bg-muted/50"
+              >
+                <ImagePlus className="size-6 text-muted-foreground" aria-hidden="true" />
+                <span className="text-sm font-medium">Da galeria</span>
+              </label>
+            </div>
+            <span className="text-center text-xs text-muted-foreground">
+              A análise começa ao selecionar a imagem.
+            </span>
             {files[0] ? (
               <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 p-2">
                 <ReceiptPreview file={files[0]} />
@@ -429,7 +465,13 @@ export function ExpenseFormDialog({
                   <p className="truncate text-sm text-foreground">{files[0].name}</p>
                   <p className="text-xs text-muted-foreground">Pronto para análise</p>
                 </div>
-                <Button type="button" variant="ghost" size="icon" aria-label="Remover comprovante" onClick={() => removeFile("comprovantes-inicial")}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remover comprovante"
+                  onClick={() => removeFile(["comprovantes-inicial-camera", "comprovantes-inicial-galeria"])}
+                >
                   <X aria-hidden="true" />
                 </Button>
               </div>
@@ -439,9 +481,10 @@ export function ExpenseFormDialog({
                 Analisando comprovante...
               </p>
             ) : null}
-          </div>
+          </DialogBody>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
+          <DialogBody className="gap-4">
 {ocrData ? (
           <div className="flex flex-col gap-1 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
             <p className="flex items-center justify-between gap-2 font-medium text-foreground">
@@ -452,20 +495,14 @@ export function ExpenseFormDialog({
                 </Badge>
               ) : null}
             </p>
-            {ocrData.alertaReconciliacao ? (
+            {ocrData.alertaReconciliacao || ocrData.confiancaExtracao === "baixa" ? (
               <p role="alert" className="flex items-start gap-1.5 rounded-md bg-warning/10 px-2 py-1.5 text-xs leading-snug text-warning">
                 <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />
-                Há divergência entre os itens e o valor total reconhecidos. Verifique antes de confirmar.
+                A leitura automática pode conter erros. Revise os dados abaixo antes de salvar.
               </p>
             ) : null}
-            <p>Valor: R$ {ocrData.valorTotal ? formatMoney(ocrData.valorTotal) : "—"}</p>
-            <p>Tipo de documento: {ocrTypeLabel(ocrData.tipoDocumento)}
-              {ocrData.tipoDocumentoConfianca ? (
-                <span className={`text-xs ${confidenceClass(ocrData.tipoDocumentoConfianca)}`}>
-                  {" "}({CONFIDENCE_LABELS[ocrData.tipoDocumentoConfianca]})
-                </span>
-              ) : null}
-            </p>
+            <p>Valor: {ocrData.valorTotal ? formatMoney(ocrData.valorTotal) : "—"}</p>
+            <p>Tipo de documento: {ocrTypeLabel(ocrData.tipoDocumento)}</p>
             {ocrData.nomeEstabelecimento ? <p>Estabelecimento: {ocrData.nomeEstabelecimento}</p> : null}
             {ocrData.nomeFantasia ? <p>Nome fantasia: {ocrData.nomeFantasia}</p> : null}
             {ocrData.cnpj ? <p>CNPJ: {ocrData.cnpj}</p> : null}
@@ -511,15 +548,9 @@ export function ExpenseFormDialog({
             ) : null}
             {ocrData.informacoesComplementares ? <p>Informações complementares: {ocrData.informacoesComplementares}</p> : null}
             {ocrData.observacoes ? <p>Observações: {ocrData.observacoes}</p> : null}
-            {ocrData.camposExtras?.map((field, index) => {
-              const tone =
-                field.confianca !== null && field.confianca !== undefined && field.confianca !== "alta"
-                  ? ` text-xs ${confidenceClass(field.confianca)}`
-                  : "";
-              return (
-                <p key={`${field.label}-${index}`}>{field.label}: {field.valor ?? "Não identificado"}{tone && field.confianca ? <span className={tone}>{` (${CONFIDENCE_LABELS[field.confianca]})`}</span> : null}</p>
-              );
-            })}
+            {ocrData.camposExtras?.map((field, index) => (
+              <p key={`${field.label}-${index}`}>{field.label}: {field.valor ?? "Não identificado"}</p>
+            ))}
           </div>
         ) : null}
             {analysisMessage ? (
@@ -583,13 +614,33 @@ export function ExpenseFormDialog({
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="dataDespesa">Data da despesa</Label>
-              <Input
-                id="dataDespesa"
-                type="date"
-                value={dataDespesa}
-                onChange={(event) => setField("dataDespesa", event.target.value)}
-                aria-invalid={Boolean(errors.dataDespesa)}
-              />
+              <Popover open={dateOpen} onOpenChange={setDateOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="dataDespesa"
+                    type="button"
+                    variant="outline"
+                    aria-invalid={Boolean(errors.dataDespesa)}
+                    className="w-full justify-start font-normal"
+                  >
+                    <CalendarIcon aria-hidden="true" />
+                    {dataDespesa ? formatDate(dataDespesa) : "Selecione a data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={dateInputValueToDate(dataDespesa)}
+                    onSelect={(date) => {
+                      if (!date) return;
+                      setField("dataDespesa", dateToInputValue(date));
+                      setDateOpen(false);
+                    }}
+                    locale={ptBR}
+                    autoFocus
+                  />
+                </PopoverContent>
+              </Popover>
               {errors.dataDespesa ? (
                 <p className="text-sm text-danger">{errors.dataDespesa}</p>
               ) : null}
@@ -632,29 +683,47 @@ export function ExpenseFormDialog({
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="comprovante">Comprovante</Label>
+              <Label>Comprovante</Label>
               <input
-                id="comprovante"
+                id="comprovante-camera"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFilesChange}
+                className="hidden"
+              />
+              <input
+                id="comprovante-galeria"
                 type="file"
                 accept="image/*"
                 onChange={handleFilesChange}
                 className="hidden"
               />
-              <label
-                htmlFor="comprovante"
-                className={cn(
-                  "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-input px-3 py-5 text-center transition-colors hover:bg-muted/50",
-                  errors.files && "border-destructive",
-                )}
-              >
-                <ImagePlus className="size-5 text-muted-foreground" aria-hidden="true" />
-                <span className="text-sm font-medium">
-                  {files[0] ? "Substituir comprovante" : "Adicionar comprovante"}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Uma imagem por despesa
-                </span>
-              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label
+                  htmlFor="comprovante-camera"
+                  className={cn(
+                    "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-input px-3 py-5 text-center transition-colors hover:bg-muted/50",
+                    errors.files && "border-destructive",
+                  )}
+                >
+                  <Camera className="size-5 text-muted-foreground" aria-hidden="true" />
+                  <span className="text-sm font-medium">
+                    {files[0] ? "Substituir foto" : "Tirar foto"}
+                  </span>
+                </label>
+                <label
+                  htmlFor="comprovante-galeria"
+                  className={cn(
+                    "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-input px-3 py-5 text-center transition-colors hover:bg-muted/50",
+                    errors.files && "border-destructive",
+                  )}
+                >
+                  <ImagePlus className="size-5 text-muted-foreground" aria-hidden="true" />
+                  <span className="text-sm font-medium">Da galeria</span>
+                </label>
+              </div>
+              <span className="text-xs text-muted-foreground">Uma imagem por despesa</span>
               {files[0] ? (
                 <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 p-2">
                   <ReceiptPreview file={files[0]} />
@@ -662,7 +731,13 @@ export function ExpenseFormDialog({
                     <p className="truncate text-sm text-foreground">{files[0].name}</p>
                     <p className="text-xs text-muted-foreground">Será enviado ao salvar a despesa</p>
                   </div>
-                  <Button type="button" variant="ghost" size="icon" aria-label="Remover comprovante" onClick={() => removeFile("comprovante")}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remover comprovante"
+                    onClick={() => removeFile(["comprovante-camera", "comprovante-galeria"])}
+                  >
                     <X aria-hidden="true" />
                   </Button>
                 </div>
@@ -699,12 +774,6 @@ export function ExpenseFormDialog({
                 className="text-sm leading-snug text-foreground"
               >
                 Confirmo que os dados conferem com o comprovante visualizado.
-                {ocrData.alertaReconciliacao ? (
-                  <span className="block text-xs text-warning">
-                    Há divergência apontada pela leitura — verifique o valor
-                    antes de confirmar.
-                  </span>
-                ) : null}
               </label>
             </div>
           ) : null}
@@ -713,6 +782,7 @@ export function ExpenseFormDialog({
               {errors.confirmacaoOcr}
             </p>
           ) : null}
+          </DialogBody>
 
           <DialogFooter showCloseButton={false}>
               <Button
