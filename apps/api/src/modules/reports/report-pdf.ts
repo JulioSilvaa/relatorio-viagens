@@ -383,15 +383,12 @@ function drawTableRow(
   emphasized = false,
 ): boolean {
   const padding = 6;
+  const lineGap = 1.8;
   doc.font(FONT.regular).fontSize(8.2);
-  const height = Math.max(
-    21,
-    ...columns.map(
-      (column, index) =>
-        doc.heightOfString(cells[index] ?? '—', { width: column.width - padding * 2, lineGap: 1 }) +
-        padding * 2,
-    ),
+  const columnHeights = columns.map((column, index) =>
+    doc.heightOfString(cells[index] ?? '—', { width: column.width - padding * 2, lineGap }),
   );
+  const height = Math.max(21, ...columnHeights.map((contentHeight) => contentHeight + padding * 2));
   if (doc.y + height > CONTENT_BOTTOM) return false;
   const y = doc.y;
   let x = MARGIN;
@@ -412,10 +409,19 @@ function drawTableRow(
   for (let index = 0; index < columns.length; index += 1) {
     const column = columns[index];
     if (!column) continue;
-    doc.text(cells[index] ?? '—', x + padding, y + (emphasized ? 4 : padding), {
+    // Centraliza verticalmente colunas de uma linha só (ex.: "Reemb."/"Alerta")
+    // quando outra coluna da mesma linha quebra em várias linhas (ex.:
+    // "Responsável"/"Descrição" longos) — sem isso o texto curto ficava colado
+    // no topo enquanto o texto longo ocupava a altura toda, deixando a linha
+    // com aparência desalinhada e apertada.
+    const contentHeight = columnHeights[index] ?? 0;
+    const offsetY = emphasized
+      ? 4
+      : padding + Math.max(0, (height - padding * 2 - contentHeight) / 2);
+    doc.text(cells[index] ?? '—', x + padding, y + offsetY, {
       width: column.width - padding * 2,
       align: column.align ?? 'left',
-      lineGap: 1,
+      lineGap,
     });
     x += column.width;
   }
