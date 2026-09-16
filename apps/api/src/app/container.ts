@@ -222,7 +222,13 @@ export function buildContainer(realtime?: NotificationRealtime): Container {
   const substituteReceiptService = new SubstituteReceiptService(expenses, receipts, audit);
   const getReceiptFileService = new GetReceiptFileService(receipts, trips, audit);
 
-  const approveReportService = new ApproveReportService(trips, users, audit, notifications);
+  const approveReportService = new ApproveReportService(
+    trips,
+    users,
+    expenses,
+    audit,
+    notifications,
+  );
   const returnReportService = new ReturnReportService(trips, audit, notifications);
   const changeReimbursabilityService = new ChangeReimbursabilityService(expenses, audit);
 

@@ -13,6 +13,10 @@ import {
 
 const app: Express = buildApp();
 type Agent = ReturnType<typeof request.agent>;
+const VALID_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+);
 
 interface Session {
   agent: Agent;
@@ -133,6 +137,52 @@ describe('km, taxa e diretório de colaboradores', () => {
 
       const saved = await prisma.trip.findUniqueOrThrow({ where: { id: trip.id } });
       expect(Number(saved.taxaKm)).toBe(0.85);
+    });
+
+    it('gestor corrige a taxa na aprovação e o valor já lançado da despesa de km é recalculado', async () => {
+      await createUser({
+        email: 'gestor@empresa.com',
+        password: 'gestor-pw-123',
+        role: 'MANAGER_ADMIN',
+      });
+      await createUser({ email: 'ana@empresa.com', password: 'ana-pw-123', role: 'EMPLOYEE' });
+      const gestor = await login('gestor@empresa.com', 'gestor-pw-123');
+      const ana = await login('ana@empresa.com', 'ana-pw-123');
+      const trip = await createTrip(ana, {
+        tipoVeiculo: 'PROPRIO',
+        kmInicial: 1000,
+        kmFinal: 1015,
+      });
+
+      const expense = await ana.agent
+        .post('/api/expenses')
+        .set('x-csrf-token', ana.csrf)
+        .field('tripId', trip.id)
+        .field('categoryCode', 'KM_RODADOS')
+        .field('valor', '0')
+        .field('dataDespesa', '2026-09-02')
+        .field('reembolsavel', 'true')
+        .field('justificativa', 'Reembolso por quilometragem rodada')
+        .field('tipoComprovante', 'OUTRO')
+        .attach('comprovante', VALID_PNG, 'km.png');
+      expect(expense.status).toBe(201);
+      expect(Number(expense.body.data.expense.valor)).toBe(9);
+
+      await ana.agent.post(`/api/trips/${trip.id}/entregar`).set('x-csrf-token', ana.csrf);
+
+      const approved = await gestor.agent
+        .post(`/api/approvals/${trip.id}/aprovar`)
+        .set('x-csrf-token', gestor.csrf)
+        .send({ taxaKm: 0.85 });
+      expect(approved.status).toBe(204);
+
+      const savedExpense = await prisma.expense.findUniqueOrThrow({
+        where: { id: expense.body.data.expense.id },
+      });
+      expect(Number(savedExpense.valor)).toBe(12.75);
+
+      const settings = await gestor.agent.get('/api/settings').set('x-csrf-token', gestor.csrf);
+      expect(settings.body.data.settings.kmReimbursementRate).toBe('0.60');
     });
 
     it('aprovação sem taxa mantém o valor congelado na abertura', async () => {
